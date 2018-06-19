@@ -22,3 +22,12 @@ for %compressible plasma dynamics and radiation hydrodynamics.
 
 * We have designed novel algorithms to enable efficient simulations for such 
 experiments and demonstrate excellent weak scalability up to 131K cores on ORNL's Titan.
+
+Dendro-GR Team
+
+ * Milinda Fernando (School of Computing, University of Utah)
+ * Hari Sundar (School of Computing, University of Utah)
+ * David Neilsen (Department of Physics and Astronomy, Brigham Young University)
+ * Hyun Lim (Department of Physics and Astronomy, Brigham Young University)
+ * Eric Hirschmann (Department of Physics and Astronomy, Brigham Young University)
+
