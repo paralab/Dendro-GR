@@ -299,3 +299,24 @@ add_executable(nlsmSolver ${SOURCE_FILES})
 target_include_directories(nlsmSolver PUBLIC NLSigma/include)
 target_link_libraries(nlsmSolver dendro5 ${LAPACK_LIBRARIES} ${MPI_LIBRARIES} m)
 
+set(MAXWELL_INC Maxwell/include/parameters.h
+             Maxwell/include/rk4maxwell.h
+             Maxwell/include/maxwellUtils.h
+             Maxwell/include/rhs.h
+             Maxwell/include/derivs.h
+             Maxwell/include/profile_params.h
+       )
+
+set(MAXWELL_SRC Maxwell/src/rk4maxwell.cpp
+             Maxwell/src/parameters.cpp
+             Maxwell/src/maxwellUtils.cpp
+             Maxwell/src/rhs.cpp
+             Maxwell/src/derivs.cpp
+             Maxwell/src/profile_params.cpp
+             )
+
+set(SOURCE_FILES Maxwell/src/maxwell.cpp  Maxwell/include/maxwell.h ${MAXWELL_INC} ${MAXWELL_SRC})
+add_executable(maxwellSolver ${SOURCE_FILES})
+target_include_directories(maxwellSolver PUBLIC Maxwell/include)
+target_link_libraries(maxwellSolver dendro5 ${LAPACK_LIBRARIES} ${MPI_LIBRARIES} m)
+
