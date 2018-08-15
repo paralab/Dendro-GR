@@ -270,6 +270,7 @@ namespace ode
             double *pData[(numConstVars+numEvolVars+8)];
 #else
             double *pData[(numConstVars+numEvolVars)];
+            
 #endif
 
 #ifdef MAXWELL_ANALYTIC_SOL_TEST
@@ -379,6 +380,13 @@ namespace ode
     // initialize diff end
 #endif
 
+
+            for(unsigned int i=0;i<numEvolVars;i++)
+            {
+                pDataNames.push_back(std::string(maxwell::MAXWELL_VAR_NAMES[evolVarIndices[i]]));
+                pData[i]=evolZipVarIn[evolVarIndices[i]];
+            }
+            
 #ifdef MAXWELL_ANALYTIC_SOL_TEST
             pDataNames.push_back("Axdf");
             pDataNames.push_back("Aydf");
@@ -397,11 +405,6 @@ namespace ode
             pData[numConstVars+numEvolVars+6]=Ex0;
             pData[numConstVars+numEvolVars+7]=Ey0;
 #endif
-            for(unsigned int i=0;i<numEvolVars;i++)
-            {
-                pDataNames.push_back(std::string(maxwell::MAXWELL_VAR_NAMES[evolVarIndices[i]]));
-                pData[i]=evolZipVarIn[evolVarIndices[i]];
-            }
 
 
             std::vector<char*> pDataNames_char;
