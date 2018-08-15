@@ -36,6 +36,7 @@ option(ALLTOALL_SPARSE "uses isend irecv for ghost exchange (for some mpi implem
 option(ENABLE_DENDRO_PROFILE_COUNTERS " enables dendro internal profile counters. " OFF)
 option(RK_SOLVER_OVERLAP_COMM_AND_COMP " enables RK solver comm. & comp. overlap. (might be good in large scale runs) " ON)
 option(NONLINEAR "If ON solves the Non-linear wave equation" OFF)
+option(MAXWELL_ANALYTIC_SOL_TEST "Convergence test to exact solutio" OFF)
 
 #option(KWAY "K parameter for alltoallv_kway" 128)
 set(KWAY 128 CACHE INT 128)
@@ -125,6 +126,9 @@ if(NONLINEAR)
 add_definitions(-DNONLINEAR)
 endif()
 
+if(MAXWELL_ANALYTIC_SOL_TEST)
+add_definitions(-DMAXWELL_ANALYTIC_SOL_TEST)
+endif()
 
 set(LAPACK_INC /home/milinda/Programs/lapack-3.7.0/LAPACKE/include/)
 include_directories(${PROJECT_BINARY_DIR}
