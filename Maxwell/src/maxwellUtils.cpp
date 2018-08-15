@@ -197,14 +197,15 @@ namespace maxwell
         const double z=GRIDZ_TO_Z(zz1);
         const double r=sqrt(x*x + y*y + z*z);
 
-        //std::cout<<"initData: "<<x<<", "<<y<<", "<<z<<std::endl;
+        //std::cout<<"initData: type="<<maxwell::MAXWELL_ID_TYPE<<", "<<x<<", "<<y<<", "<<z<<std::endl;
 
         if (maxwell::MAXWELL_ID_TYPE == 0) {
           var[VAR::U_AX] = 0;
           var[VAR::U_AY] = 0;
           var[VAR::U_AZ] = 0;
-	      var[VAR::U_EX] = -8.0*y*exp(-r*r);
-	      var[VAR::U_EY] = 8.0*x*exp(-r*r);
+	      //var[VAR::U_AZ] = .001*sin(3.0*x)+.001*sin(5.0*x)+.001*sin(11.0*x);
+	      var[VAR::U_EX] = +8.0*y*exp(-r*r);
+	      var[VAR::U_EY] = -8.0*x*exp(-r*r);
 	      var[VAR::U_EZ] = 0;
 	      var[VAR::U_GAM] = 0;
 	      var[VAR::U_PSI] = 0;
@@ -279,7 +280,7 @@ namespace maxwell
         t69 = t3 * t5;
         t78 = 0.4e1 * t3 * t2 * t21 + 0.2e1 * t48 * t8 + 0.2e1 * t51 * t8 + 0.2e1 * t54 * t8 + 0.2e1 * t48 * t21 + 0.2e1 * t51 * t21 + 0.2e1 * t54 * t21 + 0.4e1 * t63 * t9 + 0.4e1 * t66 * t9 + 0.4e1 * t69 * t9 - 0.4e1 * t63 * t22 - 0.4e1 * t66 * t22 - 0.4e1 * t69 * t22;
         t81 = t4 * t4;
-        var[VAR::U_EX] = -0.2e1 / t81 * (t44 + t78) * y;
+        var[VAR::U_EX] = 0.2e1 / t81 * (t44 + t78) * y;
 
         // Ey
         t7 = (t + t5) * (t + t5);
@@ -302,7 +303,7 @@ namespace maxwell
         t69 = t3 * t3;
         t78 = 0.2e1 * t3 * t39 + 0.4e1 * t2 * t47 + 0.4e1 * t3 * t47 + 0.4e1 * t3 * t2 * t8 + 0.4e1 * t2 * t55 + 0.4e1 * t3 * t55 + 0.4e1 * t3 * t2 * t21 + 0.2e1 * t63 * t8 + 0.2e1 * t66 * t8 + 0.2e1 * t69 * t8 + 0.2e1 * t63 * t21 + 0.2e1 * t66 * t21 + 0.2e1 * t69 * t21;
         t81 = t4 * t4;
-        var[VAR::U_EY] = 0.2e1 / t81 * (t44 + t78) * x;
+        var[VAR::U_EY] = -0.2e1 / t81 * (t44 + t78) * x;
 
     }
 
