@@ -3,13 +3,13 @@
 /**
 *@author Milinda Fernando
 *School of Computing, University of Utah
-*@brief Contains utility functions for NLSM simulation.
+*@brief Contains utility functions for MAXWELL simulation.
 */
 //
 
-#include "nlsmUtils.h"
+#include "maxwellUtils.h"
 
-namespace nlsm
+namespace maxwell
 {
 
     void readParamFile(const char * fName,MPI_Comm comm)
@@ -31,91 +31,72 @@ namespace nlsm
             if(!infile) {std::cout<<fName<<" parameter file open failed "<<std::endl;}
             infile>>parFile;
 
-            nlsm::NLSM_IO_OUTPUT_FREQ=parFile["NLSM_IO_OUTPUT_FREQ"];
-            nlsm::NLSM_REMESH_TEST_FREQ=parFile["NLSM_REMESH_TEST_FREQ"];
-            nlsm::NLSM_CHECKPT_FREQ=parFile["NLSM_CHECKPT_FREQ"];
-            nlsm::NLSM_IO_OUTPUT_GAP=parFile["NLSM_IO_OUTPUT_GAP"];
-            nlsm::NLSM_VTU_FILE_PREFIX=parFile["NLSM_VTU_FILE_PREFIX"].get<std::string>();
-            nlsm::NLSM_CHKPT_FILE_PREFIX=parFile["NLSM_CHKPT_FILE_PREFIX"].get<std::string>();
-            nlsm::NLSM_PROFILE_FILE_PREFIX=parFile["NLSM_PROFILE_FILE_PREFIX"].get<std::string>();
-            nlsm::NLSM_RESTORE_SOLVER=parFile["NLSM_RESTORE_SOLVER"];
-            nlsm::NLSM_ENABLE_BLOCK_ADAPTIVITY=parFile["NLSM_ENABLE_BLOCK_ADAPTIVITY"];
-            nlsm::NLSM_BLK_MIN_X=parFile["NLSM_BLK_MIN_X"];
-            nlsm::NLSM_BLK_MIN_Y=parFile["NLSM_BLK_MIN_Y"];
-            nlsm::NLSM_BLK_MIN_Z=parFile["NLSM_BLK_MIN_Z"];
-            nlsm::NLSM_BLK_MAX_X=parFile["NLSM_BLK_MAX_X"];
-            nlsm::NLSM_BLK_MAX_Y=parFile["NLSM_BLK_MAX_Y"];
-            nlsm::NLSM_BLK_MAX_Z=parFile["NLSM_BLK_MAX_Z"];
-            nlsm::NLSM_DENDRO_GRAIN_SZ=parFile["NLSM_DENDRO_GRAIN_SZ"];
-            nlsm::NLSM_ASYNC_COMM_K=parFile["NLSM_ASYNC_COMM_K"];
-            nlsm::NLSM_DENDRO_AMR_FAC=parFile["NLSM_DENDRO_AMR_FAC"];
-            nlsm::NLSM_LOAD_IMB_TOL=parFile["NLSM_LOAD_IMB_TOL"];
-            nlsm::NLSM_RK45_TIME_BEGIN=parFile["NLSM_RK45_TIME_BEGIN"];
-            nlsm::NLSM_RK45_TIME_END=parFile["NLSM_RK45_TIME_END"];
-            nlsm::NLSM_RK45_TIME_STEP_SIZE=parFile["NLSM_RK45_TIME_STEP_SIZE"];
-            nlsm::NLSM_RK45_DESIRED_TOL=parFile["NLSM_RK45_DESIRED_TOL"];
-            nlsm::NLSM_DIM=parFile["NLSM_DIM"];
-            nlsm::NLSM_MAXDEPTH=parFile["NLSM_MAXDEPTH"];
-            nlsm::NLSM_GRID_MIN_X=parFile["NLSM_GRID_MIN_X"];
-            nlsm::NLSM_GRID_MAX_X=parFile["NLSM_GRID_MAX_X"];
-            nlsm::NLSM_GRID_MIN_Y=parFile["NLSM_GRID_MIN_Y"];
-            nlsm::NLSM_GRID_MAX_Y=parFile["NLSM_GRID_MAX_Y"];
-            nlsm::NLSM_GRID_MIN_Z=parFile["NLSM_GRID_MIN_Z"];
-            nlsm::NLSM_GRID_MAX_Z=parFile["NLSM_GRID_MAX_Z"];
-            nlsm::KO_DISS_SIGMA=parFile["KO_DISS_SIGMA"];
+            maxwell::MAXWELL_IO_OUTPUT_FREQ=parFile["MAXWELL_IO_OUTPUT_FREQ"];
+            maxwell::MAXWELL_REMESH_TEST_FREQ=parFile["MAXWELL_REMESH_TEST_FREQ"];
+            maxwell::MAXWELL_CHECKPT_FREQ=parFile["MAXWELL_CHECKPT_FREQ"];
+            maxwell::MAXWELL_IO_OUTPUT_GAP=parFile["MAXWELL_IO_OUTPUT_GAP"];
+            maxwell::MAXWELL_VTU_FILE_PREFIX=parFile["MAXWELL_VTU_FILE_PREFIX"].get<std::string>();
+            maxwell::MAXWELL_CHKPT_FILE_PREFIX=parFile["MAXWELL_CHKPT_FILE_PREFIX"].get<std::string>();
+            maxwell::MAXWELL_PROFILE_FILE_PREFIX=parFile["MAXWELL_PROFILE_FILE_PREFIX"].get<std::string>();
+            maxwell::MAXWELL_RESTORE_SOLVER=parFile["MAXWELL_RESTORE_SOLVER"];
+            maxwell::MAXWELL_ENABLE_BLOCK_ADAPTIVITY=parFile["MAXWELL_ENABLE_BLOCK_ADAPTIVITY"];
+            maxwell::MAXWELL_BLK_MIN_X=parFile["MAXWELL_BLK_MIN_X"];
+            maxwell::MAXWELL_BLK_MIN_Y=parFile["MAXWELL_BLK_MIN_Y"];
+            maxwell::MAXWELL_BLK_MIN_Z=parFile["MAXWELL_BLK_MIN_Z"];
+            maxwell::MAXWELL_BLK_MAX_X=parFile["MAXWELL_BLK_MAX_X"];
+            maxwell::MAXWELL_BLK_MAX_Y=parFile["MAXWELL_BLK_MAX_Y"];
+            maxwell::MAXWELL_BLK_MAX_Z=parFile["MAXWELL_BLK_MAX_Z"];
+            maxwell::MAXWELL_DENDRO_GRAIN_SZ=parFile["MAXWELL_DENDRO_GRAIN_SZ"];
+            maxwell::MAXWELL_ASYNC_COMM_K=parFile["MAXWELL_ASYNC_COMM_K"];
+            maxwell::MAXWELL_DENDRO_AMR_FAC=parFile["MAXWELL_DENDRO_AMR_FAC"];
+            maxwell::MAXWELL_LOAD_IMB_TOL=parFile["MAXWELL_LOAD_IMB_TOL"];
+            maxwell::MAXWELL_RK45_TIME_BEGIN=parFile["MAXWELL_RK45_TIME_BEGIN"];
+            maxwell::MAXWELL_RK45_TIME_END=parFile["MAXWELL_RK45_TIME_END"];
+            maxwell::MAXWELL_RK45_TIME_STEP_SIZE=parFile["MAXWELL_RK45_TIME_STEP_SIZE"];
+            maxwell::MAXWELL_RK45_DESIRED_TOL=parFile["MAXWELL_RK45_DESIRED_TOL"];
+            maxwell::MAXWELL_DIM=parFile["MAXWELL_DIM"];
+            maxwell::MAXWELL_MAXDEPTH=parFile["MAXWELL_MAXDEPTH"];
+            maxwell::MAXWELL_GRID_MIN_X=parFile["MAXWELL_GRID_MIN_X"];
+            maxwell::MAXWELL_GRID_MAX_X=parFile["MAXWELL_GRID_MAX_X"];
+            maxwell::MAXWELL_GRID_MIN_Y=parFile["MAXWELL_GRID_MIN_Y"];
+            maxwell::MAXWELL_GRID_MAX_Y=parFile["MAXWELL_GRID_MAX_Y"];
+            maxwell::MAXWELL_GRID_MIN_Z=parFile["MAXWELL_GRID_MIN_Z"];
+            maxwell::MAXWELL_GRID_MAX_Z=parFile["MAXWELL_GRID_MAX_Z"];
+            maxwell::KO_DISS_SIGMA=parFile["KO_DISS_SIGMA"];
 
-            nlsm::NLSM_ID_TYPE=parFile["NLSM_ID_TYPE"];
-            nlsm::NLSM_ID_AMP1=parFile["NLSM_ID_AMP1"];
-            nlsm::NLSM_ID_AMP2=parFile["NLSM_ID_AMP2"];
-            nlsm::NLSM_ID_DELTA1=parFile["NLSM_ID_DELTA1"];
-            nlsm::NLSM_ID_DELTA2=parFile["NLSM_ID_DELTA2"];
-            nlsm::NLSM_ID_XC1=parFile["NLSM_ID_XC1"];
-            nlsm::NLSM_ID_YC1=parFile["NLSM_ID_YC1"];
-            nlsm::NLSM_ID_ZC1=parFile["NLSM_ID_ZC1"];
-            nlsm::NLSM_ID_XC2=parFile["NLSM_ID_XC2"];
-            nlsm::NLSM_ID_YC2=parFile["NLSM_ID_YC2"];
-            nlsm::NLSM_ID_ZC2=parFile["NLSM_ID_ZC2"];
-            nlsm::NLSM_ID_EPSX1=parFile["NLSM_ID_EPSX1"];
-            nlsm::NLSM_ID_EPSY1=parFile["NLSM_ID_EPSY1"];
-            nlsm::NLSM_ID_EPSX2=parFile["NLSM_ID_EPSX2"];
-            nlsm::NLSM_ID_EPSY2=parFile["NLSM_ID_EPSY2"];
-            nlsm::NLSM_ID_R1=parFile["NLSM_ID_R1"];
-            nlsm::NLSM_ID_R2=parFile["NLSM_ID_R2"];
-            nlsm::NLSM_ID_NU1=parFile["NLSM_ID_NU1"];
-            nlsm::NLSM_ID_NU2=parFile["NLSM_ID_NU2"];
-            nlsm::NLSM_ID_OMEGA=parFile["NLSM_ID_OMEGA"];
+            maxwell::MAXWELL_ID_TYPE=parFile["MAXWELL_ID_TYPE"];
 
-            nlsm::NLSM_WAVELET_TOL=parFile["NLSM_WAVELET_TOL"];
+            maxwell::MAXWELL_WAVELET_TOL=parFile["MAXWELL_WAVELET_TOL"];
 
-            nlsm::NLSM_NUM_REFINE_VARS=parFile["NLSM_NUM_REFINE_VARS"];
-            for(unsigned int i=0;i<nlsm::NLSM_NUM_REFINE_VARS;i++)
-                nlsm::NLSM_REFINE_VARIABLE_INDICES[i]=parFile["NLSM_REFINE_VARIABLE_INDICES"][i];
+            maxwell::MAXWELL_NUM_REFINE_VARS=parFile["MAXWELL_NUM_REFINE_VARS"];
+            for(unsigned int i=0;i<maxwell::MAXWELL_NUM_REFINE_VARS;i++)
+                maxwell::MAXWELL_REFINE_VARIABLE_INDICES[i]=parFile["MAXWELL_REFINE_VARIABLE_INDICES"][i];
 
-            nlsm::NLSM_NUM_EVOL_VARS_VTU_OUTPUT=parFile["NLSM_NUM_EVOL_VARS_VTU_OUTPUT"];
+            maxwell::MAXWELL_NUM_EVOL_VARS_VTU_OUTPUT=parFile["MAXWELL_NUM_EVOL_VARS_VTU_OUTPUT"];
 
-            for(unsigned int i=0;i<nlsm::NLSM_NUM_EVOL_VARS_VTU_OUTPUT;i++)
-                nlsm::NLSM_VTU_OUTPUT_EVOL_INDICES[i]=parFile["NLSM_VTU_OUTPUT_EVOL_INDICES"][i];
+            for(unsigned int i=0;i<maxwell::MAXWELL_NUM_EVOL_VARS_VTU_OUTPUT;i++)
+                maxwell::MAXWELL_VTU_OUTPUT_EVOL_INDICES[i]=parFile["MAXWELL_VTU_OUTPUT_EVOL_INDICES"][i];
 
 
-            vtu_len=NLSM_VTU_FILE_PREFIX.size();
-            chp_len=NLSM_CHKPT_FILE_PREFIX.size();
-            prf_len=NLSM_PROFILE_FILE_PREFIX.size();
+            vtu_len=MAXWELL_VTU_FILE_PREFIX.size();
+            chp_len=MAXWELL_CHKPT_FILE_PREFIX.size();
+            prf_len=MAXWELL_PROFILE_FILE_PREFIX.size();
 
         }
 
 
-        par::Mpi_Bcast(&NLSM_IO_OUTPUT_FREQ,1,0,comm);
-        par::Mpi_Bcast(&NLSM_REMESH_TEST_FREQ,1,0,comm);
-        par::Mpi_Bcast(&NLSM_CHECKPT_FREQ,1,0,comm);
-        par::Mpi_Bcast(&NLSM_IO_OUTPUT_GAP,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_IO_OUTPUT_FREQ,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_REMESH_TEST_FREQ,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_CHECKPT_FREQ,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_IO_OUTPUT_GAP,1,0,comm);
 
         par::Mpi_Bcast(&vtu_len,1,0,comm);
         par::Mpi_Bcast(&chp_len,1,0,comm);
         par::Mpi_Bcast(&prf_len,1,0,comm);
 
-        par::Mpi_Bcast(&NLSM_DENDRO_GRAIN_SZ,1,0,comm);
-        par::Mpi_Bcast(&NLSM_DENDRO_AMR_FAC,1,0,comm);
-        par::Mpi_Bcast(&NLSM_ASYNC_COMM_K,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_DENDRO_GRAIN_SZ,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_DENDRO_AMR_FAC,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_ASYNC_COMM_K,1,0,comm);
 
         char vtu_name[vtu_len+1];
         char chp_name[chp_len+1];
@@ -125,13 +106,13 @@ namespace nlsm
         if(!rank)
         {
            for(unsigned int k=0;k<vtu_len;k++)
-               vtu_name[k]=NLSM_VTU_FILE_PREFIX[k];
+               vtu_name[k]=MAXWELL_VTU_FILE_PREFIX[k];
 
             for(unsigned int k=0;k<chp_len;k++)
-                chp_name[k]=NLSM_CHKPT_FILE_PREFIX[k];
+                chp_name[k]=MAXWELL_CHKPT_FILE_PREFIX[k];
 
             for(unsigned int k=0;k<prf_len;k++)
-                prf_name[k]=NLSM_PROFILE_FILE_PREFIX[k];
+                prf_name[k]=MAXWELL_PROFILE_FILE_PREFIX[k];
 
             vtu_name[vtu_len]='\0';
             chp_name[chp_len]='\0';
@@ -144,84 +125,65 @@ namespace nlsm
         MPI_Bcast(chp_name,chp_len+1,MPI_CHAR,0,comm);
         MPI_Bcast(prf_name,prf_len+1,MPI_CHAR,0,comm);
 
-        NLSM_VTU_FILE_PREFIX=std::string(vtu_name);
-        NLSM_CHKPT_FILE_PREFIX=std::string(chp_name);
-        NLSM_PROFILE_FILE_PREFIX=std::string(prf_name);
+        MAXWELL_VTU_FILE_PREFIX=std::string(vtu_name);
+        MAXWELL_CHKPT_FILE_PREFIX=std::string(chp_name);
+        MAXWELL_PROFILE_FILE_PREFIX=std::string(prf_name);
 
 
-        par::Mpi_Bcast(&NLSM_RESTORE_SOLVER,1,0,comm);
-        par::Mpi_Bcast(&NLSM_ENABLE_BLOCK_ADAPTIVITY,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_RESTORE_SOLVER,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_ENABLE_BLOCK_ADAPTIVITY,1,0,comm);
 
-        par::Mpi_Bcast(&NLSM_WAVELET_TOL,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_WAVELET_TOL,1,0,comm);
 
-        par::Mpi_Bcast(&NLSM_LOAD_IMB_TOL,1,0,comm);
-        par::Mpi_Bcast(&NLSM_RK45_TIME_BEGIN,1,0,comm);
-        par::Mpi_Bcast(&NLSM_RK45_TIME_END,1,0,comm);
-        par::Mpi_Bcast(&NLSM_RK45_TIME_STEP_SIZE,1,0,comm);
-        par::Mpi_Bcast(&NLSM_RK45_DESIRED_TOL,1,0,comm);
-        par::Mpi_Bcast(&NLSM_DIM,1,0,comm);
-        par::Mpi_Bcast(&NLSM_MAXDEPTH,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_LOAD_IMB_TOL,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_RK45_TIME_BEGIN,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_RK45_TIME_END,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_RK45_TIME_STEP_SIZE,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_RK45_DESIRED_TOL,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_DIM,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_MAXDEPTH,1,0,comm);
 
-        par::Mpi_Bcast(&NLSM_ID_TYPE,1,0,comm);
-        par::Mpi_Bcast(&NLSM_ID_AMP1,1,0,comm);
-        par::Mpi_Bcast(&NLSM_ID_AMP2,1,0,comm);
-        par::Mpi_Bcast(&NLSM_ID_DELTA1,1,0,comm);
-        par::Mpi_Bcast(&NLSM_ID_DELTA2,1,0,comm);
-        par::Mpi_Bcast(&NLSM_ID_XC1,1,0,comm);
-        par::Mpi_Bcast(&NLSM_ID_YC1,1,0,comm);
-        par::Mpi_Bcast(&NLSM_ID_ZC1,1,0,comm);
-        par::Mpi_Bcast(&NLSM_ID_XC2,1,0,comm);
-        par::Mpi_Bcast(&NLSM_ID_YC2,1,0,comm);
-        par::Mpi_Bcast(&NLSM_ID_ZC2,1,0,comm);
-        par::Mpi_Bcast(&NLSM_ID_EPSX1,1,0,comm);
-        par::Mpi_Bcast(&NLSM_ID_EPSY1,1,0,comm);
-        par::Mpi_Bcast(&NLSM_ID_EPSX2,1,0,comm);
-        par::Mpi_Bcast(&NLSM_ID_EPSY2,1,0,comm);
-        par::Mpi_Bcast(&NLSM_ID_R1,1,0,comm);
-        par::Mpi_Bcast(&NLSM_ID_R2,1,0,comm);
-        par::Mpi_Bcast(&NLSM_ID_NU1,1,0,comm);
-        par::Mpi_Bcast(&NLSM_ID_NU2,1,0,comm);
-        par::Mpi_Bcast(&NLSM_ID_OMEGA,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_ID_TYPE,1,0,comm);
 
-        par::Mpi_Bcast(&NLSM_GRID_MIN_X,1,0,comm);
-        par::Mpi_Bcast(&NLSM_GRID_MAX_X,1,0,comm);
-        par::Mpi_Bcast(&NLSM_GRID_MIN_Y,1,0,comm);
-        par::Mpi_Bcast(&NLSM_GRID_MAX_Y,1,0,comm);
-        par::Mpi_Bcast(&NLSM_GRID_MIN_Z,1,0,comm);
-        par::Mpi_Bcast(&NLSM_GRID_MAX_Z,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_GRID_MIN_X,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_GRID_MAX_X,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_GRID_MIN_Y,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_GRID_MAX_Y,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_GRID_MIN_Z,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_GRID_MAX_Z,1,0,comm);
 
-        par::Mpi_Bcast(&NLSM_BLK_MIN_X,1,0,comm);
-        par::Mpi_Bcast(&NLSM_BLK_MIN_Y,1,0,comm);
-        par::Mpi_Bcast(&NLSM_BLK_MIN_Z,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_BLK_MIN_X,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_BLK_MIN_Y,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_BLK_MIN_Z,1,0,comm);
 
-        par::Mpi_Bcast(&NLSM_BLK_MAX_X,1,0,comm);
-        par::Mpi_Bcast(&NLSM_BLK_MAX_Y,1,0,comm);
-        par::Mpi_Bcast(&NLSM_BLK_MAX_Z,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_BLK_MAX_X,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_BLK_MAX_Y,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_BLK_MAX_Z,1,0,comm);
 
-        NLSM_OCTREE_MAX[0]=(double )(1u<<nlsm::NLSM_MAXDEPTH);
-        NLSM_OCTREE_MAX[1]=(double )(1u<<nlsm::NLSM_MAXDEPTH);
-        NLSM_OCTREE_MAX[2]=(double )(1u<<nlsm::NLSM_MAXDEPTH);
+        MAXWELL_OCTREE_MAX[0]=(double )(1u<<maxwell::MAXWELL_MAXDEPTH);
+        MAXWELL_OCTREE_MAX[1]=(double )(1u<<maxwell::MAXWELL_MAXDEPTH);
+        MAXWELL_OCTREE_MAX[2]=(double )(1u<<maxwell::MAXWELL_MAXDEPTH);
 
-        NLSM_COMPD_MIN[0]=NLSM_GRID_MIN_X;
-        NLSM_COMPD_MIN[1]=NLSM_GRID_MIN_Y;
-        NLSM_COMPD_MIN[2]=NLSM_GRID_MIN_Z;
+        MAXWELL_COMPD_MIN[0]=MAXWELL_GRID_MIN_X;
+        MAXWELL_COMPD_MIN[1]=MAXWELL_GRID_MIN_Y;
+        MAXWELL_COMPD_MIN[2]=MAXWELL_GRID_MIN_Z;
 
-        NLSM_COMPD_MAX[0]=NLSM_GRID_MAX_X;
-        NLSM_COMPD_MAX[1]=NLSM_GRID_MAX_Y;
-        NLSM_COMPD_MAX[2]=NLSM_GRID_MAX_Z;
+        MAXWELL_COMPD_MAX[0]=MAXWELL_GRID_MAX_X;
+        MAXWELL_COMPD_MAX[1]=MAXWELL_GRID_MAX_Y;
+        MAXWELL_COMPD_MAX[2]=MAXWELL_GRID_MAX_Z;
 
 
         par::Mpi_Bcast(&KO_DISS_SIGMA, 1, 0, comm);
 
-        par::Mpi_Bcast(&NLSM_NUM_REFINE_VARS,1,0,comm);
-        par::Mpi_Bcast(&NLSM_NUM_EVOL_VARS_VTU_OUTPUT,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_NUM_REFINE_VARS,1,0,comm);
+        par::Mpi_Bcast(&MAXWELL_NUM_EVOL_VARS_VTU_OUTPUT,1,0,comm);
 
 
-        if(NLSM_NUM_REFINE_VARS>NLSM_NUM_VARS){std::cout<<"Error[parameter file]: Number of refine variables should be less than number of NLSM_NUM_VARS"<<std::endl; exit(0);}
-        if(NLSM_NUM_EVOL_VARS_VTU_OUTPUT>NLSM_NUM_VARS){std::cout<<"Error[parameter file]: Number of evolution VTU variables should be less than number of NLSM_NUM_VARS"<<std::endl; exit(0);}
+        if(MAXWELL_NUM_REFINE_VARS>MAXWELL_NUM_VARS){std::cout<<"Error[parameter file]: Number of refine variables should be less than number of MAXWELL_NUM_VARS"<<std::endl; exit(0);}
+        if(MAXWELL_NUM_EVOL_VARS_VTU_OUTPUT>MAXWELL_NUM_VARS){std::cout<<"Error[parameter file]: Number of evolution VTU variables should be less than number of MAXWELL_NUM_VARS"<<std::endl; exit(0);}
 
-        par::Mpi_Bcast(NLSM_REFINE_VARIABLE_INDICES,NLSM_NUM_VARS,0,comm);
-        par::Mpi_Bcast(NLSM_VTU_OUTPUT_EVOL_INDICES,NLSM_NUM_VARS,0,comm);
+        par::Mpi_Bcast(MAXWELL_REFINE_VARIABLE_INDICES,MAXWELL_NUM_VARS,0,comm);
+        par::Mpi_Bcast(MAXWELL_VTU_OUTPUT_EVOL_INDICES,MAXWELL_NUM_VARS,0,comm);
 
     }
 
@@ -233,98 +195,35 @@ namespace nlsm
         const double x=GRIDX_TO_X(xx1);
         const double y=GRIDY_TO_Y(yy1);
         const double z=GRIDZ_TO_Z(zz1);
-
-        const double amp1 = nlsm::NLSM_ID_AMP1;
-        const double amp2 = nlsm::NLSM_ID_AMP2;
-        const double delta1 = nlsm::NLSM_ID_DELTA1;
-        const double delta2 = nlsm::NLSM_ID_DELTA2;
-        const double xc1 = nlsm::NLSM_ID_XC1;
-        const double yc1 = nlsm::NLSM_ID_YC1;
-        const double zc1 = nlsm::NLSM_ID_ZC1;
-        const double xc2 = nlsm::NLSM_ID_XC2;
-        const double yc2 = nlsm::NLSM_ID_YC2;
-        const double zc2 = nlsm::NLSM_ID_ZC2;
-        const double epsx1 = nlsm::NLSM_ID_EPSX1;
-        const double epsy1 = nlsm::NLSM_ID_EPSY1;
-        const double epsx2 = nlsm::NLSM_ID_EPSX2;
-        const double epsy2 = nlsm::NLSM_ID_EPSY2;
-        const double R1 = nlsm::NLSM_ID_R1;
-        const double R2 = nlsm::NLSM_ID_R2;
-        const double nu1 = nlsm::NLSM_ID_NU1;
-        const double nu2 = nlsm::NLSM_ID_NU2;
-        const double Omega = nlsm::NLSM_ID_OMEGA;
-
-        double chi, phi;
+        const double r=sqrt(x*x + y*y + z*z);
 
         //std::cout<<"initData: "<<x<<", "<<y<<", "<<z<<std::endl;
 
-#ifdef NONLINEAR
-       /* regularity requires that chi=0 at the origin for all times. */
-        double rsq =  x*x + y*y + z*z;
-        if (rsq < 1.0e-13) {
-          chi = 0.0;
-          phi = 0.0;
-          return;
-        }
-#endif
+        if (maxwell::MAXWELL_ID_TYPE == 0) {
+          var[VAR::U_AX] = 0;
+          var[VAR::U_AY] = 0;
+          var[VAR::U_AZ] = 0;
+	  var[VAR::U_EX] = -8.0*y*r*exp(-r*r);
+	  var[VAR::U_EY] = 8.0*x*r*exp(-r*r);
+	  var[VAR::U_EZ] = 0;
+	  var[VAR::U_GAM] = 0;
+	  var[VAR::U_PSI] = 0;
 
-       /* if we are not at the origin, then specify a particular ID family */
-        
-        if (nlsm::NLSM_ID_TYPE == 0) {
-         /* this is the original test data */
-          const double amp = 1.0;
-          const double delta = 3.0;
-          const double xc = 0.0;
-          const double yc = 0.0;
-          const double zc = 0.0;
-          const double epsx = 1.0;
-          const double epsy = 1.0;
-          const double R = 0.0;
-	  double rt = sqrt( epsx*(x-xc)*(x-xc) + epsy*(y-yc)*(y-yc) + (z-zc)*(z-zc) );
-          chi = amp * exp(-(rt-R)*(rt-R)/(delta*delta));
-          phi = 0.0; 
 
-        } else if (nlsm::NLSM_ID_TYPE == 1) {
-
-         /* this is family (a) from Liebling, arXiv:gr-qc/0202093 */
-
-          double rt1 = sqrt( epsx1*(x-xc1)*(x-xc1) + epsy1*(y-yc1)*(y-yc1) + (z-zc1)*(z-zc1) );
-          rt1 += 1.0e-14;
-          chi = amp1 * exp(-(rt1-R1)*(rt1-R1)/(delta1*delta1));
-          phi = 0.0; 
-        } else if (nlsm::NLSM_ID_TYPE == 1) {
-          double rt1 = sqrt( epsx1*(x-xc1)*(x-xc1) + epsy1*(y-yc1)*(y-yc1) + (z-zc1)*(z-zc1) );
-          rt1 += 1.0e-14;
-          chi = amp1 * exp(-(rt1-R1)*(rt1-R1)/(delta1*delta1));
-          double dGdr = amp1 * exp( -(rt1-R1)*(rt1-R1)/(delta1*delta1) ) 
-                      * ( -2.0*(rt1-R1)/(delta1*delta1) );
-          double dGdx = -2.0*chi*(rt1-R1)/(delta1*delta1)*epsx1*(x-xc1)/rt1;
-          double dGdy = -2.0*chi*(rt1-R1)/(delta1*delta1)*epsy1*(y-yc1)/rt1;
-          phi = nu1*dGdr + Omega*(y*dGdx - x*dGdy); 
-           
-        } else if (nlsm::NLSM_ID_TYPE == 2) {
-
-         /* this is family (b) from Liebling, arXiv:gr-qc/0202093 */
-
-          double rt1 = sqrt( epsx1*(x-xc1)*(x-xc1) + epsy1*(y-yc1)*(y-yc1) + (z-zc1)*(z-zc1) );
-          rt1 += 1.0e-14;
-          double chi1 = amp1 * exp(-(rt1-R1)*(rt1-R1)/(delta1*delta1));
-
-          double rt2 = sqrt( epsx2*(x-xc2)*(x-xc2) + epsy2*(y-yc2)*(y-yc2) + (z-zc2)*(z-zc2) );
-          rt2 += 1.0e-14;
-          double chi2 = amp2 * exp(-(rt2-R2)*(rt2-R2)/(delta2*delta2));
-          double dGdx1 = -2.0*chi1*(rt1-R1)/(delta1*delta1)*epsx1*(x-xc1)/rt1;
-          double dGdx2 = -2.0*chi2*(rt2-R2)/(delta2*delta2)*epsx2*(x-xc2)/rt2;
-          chi = chi1 + chi2;
-          phi = nu1*dGdx1 + nu2*dGdx2;
-
-        } else {
-          chi = 0.0;
-          phi = 0.0;
         }
 
-        var[VAR::U_CHI] = chi;
-        var[VAR::U_PHI] = phi;
+	else if (maxwell::MAXWELL_ID_TYPE == 1) {
+          var[VAR::U_AX] = 0;
+          var[VAR::U_AY] = 0;
+          var[VAR::U_AZ] = 0;
+	  var[VAR::U_EX] = .001*sin(3.0*x)+.001*sin(5.0*x)+.001*sin(11.0*x);
+	  var[VAR::U_EY] = 0;
+	  var[VAR::U_EZ] = 0;
+	  var[VAR::U_GAM] = 0;
+	  var[VAR::U_PSI] = 0;
+
+
+        }
 
     }
 
@@ -381,17 +280,17 @@ namespace nlsm
 
     double computeWTol(double x,double y,double z,double tolMin)
     {
-       return nlsm::NLSM_WAVELET_TOL;
+       return maxwell::MAXWELL_WAVELET_TOL;
     }
 
 
-}// end of namespace nlsm
+}// end of namespace maxwell
 
 
 
 
 
-namespace nlsm
+namespace maxwell
 {
 
     namespace timer
@@ -428,16 +327,6 @@ namespace nlsm
             dendro::timer::t_unzip_async_comm.start();
             t_deriv.start();
             t_rhs.start();
-
-            t_rhs_a.start();
-            t_rhs_b.start();
-            t_rhs_gt.start();
-            t_rhs_chi.start();
-            t_rhs_At.start();
-            t_rhs_K.start();
-            t_rhs_Gt.start();
-            t_rhs_B.start();
-
 
             t_bdyc.start();
 
@@ -482,15 +371,6 @@ namespace nlsm
 
             t_deriv.snapreset();
             t_rhs.snapreset();
-
-            t_rhs_a.snapreset();
-            t_rhs_b.snapreset();
-            t_rhs_gt.snapreset();
-            t_rhs_chi.snapreset();
-            t_rhs_At.snapreset();
-            t_rhs_K.snapreset();
-            t_rhs_Gt.snapreset();
-            t_rhs_B.snapreset();
 
             t_bdyc.snapreset();
 
@@ -543,9 +423,9 @@ namespace nlsm
 
                 outfile<<"active npes : "<<activeNpes<<std::endl;
                 outfile<<"global npes : "<<globalNpes<<std::endl;
-                outfile<<"partition tol : "<<nlsm::NLSM_LOAD_IMB_TOL<<std::endl;
-                outfile<<"wavelet tol : "<<nlsm::NLSM_WAVELET_TOL<<std::endl;
-                outfile<<"maxdepth : "<<nlsm::NLSM_MAXDEPTH<<std::endl;
+                outfile<<"partition tol : "<<maxwell::MAXWELL_LOAD_IMB_TOL<<std::endl;
+                outfile<<"wavelet tol : "<<maxwell::MAXWELL_WAVELET_TOL<<std::endl;
+                outfile<<"maxdepth : "<<maxwell::MAXWELL_MAXDEPTH<<std::endl;
 
             }
 
@@ -770,7 +650,7 @@ namespace nlsm
             DendroIntL numCalls;
 
 
-#ifdef NLSM_PROFILE_HUMAN_READABLE
+#ifdef MAXWELL_PROFILE_HUMAN_READABLE
             if(!activeRank)
             {
                 sprintf(fName,"%s_im.prof",filePrefix);
@@ -780,9 +660,9 @@ namespace nlsm
                 outfile<<"active npes : "<<activeNpes<<std::endl;
                 outfile<<"global npes : "<<globalNpes<<std::endl;
                 outfile<<"current step : "<<currentStep<<std::endl;
-                outfile<<"partition tol : "<<nlsm::NLSM_LOAD_IMB_TOL<<std::endl;
-                outfile<<"wavelet tol : "<<nlsm::NLSM_WAVELET_TOL<<std::endl;
-                outfile<<"maxdepth : "<<nlsm::NLSM_MAXDEPTH<<std::endl;
+                outfile<<"partition tol : "<<maxwell::MAXWELL_LOAD_IMB_TOL<<std::endl;
+                outfile<<"wavelet tol : "<<maxwell::MAXWELL_WAVELET_TOL<<std::endl;
+                outfile<<"maxdepth : "<<maxwell::MAXWELL_MAXDEPTH<<std::endl;
 
             }
 
@@ -1120,67 +1000,6 @@ namespace nlsm
             if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[1];
             if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[2]<<std::endl;
 
-
-
-            t_stat=t_rhs_a.snap;
-            computeOverallStats(&t_stat, t_stat_g, comm);
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator) <<"  --compute_rhs_a ";
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[0];
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[1];
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[2]<<std::endl;
-
-            t_stat=t_rhs_b.snap;
-            computeOverallStats(&t_stat, t_stat_g, comm);
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator) <<"  --compute_rhs_b ";
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[0];
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[1];
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[2]<<std::endl;
-
-            t_stat=t_rhs_gt.snap;
-            computeOverallStats(&t_stat, t_stat_g, comm);
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator) <<"  --compute_rhs_gt ";
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[0];
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[1];
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[2]<<std::endl;
-
-
-            t_stat=t_rhs_chi.snap;
-            computeOverallStats(&t_stat, t_stat_g, comm);
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator) <<"  --compute_rhs_chi ";
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[0];
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[1];
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[2]<<std::endl;
-
-            t_stat=t_rhs_At.snap;
-            computeOverallStats(&t_stat, t_stat_g, comm);
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator) <<"  --compute_rhs_At ";
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[0];
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[1];
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[2]<<std::endl;
-
-            t_stat=t_rhs_K.snap;
-            computeOverallStats(&t_stat, t_stat_g, comm);
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator) <<"  --compute_rhs_K ";
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[0];
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[1];
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[2]<<std::endl;
-
-            t_stat=t_rhs_Gt.snap;
-            computeOverallStats(&t_stat, t_stat_g, comm);
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator) <<"  --compute_rhs_Gt ";
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[0];
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[1];
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[2]<<std::endl;
-
-            t_stat=t_rhs_B.snap;
-            computeOverallStats(&t_stat, t_stat_g, comm);
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator) <<"  --compute_rhs_B ";
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[0];
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[1];
-            if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator)<<t_stat_g[2]<<std::endl;
-
-
-
             t_stat=t_bdyc.snap;
             computeOverallStats(&t_stat, t_stat_g, comm);
             if(!rank)outfile << std::left << std::setw(nameWidth) << std::setfill(separator) <<"  ++boundary con ";
@@ -1250,9 +1069,9 @@ namespace nlsm
             if(!rank) outfile<<currentStep<<"\t ";
             if(!rank) outfile<<activeNpes<<"\t ";
             if(!rank) outfile<<globalNpes<<"\t ";
-            if(!rank) outfile<<nlsm::NLSM_LOAD_IMB_TOL<<"\t ";
-            if(!rank) outfile<<nlsm::NLSM_WAVELET_TOL<<"\t ";
-            if(!rank) outfile<<nlsm::NLSM_MAXDEPTH<<"\t ";
+            if(!rank) outfile<<maxwell::MAXWELL_LOAD_IMB_TOL<<"\t ";
+            if(!rank) outfile<<maxwell::MAXWELL_WAVELET_TOL<<"\t ";
+            if(!rank) outfile<<maxwell::MAXWELL_MAXDEPTH<<"\t ";
 
             localSz=pMesh->getNumLocalMeshElements();
             par::Mpi_Reduce(&localSz,&globalSz,1,MPI_SUM,0,comm);

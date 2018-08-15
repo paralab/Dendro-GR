@@ -1,8 +1,8 @@
 //
-// Created by milinda on 10/21/17.
+// Created by D Maughan on 10/21/17.
 /**
-*@author Milinda Fernando
-*School of Computing, University of Utah
+*@author David Maughan
+*USU and REU at BYU
 *@brief contains the profile parameters.
 */
 //
@@ -13,7 +13,7 @@
 #include "profiler.h"
 
 
-namespace nlsm
+namespace maxwell
 {
     namespace timer
     {

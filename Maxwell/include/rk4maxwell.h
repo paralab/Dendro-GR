@@ -3,12 +3,12 @@
 /**
 *@author Milinda Fernando
 *School of Computing, University of Utah
-*@brief rk4 solver for nlsm equations.
+*@brief rk4 solver for maxwell equations.
 */
 //
 
-#ifndef SFCSORTBENCH_RK4NLSM_H
-#define SFCSORTBENCH_RK4NLSM_H
+#ifndef SFCSORTBENCH_RK4MAXWELL_H
+#define SFCSORTBENCH_RK4MAXWELL_H
 
 
 #include "rk.h"
@@ -18,9 +18,9 @@
 #include "mesh.h"
 #include <string>
 #include <iostream>
-#include "nlsmUtils.h"
+#include "maxwellUtils.h"
 #include "parameters.h"
-#include "nlsm.h"
+#include "maxwell.h"
 #include "rhs.h"
 #include "test/meshTestUtils.h"
 
@@ -35,12 +35,12 @@ namespace ode
     namespace solver
     {
 
-        class RK4_NLSM : public RK
+        class RK4_MAXWELL : public RK
         {
 
         private:
 
-            // variables for NLSM formulation.
+            // variables for MAXWELL formulation.
 
             /**@brief: list of pointers to the variable set indexed by enum VAR */
             double ** m_uiVar;
@@ -95,12 +95,12 @@ namespace ode
              * @param[in] pTEnd: RK45 time end
              * @param[in] pTh: times step size.
              * * */
-            RK4_NLSM(ot::Mesh *pMesh, double pTBegin, double pTEnd,double pTh);
+            RK4_MAXWELL(ot::Mesh *pMesh, double pTBegin, double pTEnd,double pTh);
 
             /**@brief default destructor*/
-            ~RK4_NLSM();
+            ~RK4_MAXWELL();
 
-            /** @brief: read parameters related to NLSM simulation and store them in static variables defined in parameters.h*/
+            /** @brief: read parameters related to MAXWELL simulation and store them in static variables defined in parameters.h*/
             void readConfigFile(const char * fName);
 
             /**@brief: starts the rk-45 solver. */
@@ -159,4 +159,4 @@ namespace ode
 
 
 
-#endif //SFCSORTBENCH_RK4NLSM_H
+#endif //SFCSORTBENCH_RK4MAXWELL_H

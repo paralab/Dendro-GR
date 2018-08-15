@@ -7,59 +7,59 @@
 */
 //
 
-#include "rk4nlsm.h"
+#include "rk4maxwell.h"
 
 namespace ode
 {
     namespace solver
     {
 
-        RK4_NLSM::RK4_NLSM(ot::Mesh *pMesh, double pTBegin, double pTEnd,double pTh): RK(pMesh,pTBegin,pTEnd,pTh)
+        RK4_MAXWELL::RK4_MAXWELL(ot::Mesh *pMesh, double pTBegin, double pTEnd,double pTh): RK(pMesh,pTBegin,pTEnd,pTh)
         {
 
             // allocate memory for the variables.
-            m_uiVar=new double*[nlsm::NLSM_NUM_VARS];
-            for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+            m_uiVar=new double*[maxwell::MAXWELL_NUM_VARS];
+            for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                 m_uiVar[index]=m_uiMesh->createVector<double>();
 
-            m_uiPrevVar=new double*[nlsm::NLSM_NUM_VARS];
-            for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+            m_uiPrevVar=new double*[maxwell::MAXWELL_NUM_VARS];
+            for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                 m_uiPrevVar[index]=m_uiMesh->createVector<double>();
 
-            m_uiVarIm=new double*[nlsm::NLSM_NUM_VARS];
-            for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+            m_uiVarIm=new double*[maxwell::MAXWELL_NUM_VARS];
+            for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                 m_uiVarIm[index]=m_uiMesh->createVector<double>();
 
 
-            m_uiStage=new double**[nlsm::NLSM_RK4_STAGES];
-            for(unsigned int stage=0;stage<nlsm::NLSM_RK4_STAGES;stage++)
+            m_uiStage=new double**[maxwell::MAXWELL_RK4_STAGES];
+            for(unsigned int stage=0;stage<maxwell::MAXWELL_RK4_STAGES;stage++)
             {
-                m_uiStage[stage]=new double*[nlsm::NLSM_NUM_VARS];
-                for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+                m_uiStage[stage]=new double*[maxwell::MAXWELL_NUM_VARS];
+                for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                     m_uiStage[stage][index]=m_uiMesh->createVector<double>();
             }
 
-            m_uiUnzipVar=new double*[nlsm::NLSM_NUM_VARS];
-            for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+            m_uiUnzipVar=new double*[maxwell::MAXWELL_NUM_VARS];
+            for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                 m_uiUnzipVar[index]=m_uiMesh->createUnZippedVector<double>();
 
 
-            m_uiUnzipVarRHS=new double*[nlsm::NLSM_NUM_VARS];
-            for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+            m_uiUnzipVarRHS=new double*[maxwell::MAXWELL_NUM_VARS];
+            for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                 m_uiUnzipVarRHS[index]=m_uiMesh->createUnZippedVector<double>();
 
 
 
             // mpi communication
-            m_uiSendNodeBuf=new double*[nlsm::NLSM_ASYNC_COMM_K];
-            m_uiRecvNodeBuf=new double*[nlsm::NLSM_ASYNC_COMM_K];
+            m_uiSendNodeBuf=new double*[maxwell::MAXWELL_ASYNC_COMM_K];
+            m_uiRecvNodeBuf=new double*[maxwell::MAXWELL_ASYNC_COMM_K];
 
-            m_uiSendReqs=new MPI_Request*[nlsm::NLSM_ASYNC_COMM_K];
-            m_uiRecvReqs=new MPI_Request*[nlsm::NLSM_ASYNC_COMM_K];
-            m_uiSendSts=new MPI_Status*[nlsm::NLSM_ASYNC_COMM_K];
-            m_uiRecvSts=new MPI_Status*[nlsm::NLSM_ASYNC_COMM_K];
+            m_uiSendReqs=new MPI_Request*[maxwell::MAXWELL_ASYNC_COMM_K];
+            m_uiRecvReqs=new MPI_Request*[maxwell::MAXWELL_ASYNC_COMM_K];
+            m_uiSendSts=new MPI_Status*[maxwell::MAXWELL_ASYNC_COMM_K];
+            m_uiRecvSts=new MPI_Status*[maxwell::MAXWELL_ASYNC_COMM_K];
 
-            for(unsigned int index=0;index<nlsm::NLSM_ASYNC_COMM_K;index++)
+            for(unsigned int index=0;index<maxwell::MAXWELL_ASYNC_COMM_K;index++)
             {
                 m_uiSendNodeBuf[index]=NULL;
                 m_uiRecvNodeBuf[index]=NULL;
@@ -73,7 +73,7 @@ namespace ode
             if(m_uiMesh->isActive())
             {
                 // allocate mpi comm. reqs and status
-                for(unsigned int index=0;index<nlsm::NLSM_ASYNC_COMM_K;index++)
+                for(unsigned int index=0;index<maxwell::MAXWELL_ASYNC_COMM_K;index++)
                 {
                     if(m_uiMesh->getGhostExcgTotalSendNodeCount()!=0) m_uiSendNodeBuf[index]=new double[m_uiMesh->getGhostExcgTotalSendNodeCount()];
                     if(m_uiMesh->getGhostExcgTotalRecvNodeCount()!=0) m_uiRecvNodeBuf[index]=new double[m_uiMesh->getGhostExcgTotalRecvNodeCount()];
@@ -98,9 +98,9 @@ namespace ode
 
         }
 
-        RK4_NLSM::~RK4_NLSM()
+        RK4_MAXWELL::~RK4_MAXWELL()
         {
-            for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+            for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
             {
                 delete [] m_uiVar[index];
                 delete [] m_uiPrevVar[index];
@@ -118,18 +118,18 @@ namespace ode
             delete [] m_uiUnzipVar;
             delete [] m_uiUnzipVarRHS;
 
-            for(unsigned int stage=0;stage<nlsm::NLSM_RK4_STAGES;stage++)
-                for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+            for(unsigned int stage=0;stage<maxwell::MAXWELL_RK4_STAGES;stage++)
+                for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                     delete [] m_uiStage[stage][index];
 
-            for(unsigned int stage=0;stage<nlsm::NLSM_RK4_STAGES;stage++)
+            for(unsigned int stage=0;stage<maxwell::MAXWELL_RK4_STAGES;stage++)
                 delete [] m_uiStage[stage];
 
             delete [] m_uiStage;
 
 
             // mpi communication
-            for(unsigned int index=0;index<nlsm::NLSM_ASYNC_COMM_K;index++)
+            for(unsigned int index=0;index<maxwell::MAXWELL_ASYNC_COMM_K;index++)
             {
                 delete [] m_uiSendNodeBuf[index];
                 delete [] m_uiRecvNodeBuf[index];
@@ -154,7 +154,7 @@ namespace ode
 
         }
 
-        void RK4_NLSM::applyInitialConditions(double** zipIn)
+        void RK4_MAXWELL::applyInitialConditions(double** zipIn)
         {
             unsigned int nodeLookUp_CG;
             unsigned int nodeLookUp_DG;
@@ -169,7 +169,7 @@ namespace ode
             const unsigned int nodeLocalEnd=m_uiMesh->getNodeLocalEnd();
 
 
-            double* var=new double[nlsm::NLSM_NUM_VARS];
+            double* var=new double[maxwell::MAXWELL_NUM_VARS];
 
             double mp, mm, mp_adm, mm_adm, E, J1, J2, J3;
 
@@ -192,8 +192,8 @@ namespace ode
                                 z=pNodes[ownerID].getZ()+ kk_z*(len/(eleOrder));
                                 assert(len%eleOrder==0);
 
-                                nlsm::initData((double)x,(double)y,(double)z,var);
-                                for(unsigned int v=0;v<nlsm::NLSM_NUM_VARS;v++)
+                                maxwell::initData((double)x,(double)y,(double)z,var);
+                                for(unsigned int v=0;v<maxwell::MAXWELL_NUM_VARS;v++)
                                     zipIn[v][nodeLookUp_CG]=var[v];
 
 
@@ -207,9 +207,9 @@ namespace ode
 
         }
 
-        void RK4_NLSM::reallocateMPIResources()
+        void RK4_MAXWELL::reallocateMPIResources()
         {
-            for(unsigned int index=0;index<nlsm::NLSM_ASYNC_COMM_K;index++)
+            for(unsigned int index=0;index<maxwell::MAXWELL_ASYNC_COMM_K;index++)
             {
                 delete [] m_uiSendNodeBuf[index];
                 delete [] m_uiRecvNodeBuf[index];
@@ -222,7 +222,7 @@ namespace ode
 
             }
 
-            for(unsigned int index=0;index<nlsm::NLSM_ASYNC_COMM_K;index++)
+            for(unsigned int index=0;index<maxwell::MAXWELL_ASYNC_COMM_K;index++)
             {
                 m_uiSendNodeBuf[index]=NULL;
                 m_uiRecvNodeBuf[index]=NULL;
@@ -236,7 +236,7 @@ namespace ode
             if(m_uiMesh->isActive())
             {
                 // allocate mpi comm. reqs and status
-                for(unsigned int index=0;index<nlsm::NLSM_ASYNC_COMM_K;index++)
+                for(unsigned int index=0;index<maxwell::MAXWELL_ASYNC_COMM_K;index++)
                 {
                     if(m_uiMesh->getGhostExcgTotalSendNodeCount()!=0) m_uiSendNodeBuf[index]=new double[m_uiMesh->getGhostExcgTotalSendNodeCount()];
                     if(m_uiMesh->getGhostExcgTotalRecvNodeCount()!=0) m_uiRecvNodeBuf[index]=new double[m_uiMesh->getGhostExcgTotalRecvNodeCount()];
@@ -261,16 +261,16 @@ namespace ode
 
         }
 
-        void RK4_NLSM::writeToVTU(double **evolZipVarIn, double ** constrZipVarIn, unsigned int numEvolVars,unsigned int numConstVars,const unsigned int * evolVarIndices, const unsigned int * constVarIndices)
+        void RK4_MAXWELL::writeToVTU(double **evolZipVarIn, double ** constrZipVarIn, unsigned int numEvolVars,unsigned int numConstVars,const unsigned int * evolVarIndices, const unsigned int * constVarIndices)
         {
-            nlsm::timer::t_ioVtu.start();
+            maxwell::timer::t_ioVtu.start();
 
             std::vector<std::string> pDataNames;
             double *pData[(numConstVars+numEvolVars)];
 
             for(unsigned int i=0;i<numEvolVars;i++)
             {
-                pDataNames.push_back(std::string(nlsm::NLSM_VAR_NAMES[evolVarIndices[i]]));
+                pDataNames.push_back(std::string(maxwell::MAXWELL_VAR_NAMES[evolVarIndices[i]]));
                 pData[i]=evolZipVarIn[evolVarIndices[i]];
             }
 
@@ -285,97 +285,97 @@ namespace ode
             const double fData[]={m_uiCurrentTime,m_uiCurrentStep};
 
             char fPrefix[256];
-            sprintf(fPrefix,"%s_%d",nlsm::NLSM_VTU_FILE_PREFIX.c_str(),m_uiCurrentStep);
+            sprintf(fPrefix,"%s_%d",maxwell::MAXWELL_VTU_FILE_PREFIX.c_str(),m_uiCurrentStep);
 
             io::vtk::mesh2vtuFine(m_uiMesh,fPrefix,2,fDataNames,fData,(numEvolVars+numConstVars),(const char **)&pDataNames_char[0],(const double **)pData);
 
-            nlsm::timer::t_ioVtu.stop();
+            maxwell::timer::t_ioVtu.stop();
 
         }
 
-        void RK4_NLSM::performGhostExchangeVars(double** zipIn)
+        void RK4_MAXWELL::performGhostExchangeVars(double** zipIn)
         {
 
-            nlsm::timer::t_ghostEx_sync.start();
+            maxwell::timer::t_ghostEx_sync.start();
 
-            for(unsigned int v=0;v<nlsm::NLSM_NUM_VARS;v++)
+            for(unsigned int v=0;v<maxwell::MAXWELL_NUM_VARS;v++)
                 m_uiMesh->performGhostExchange(zipIn[v]);
 
-            nlsm::timer::t_ghostEx_sync.stop();
+            maxwell::timer::t_ghostEx_sync.stop();
 
         }
 
-        void RK4_NLSM::intergridTransferVars(double**& zipIn, const ot::Mesh* pnewMesh)
+        void RK4_MAXWELL::intergridTransferVars(double**& zipIn, const ot::Mesh* pnewMesh)
         {
-            nlsm::timer::t_gridTransfer.start();
+            maxwell::timer::t_gridTransfer.start();
 
-            for(unsigned int v=0;v<nlsm::NLSM_NUM_VARS;v++)
+            for(unsigned int v=0;v<maxwell::MAXWELL_NUM_VARS;v++)
                 m_uiMesh->interGridTransfer(zipIn[v],pnewMesh);
 
-            nlsm::timer::t_gridTransfer.stop();
+            maxwell::timer::t_gridTransfer.stop();
 
         }
 
-        void RK4_NLSM::unzipVars(double** zipIn , double** uzipOut)
+        void RK4_MAXWELL::unzipVars(double** zipIn , double** uzipOut)
         {
-            nlsm::timer::t_unzip_sync.start();
+            maxwell::timer::t_unzip_sync.start();
 
-            for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+            for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                 m_uiMesh->unzip(zipIn[index],uzipOut[index]);
 
-            nlsm::timer::t_unzip_sync.stop();
+            maxwell::timer::t_unzip_sync.stop();
 
         }
 
-        void RK4_NLSM::unzipVars_async(double ** zipIn , double **uzipOut)
+        void RK4_MAXWELL::unzipVars_async(double ** zipIn , double **uzipOut)
         {
 
-            /*nlsm::timer::t_unzip_async.start();
-            for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+            /*maxwell::timer::t_unzip_async.start();
+            for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                 m_uiMesh->unzip_async(zipIn[index],uzipOut[index]);
-            nlsm::timer::t_unzip_async.stop();*/
-            nlsm::timer::t_unzip_async.start();
+            maxwell::timer::t_unzip_async.stop();*/
+            maxwell::timer::t_unzip_async.start();
 
-            for(unsigned int var=0;var<nlsm::NLSM_NUM_VARS;var+=nlsm::NLSM_ASYNC_COMM_K){
+            for(unsigned int var=0;var<maxwell::MAXWELL_NUM_VARS;var+=maxwell::MAXWELL_ASYNC_COMM_K){
 
-                for(unsigned int i=0;(i<nlsm::NLSM_ASYNC_COMM_K);i++)
+                for(unsigned int i=0;(i<maxwell::MAXWELL_ASYNC_COMM_K);i++)
                     m_uiMesh->ghostExchangeStart(zipIn[var+i],m_uiSendNodeBuf[i],m_uiRecvNodeBuf[i],m_uiSendReqs[i],m_uiRecvReqs[i]);
 
-                for(unsigned int i=0;(i<nlsm::NLSM_ASYNC_COMM_K);i++)
+                for(unsigned int i=0;(i<maxwell::MAXWELL_ASYNC_COMM_K);i++)
                 {
                     m_uiMesh->ghostExchangeRecvSync(zipIn[var + i], m_uiRecvNodeBuf[i],m_uiRecvReqs[i], m_uiRecvSts[i]);
                     m_uiMesh->unzip(zipIn[var+i],uzipOut[var+i]);
                 }
 
-                for(unsigned int i=0;(i<nlsm::NLSM_ASYNC_COMM_K);i++)
+                for(unsigned int i=0;(i<maxwell::MAXWELL_ASYNC_COMM_K);i++)
                     m_uiMesh->ghostExchangeSendSync(m_uiSendReqs[i], m_uiSendSts[i]);
 
             }
 
-            nlsm::timer::t_unzip_async.stop();
+            maxwell::timer::t_unzip_async.stop();
 
 
         }
 
 
-        void RK4_NLSM::zipVars(double** uzipIn , double** zipOut)
+        void RK4_MAXWELL::zipVars(double** uzipIn , double** zipOut)
         {
-            nlsm::timer::t_zip.start();
+            maxwell::timer::t_zip.start();
 
-            for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+            for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                 m_uiMesh->zip(uzipIn[index],zipOut[index]);
 
-            nlsm::timer::t_zip.stop();
+            maxwell::timer::t_zip.stop();
 
         }
 
 
-        void RK4_NLSM::applyBoundaryConditions()
+        void RK4_MAXWELL::applyBoundaryConditions()
         {
 
         }
 
-        void RK4_NLSM::performSingleIteration()
+        void RK4_MAXWELL::performSingleIteration()
         {
 
             bool repeatStep;
@@ -419,17 +419,17 @@ namespace ode
                     unsigned int sz[3];
                     unsigned int bflag;
                     double dx,dy,dz;
-                    const Point pt_min(nlsm::NLSM_COMPD_MIN[0],nlsm::NLSM_COMPD_MIN[1],nlsm::NLSM_COMPD_MIN[2]);
-                    const Point pt_max(nlsm::NLSM_COMPD_MAX[0],nlsm::NLSM_COMPD_MAX[1],nlsm::NLSM_COMPD_MAX[2]);
+                    const Point pt_min(maxwell::MAXWELL_COMPD_MIN[0],maxwell::MAXWELL_COMPD_MIN[1],maxwell::MAXWELL_COMPD_MIN[2]);
+                    const Point pt_max(maxwell::MAXWELL_COMPD_MAX[0],maxwell::MAXWELL_COMPD_MAX[1],maxwell::MAXWELL_COMPD_MAX[2]);
 
 
-                    for(unsigned int stage=0;stage<(nlsm::NLSM_RK4_STAGES-1);stage++)
+                    for(unsigned int stage=0;stage<(maxwell::MAXWELL_RK4_STAGES-1);stage++)
                     {
 
 
 #ifdef DEBUG_RK_SOLVER
                         if(!rank)std::cout<<" stage: "<<stage<<" begin: "<<std::endl;
-                    for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+                    for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                         ot::test::isUnzipNaN(m_uiMesh,m_uiUnzipVar[index]);
 #endif
 
@@ -455,14 +455,14 @@ namespace ode
                             ptmax[2]=GRIDZ_TO_Z(blkList[blk].getBlockNode().maxZ())+3*dz;
 
 
-                            nlsmRhs(m_uiUnzipVarRHS, (const double **)m_uiUnzipVar, offset, ptmin, ptmax, sz, bflag);
+                            maxwellRhs(current_t_adv, m_uiUnzipVarRHS, (const double **)m_uiUnzipVar, offset, ptmin, ptmax, sz, bflag);
 
 
                         }
 
 #ifdef DEBUG_RK_SOLVER
                         if(!rank)std::cout<<" stage: "<<stage<<" af rhs UNZIP RHS TEST:"<<std::endl;
-                    for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+                    for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                         ot::test::isUnzipInternalNaN(m_uiMesh,m_uiUnzipVarRHS[index]);
 #endif
 
@@ -472,12 +472,12 @@ namespace ode
 
 
 #ifdef DEBUG_RK_SOLVER
-                        for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+                        for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                         if(seq::test::isNAN(m_uiStage[stage][index]+m_uiMesh->getNodeLocalBegin(),m_uiMesh->getNumLocalMeshNodes()))
                             std::cout<<" var: "<<index<<" contains nan af zip  stage: "<<stage<<std::endl;
 #endif
 
-                        /*for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+                        /*for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                              for(unsigned int node=nodeLocalBegin;node<nodeLocalEnd;node++)
                                      m_uiStage[stage][index][node]*=m_uiT_h;*/
 
@@ -485,7 +485,7 @@ namespace ode
 
                         for(unsigned int node=nodeLocalBegin;node<nodeLocalEnd;node++)
                         {
-                            for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+                            for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                             {
                                 m_uiVarIm[index][node]=m_uiPrevVar[index][node];
                                 //if(!rank && index==0 && node==0) std::cout<<"rk stage: "<<stage<<" im coef: "<<stage<<" value: "<<RK4_U[stage+1]<<std::endl;
@@ -506,13 +506,13 @@ namespace ode
 
                     }
 
-                    current_t_adv=current_t+RK4_T[(nlsm::NLSM_RK4_STAGES-1)]*m_uiT_h;
+                    current_t_adv=current_t+RK4_T[(maxwell::MAXWELL_RK4_STAGES-1)]*m_uiT_h;
 
 
 #ifdef DEBUG_RK_SOLVER
-                    if(!rank)std::cout<<" stage: "<<(nlsm::NLSM_RK4_STAGES-1)<<" begin: "<<std::endl;
+                    if(!rank)std::cout<<" stage: "<<(maxwell::MAXWELL_RK4_STAGES-1)<<" begin: "<<std::endl;
 
-                for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+                for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                     ot::test::isUnzipNaN(m_uiMesh,m_uiUnzipVar[index]);
 #endif
 
@@ -540,32 +540,32 @@ namespace ode
                         ptmax[2]=GRIDZ_TO_Z(blkList[blk].getBlockNode().maxZ())+3*dz;
 
 
-                        nlsmRhs(m_uiUnzipVarRHS, (const double **)m_uiUnzipVar, offset, ptmin, ptmax, sz, bflag);
+                        maxwellRhs(current_t_adv, m_uiUnzipVarRHS, (const double **)m_uiUnzipVar, offset, ptmin, ptmax, sz, bflag);
 
 
                     }
 
 #ifdef DEBUG_RK_SOLVER
-                    if(!rank)std::cout<<" stage: "<<(nlsm::NLSM_RK4_STAGES-1)<<" af rhs UNZIP RHS TEST:"<<std::endl;
-                    for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+                    if(!rank)std::cout<<" stage: "<<(maxwell::MAXWELL_RK4_STAGES-1)<<" af rhs UNZIP RHS TEST:"<<std::endl;
+                    for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                         ot::test::isUnzipInternalNaN(m_uiMesh,m_uiUnzipVarRHS[index]);
 #endif
 
-                    zipVars(m_uiUnzipVarRHS,m_uiStage[(nlsm::NLSM_RK4_STAGES-1)]);
+                    zipVars(m_uiUnzipVarRHS,m_uiStage[(maxwell::MAXWELL_RK4_STAGES-1)]);
 
-                    /*for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+                    /*for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                         for(unsigned int node=nodeLocalBegin;node<nodeLocalEnd;node++)
-                            m_uiStage[(nlsm::NLSM_RK4_STAGES-1)][index][node]*=m_uiT_h;*/
+                            m_uiStage[(maxwell::MAXWELL_RK4_STAGES-1)][index][node]*=m_uiT_h;*/
 
 
 
                     for(unsigned int node=nodeLocalBegin;node<nodeLocalEnd;node++)
                     {
 
-                        for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+                        for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                         {
                             m_uiVar[index][node]=m_uiPrevVar[index][node];
-                            for(unsigned int s=0;s<(nlsm::NLSM_RK4_STAGES);s++)
+                            for(unsigned int s=0;s<(maxwell::MAXWELL_RK4_STAGES);s++)
                             {
                                 m_uiVar[index][node]+=(RK4_C[s]*m_uiT_h*m_uiStage[s][index][node]);
                             }
@@ -592,7 +592,7 @@ namespace ode
         }
 
 
-        void RK4_NLSM::rkSolve()
+        void RK4_MAXWELL::rkSolve()
         {
 
             if(m_uiCurrentStep==0)
@@ -605,13 +605,13 @@ namespace ode
             unsigned int newElements,newElements_g;
 
             // refine based on all the variables
-            const unsigned int refineNumVars=nlsm::NLSM_NUM_REFINE_VARS;
+            const unsigned int refineNumVars=maxwell::MAXWELL_NUM_REFINE_VARS;
             unsigned int refineVarIds[refineNumVars];
             for(unsigned int vIndex=0;vIndex<refineNumVars;vIndex++)
-                refineVarIds[vIndex]=nlsm::NLSM_REFINE_VARIABLE_INDICES[vIndex];
+                refineVarIds[vIndex]=maxwell::MAXWELL_REFINE_VARIABLE_INDICES[vIndex];
 
-            double wTol=nlsm::NLSM_WAVELET_TOL;
-            std::function<double(double,double,double)> waveletTolFunc =[wTol](double x,double y, double z){ return nlsm::computeWTol(x,y,z,wTol);};
+            double wTol=maxwell::MAXWELL_WAVELET_TOL;
+            std::function<double(double,double,double)> waveletTolFunc =[wTol](double x,double y, double z){ return maxwell::computeWTol(x,y,z,wTol);};
 
 
             double l_min,l_max;
@@ -619,58 +619,58 @@ namespace ode
             {
 
                 // checkpoint the previous solution value before going to the next step.
-                nlsm::timer::t_ioCheckPoint.start();
-                if((m_uiMesh->isActive()) && (m_uiCurrentStep%nlsm::NLSM_CHECKPT_FREQ)==0)
-                    storeCheckPoint(nlsm::NLSM_CHKPT_FILE_PREFIX.c_str());
-                nlsm::timer::t_ioCheckPoint.stop();
+                maxwell::timer::t_ioCheckPoint.start();
+                if((m_uiMesh->isActive()) && (m_uiCurrentStep%maxwell::MAXWELL_CHECKPT_FREQ)==0)
+                    storeCheckPoint(maxwell::MAXWELL_CHKPT_FILE_PREFIX.c_str());
+                maxwell::timer::t_ioCheckPoint.stop();
                 // write sol to vtu.
-                if((m_uiMesh->isActive()) && (m_uiCurrentStep%nlsm::NLSM_TIME_STEP_OUTPUT_FREQ)==0)
+                if((m_uiMesh->isActive()) && (m_uiCurrentStep%maxwell::MAXWELL_TIME_STEP_OUTPUT_FREQ)==0)
                 {
 
-                    l_min=vecMin(m_uiPrevVar[nlsm::VAR::U_CHI]+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
-                    l_max=vecMax(m_uiPrevVar[nlsm::VAR::U_CHI]+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
+                    l_min=vecMin(m_uiPrevVar[maxwell::VAR::U_AX]+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
+                    l_max=vecMax(m_uiPrevVar[maxwell::VAR::U_AX]+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
                     if(!m_uiMesh->getMPIRank()) {
                         std::cout << "executing step: " << m_uiCurrentStep << " dt: " << m_uiT_h << " rk_time : "<< m_uiCurrentTime << std::endl;
-                        std::cout << "\t ||VAR::U_CHI|| (min, max) : ("<<l_min<<", "<<l_max<<" ) "<<std::endl;
+                        std::cout << "\t ||VAR::U_AX|| (min, max) : ("<<l_min<<", "<<l_max<<" ) "<<std::endl;
                     }
 
-                    nlsm::timer::profileInfoIntermediate(nlsm::NLSM_PROFILE_FILE_PREFIX.c_str(),m_uiMesh,m_uiCurrentStep);
+                    maxwell::timer::profileInfoIntermediate(maxwell::MAXWELL_PROFILE_FILE_PREFIX.c_str(),m_uiMesh,m_uiCurrentStep);
 
                 }
 
-                if((m_uiCurrentStep%nlsm::NLSM_TIME_STEP_OUTPUT_FREQ)==0)
-                    nlsm::timer::resetSnapshot();
+                if((m_uiCurrentStep%maxwell::MAXWELL_TIME_STEP_OUTPUT_FREQ)==0)
+                    maxwell::timer::resetSnapshot();
 
-                if((m_uiCurrentStep%nlsm::NLSM_REMESH_TEST_FREQ)==0)
+                if((m_uiCurrentStep%maxwell::MAXWELL_REMESH_TEST_FREQ)==0)
                 {
 
 #ifdef RK_SOLVER_OVERLAP_COMM_AND_COMP
                     unzipVars_async(m_uiPrevVar,m_uiUnzipVar);
 #else
                     performGhostExchangeVars(m_uiPrevVar);
-                    //isRefine=m_uiMesh->isReMesh((const double **)m_uiPrevVar,refineVarIds,refineNumVars,nlsm::NLSM_WAVELET_TOL);
+                    //isRefine=m_uiMesh->isReMesh((const double **)m_uiPrevVar,refineVarIds,refineNumVars,maxwell::MAXWELL_WAVELET_TOL);
                     unzipVars(m_uiPrevVar,m_uiUnzipVar);
 #endif
                     
 //                     char fPrefix[256];
-//                     sprintf(fPrefix,"%s_wavelets_%d",nlsm::NLSM_VTU_FILE_PREFIX.c_str(),m_uiCurrentStep);
+//                     sprintf(fPrefix,"%s_wavelets_%d",maxwell::MAXWELL_VTU_FILE_PREFIX.c_str(),m_uiCurrentStep);
 //                     io::vtk::waveletsToVTU(m_uiMesh,(const double **)m_uiPrevVar,(const double**)m_uiUnzipVar,refineVarIds,refineNumVars,(const char*)fPrefix);
 
 #ifdef DEBUG_RK_SOLVER
                     if(m_uiMesh->isActive())
                     {
                         if(!m_uiMesh->getMPIRank())std::cout<<" isRemesh Unzip : "<<std::endl;
-                        for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+                        for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                             ot::test::isUnzipNaN(m_uiMesh,m_uiUnzipVar[index]);
 
                     }
 #endif
-                    nlsm::timer::t_isReMesh.start();
-                    if(nlsm::NLSM_ENABLE_BLOCK_ADAPTIVITY)
+                    maxwell::timer::t_isReMesh.start();
+                    if(maxwell::MAXWELL_ENABLE_BLOCK_ADAPTIVITY)
                         isRefine=false;
                     else
-                        isRefine=m_uiMesh->isReMeshUnzip((const double **)m_uiUnzipVar,refineVarIds,refineNumVars,waveletTolFunc,nlsm::NLSM_DENDRO_AMR_FAC);
-                    nlsm::timer::t_isReMesh.stop();
+                        isRefine=m_uiMesh->isReMeshUnzip((const double **)m_uiUnzipVar,refineVarIds,refineNumVars,waveletTolFunc,maxwell::MAXWELL_DENDRO_AMR_FAC);
+                    maxwell::timer::t_isReMesh.stop();
 
                     if(isRefine)
                     {
@@ -738,9 +738,9 @@ namespace ode
                         io::vtk::oct2vtu(&(*(localBlocks.begin())),localBlocks.size(),fN4,globalComm);
 
 #endif
-                        nlsm::timer::t_mesh.start();
-                        ot::Mesh* newMesh=m_uiMesh->ReMesh(nlsm::NLSM_DENDRO_GRAIN_SZ,nlsm::NLSM_LOAD_IMB_TOL,nlsm::NLSM_SPLIT_FIX);
-                        nlsm::timer::t_mesh.stop();
+                        maxwell::timer::t_mesh.start();
+                        ot::Mesh* newMesh=m_uiMesh->ReMesh(maxwell::MAXWELL_DENDRO_GRAIN_SZ,maxwell::MAXWELL_LOAD_IMB_TOL,maxwell::MAXWELL_SPLIT_FIX);
+                        maxwell::timer::t_mesh.stop();
 
                         oldElements=m_uiMesh->getNumLocalMeshElements();
                         newElements=newMesh->getNumLocalMeshElements();
@@ -754,7 +754,7 @@ namespace ode
                         // performs the inter-grid transfer
                         intergridTransferVars(m_uiPrevVar,newMesh);
 
-                        for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+                        for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                         {
                             delete [] m_uiVar[index];
                             delete [] m_uiVarIm[index];
@@ -774,8 +774,8 @@ namespace ode
 
                         }
 
-                        for(unsigned int stage=0;stage<nlsm::NLSM_RK4_STAGES;stage++)
-                            for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+                        for(unsigned int stage=0;stage<maxwell::MAXWELL_RK4_STAGES;stage++)
+                            for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                             {
                                 delete [] m_uiStage[stage][index];
                                 m_uiStage[stage][index]=NULL;
@@ -794,10 +794,10 @@ namespace ode
 
                         if(m_uiMesh->isActive())
                         {
-                            l_min=vecMin(m_uiPrevVar[nlsm::VAR::U_CHI]+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
-                            l_max=vecMax(m_uiPrevVar[nlsm::VAR::U_CHI]+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
+                            l_min=vecMin(m_uiPrevVar[maxwell::VAR::U_AX]+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
+                            l_max=vecMax(m_uiPrevVar[maxwell::VAR::U_AX]+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
                             if(!(m_uiMesh->getMPIRank())) {
-                                std::cout << "transfer completed:    ||VAR::U_CHI|| (min, max) : ("<<l_min<<", "<<l_max<<" ) "<<std::endl;
+                                std::cout << "transfer completed:    ||VAR::U_AX|| (min, max) : ("<<l_min<<", "<<l_max<<" ) "<<std::endl;
                             }
 
                         }
@@ -809,7 +809,7 @@ namespace ode
                 }
 
 
-                if((m_uiCurrentStep%nlsm::NLSM_IO_OUTPUT_FREQ)==0)
+                if((m_uiCurrentStep%maxwell::MAXWELL_IO_OUTPUT_FREQ)==0)
                 {
 
 #ifdef RK_SOLVER_OVERLAP_COMM_AND_COMP
@@ -821,15 +821,15 @@ namespace ode
 
 
 
-//#ifdef NLSM_ENABLE_VTU_OUTPUT
-                    writeToVTU(m_uiPrevVar,m_uiConstraintVars,nlsm::NLSM_NUM_EVOL_VARS_VTU_OUTPUT,0,nlsm::NLSM_VTU_OUTPUT_EVOL_INDICES,NULL);
+//#ifdef MAXWELL_ENABLE_VTU_OUTPUT
+                    writeToVTU(m_uiPrevVar,m_uiConstraintVars,maxwell::MAXWELL_NUM_EVOL_VARS_VTU_OUTPUT,0,maxwell::MAXWELL_VTU_OUTPUT_EVOL_INDICES,NULL);
 //#endif
 
                 }
 
-                nlsm::timer::t_rkStep.start();
+                maxwell::timer::t_rkStep.start();
                 performSingleIteration();
-                nlsm::timer::t_rkStep.stop();
+                maxwell::timer::t_rkStep.stop();
 
 
                 std::swap(m_uiVar,m_uiPrevVar);
@@ -842,14 +842,14 @@ namespace ode
         }
 
 
-        void RK4_NLSM::storeCheckPoint(const char * fNamePrefix)
+        void RK4_MAXWELL::storeCheckPoint(const char * fNamePrefix)
         {
 
 
             if(m_uiMesh->isActive())
             {
                 unsigned int cpIndex;
-                (m_uiCurrentStep%(2*nlsm::NLSM_CHECKPT_FREQ)==0) ? cpIndex=0 : cpIndex=1; // to support alternate file writing.
+                (m_uiCurrentStep%(2*maxwell::MAXWELL_CHECKPT_FREQ)==0) ? cpIndex=0 : cpIndex=1; // to support alternate file writing.
                 unsigned int rank=m_uiMesh->getMPIRank();
                 unsigned int npes=m_uiMesh->getMPICommSize();
 
@@ -858,8 +858,8 @@ namespace ode
                 sprintf(fName,"%s_octree_%d_%d.oct",fNamePrefix,cpIndex,rank);
                 io::checkpoint::writeOctToFile(fName,pNodes,m_uiMesh->getNumLocalMeshElements());
 
-                unsigned int numVars=nlsm::NLSM_NUM_VARS;
-                const char ** varNames=nlsm::NLSM_VAR_NAMES;
+                unsigned int numVars=maxwell::MAXWELL_NUM_VARS;
+                const char ** varNames=maxwell::MAXWELL_VAR_NAMES;
 
                 /*for(unsigned int i=0;i<numVars;i++)
                 {
@@ -868,7 +868,7 @@ namespace ode
                 }*/
 
                 sprintf(fName,"%s_%d_%d.var",fNamePrefix,cpIndex,rank);
-                io::checkpoint::writeVecToFile(fName,m_uiMesh,(const double **)m_uiPrevVar,nlsm::NLSM_NUM_VARS);
+                io::checkpoint::writeVecToFile(fName,m_uiMesh,(const double **)m_uiPrevVar,maxwell::MAXWELL_NUM_VARS);
 
 
                 if(!rank)
@@ -888,8 +888,8 @@ namespace ode
                     checkPoint["DENDRO_RK45_TIME_STEP_SIZE"]=m_uiT_h;
                     checkPoint["DENDRO_RK45_LAST_IO_TIME"]=m_uiCurrentTime;
 
-                    checkPoint["DENDRO_RK45_WAVELET_TOLERANCE"]=nlsm::NLSM_WAVELET_TOL;
-                    checkPoint["DENDRO_RK45_LOAD_IMB_TOLERANCE"]=nlsm::NLSM_LOAD_IMB_TOL;
+                    checkPoint["DENDRO_RK45_WAVELET_TOLERANCE"]=maxwell::MAXWELL_WAVELET_TOL;
+                    checkPoint["DENDRO_RK45_LOAD_IMB_TOLERANCE"]=maxwell::MAXWELL_LOAD_IMB_TOL;
                     checkPoint["DENDRO_RK45_NUM_VARS"]=numVars; // number of variables to restore.
                     checkPoint["DENDRO_RK45_ACTIVE_COMM_SZ"]=m_uiMesh->getMPICommSize(); // (note that rank 0 is always active).
 
@@ -906,7 +906,7 @@ namespace ode
         }
 
 
-        void RK4_NLSM::restoreCheckPoint(const char * fNamePrefix,MPI_Comm comm)
+        void RK4_MAXWELL::restoreCheckPoint(const char * fNamePrefix,MPI_Comm comm)
         {
             unsigned int numVars=0;
             std::vector<ot::TreeNode> octree;
@@ -951,8 +951,8 @@ namespace ode
                         m_uiT_h=checkPoint["DENDRO_RK45_TIME_STEP_SIZE"];
 
 
-                        nlsm::NLSM_WAVELET_TOL=checkPoint["DENDRO_RK45_WAVELET_TOLERANCE"];
-                        nlsm::NLSM_LOAD_IMB_TOL=checkPoint["DENDRO_RK45_LOAD_IMB_TOLERANCE"];
+                        maxwell::MAXWELL_WAVELET_TOL=checkPoint["DENDRO_RK45_WAVELET_TOLERANCE"];
+                        maxwell::MAXWELL_LOAD_IMB_TOL=checkPoint["DENDRO_RK45_LOAD_IMB_TOLERANCE"];
                         numVars=checkPoint["DENDRO_RK45_NUM_VARS"];
                         activeCommSz=checkPoint["DENDRO_RK45_ACTIVE_COMM_SZ"];
                     }
@@ -972,8 +972,8 @@ namespace ode
                 par::Mpi_Bcast(&m_uiT_h,1,0,comm);
 
 
-                par::Mpi_Bcast(& nlsm::NLSM_WAVELET_TOL,1,0,comm);
-                par::Mpi_Bcast(&nlsm::NLSM_LOAD_IMB_TOL,1,0,comm);
+                par::Mpi_Bcast(& maxwell::MAXWELL_WAVELET_TOL,1,0,comm);
+                par::Mpi_Bcast(&maxwell::MAXWELL_LOAD_IMB_TOL,1,0,comm);
 
                 par::Mpi_Bcast(&numVars,1,0,comm);
                 par::Mpi_Bcast(&m_uiOrder,1,0,comm);
@@ -1018,7 +1018,7 @@ namespace ode
 
                 newMesh=new ot::Mesh(octree,1,m_uiOrder,activeCommSz,m_uiComm);
 
-                for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+                for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                 {
                     delete [] m_uiPrevVar[index];
                     delete [] m_uiVar[index];
@@ -1034,14 +1034,14 @@ namespace ode
 
                 }
 
-                for(unsigned int stage=0;stage<nlsm::NLSM_RK4_STAGES;stage++)
-                    for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+                for(unsigned int stage=0;stage<maxwell::MAXWELL_RK4_STAGES;stage++)
+                    for(unsigned int index=0;index<maxwell::MAXWELL_NUM_VARS;index++)
                     {
                         delete [] m_uiStage[stage][index];
                         m_uiStage[stage][index]=newMesh->createVector<double>();
                     }
 
-                const char ** varNames=nlsm::NLSM_VAR_NAMES;
+                const char ** varNames=maxwell::MAXWELL_VAR_NAMES;
 
 
                 if(isActive) {
@@ -1061,7 +1061,7 @@ namespace ode
 
                     }*/
                     sprintf(fName,"%s_%d_%d.var",fNamePrefix,cpIndex,activeRank);
-                    restoreStatus=io::checkpoint::readVecFromFile(fName,newMesh,m_uiPrevVar,nlsm::NLSM_NUM_VARS);
+                    restoreStatus=io::checkpoint::readVecFromFile(fName,newMesh,m_uiPrevVar,maxwell::MAXWELL_NUM_VARS);
 
                 }
                 MPI_Comm_free(&newComm);

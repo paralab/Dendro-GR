@@ -1,8 +1,8 @@
 //
-// Created by milinda on 7/25/17.
+// Created by D. Maughan
 /**
-*@author Milinda Fernando
-*School of Computing, University of Utah
+*@author Maughan
+*USU and REU @BYU
 *@brief Header file for the GR simulation.
 */
 //

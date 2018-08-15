@@ -3,7 +3,7 @@
 /**
 *@author Milinda Fernando
 *School of Computing, University of Utah
-*@brief Contains utility functions for NLSM simulation.
+*@brief Contains utility functions for MAXWELL simulation.
 */
 
 
@@ -20,32 +20,32 @@
 #include "profile_params.h"
 
 
-#define Rx (nlsm::NLSM_COMPD_MAX[0]-nlsm::NLSM_COMPD_MIN[0])
-#define Ry (nlsm::NLSM_COMPD_MAX[1]-nlsm::NLSM_COMPD_MIN[1])
-#define Rz (nlsm::NLSM_COMPD_MAX[2]-nlsm::NLSM_COMPD_MIN[2])
+#define Rx (maxwell::MAXWELL_COMPD_MAX[0]-maxwell::MAXWELL_COMPD_MIN[0])
+#define Ry (maxwell::MAXWELL_COMPD_MAX[1]-maxwell::MAXWELL_COMPD_MIN[1])
+#define Rz (maxwell::MAXWELL_COMPD_MAX[2]-maxwell::MAXWELL_COMPD_MIN[2])
 
-#define RgX (nlsm::NLSM_OCTREE_MAX[0]-nlsm::NLSM_OCTREE_MIN[0])
-#define RgY (nlsm::NLSM_OCTREE_MAX[1]-nlsm::NLSM_OCTREE_MIN[1])
-#define RgZ (nlsm::NLSM_OCTREE_MAX[2]-nlsm::NLSM_OCTREE_MIN[2])
+#define RgX (maxwell::MAXWELL_OCTREE_MAX[0]-maxwell::MAXWELL_OCTREE_MIN[0])
+#define RgY (maxwell::MAXWELL_OCTREE_MAX[1]-maxwell::MAXWELL_OCTREE_MIN[1])
+#define RgZ (maxwell::MAXWELL_OCTREE_MAX[2]-maxwell::MAXWELL_OCTREE_MIN[2])
 
-#define GRIDX_TO_X(xg) (((Rx/RgX)*(xg-nlsm::NLSM_OCTREE_MIN[0]))+nlsm::NLSM_COMPD_MIN[0])
-#define GRIDY_TO_Y(yg) (((Ry/RgY)*(yg-nlsm::NLSM_OCTREE_MIN[1]))+nlsm::NLSM_COMPD_MIN[1])
-#define GRIDZ_TO_Z(zg) (((Rz/RgZ)*(zg-nlsm::NLSM_OCTREE_MIN[2]))+nlsm::NLSM_COMPD_MIN[2])
+#define GRIDX_TO_X(xg) (((Rx/RgX)*(xg-maxwell::MAXWELL_OCTREE_MIN[0]))+maxwell::MAXWELL_COMPD_MIN[0])
+#define GRIDY_TO_Y(yg) (((Ry/RgY)*(yg-maxwell::MAXWELL_OCTREE_MIN[1]))+maxwell::MAXWELL_COMPD_MIN[1])
+#define GRIDZ_TO_Z(zg) (((Rz/RgZ)*(zg-maxwell::MAXWELL_OCTREE_MIN[2]))+maxwell::MAXWELL_COMPD_MIN[2])
 
-#define X_TO_GRIDX(xc) (((RgX/Rx)*(xc-nlsm::NLSM_COMPD_MIN[0]))+nlsm::NLSM_OCTREE_MIN[0])
-#define Y_TO_GRIDY(yc) (((RgY/Ry)*(yc-nlsm::NLSM_COMPD_MIN[1]))+nlsm::NLSM_OCTREE_MIN[1])
-#define Z_TO_GRIDZ(zc) (((RgZ/Rz)*(zc-nlsm::NLSM_COMPD_MIN[2]))+nlsm::NLSM_OCTREE_MIN[2])
+#define X_TO_GRIDX(xc) (((RgX/Rx)*(xc-maxwell::MAXWELL_COMPD_MIN[0]))+maxwell::MAXWELL_OCTREE_MIN[0])
+#define Y_TO_GRIDY(yc) (((RgY/Ry)*(yc-maxwell::MAXWELL_COMPD_MIN[1]))+maxwell::MAXWELL_OCTREE_MIN[1])
+#define Z_TO_GRIDZ(zc) (((RgZ/Rz)*(zc-maxwell::MAXWELL_COMPD_MIN[2]))+maxwell::MAXWELL_OCTREE_MIN[2])
 
 
 using json = nlohmann::json;
-namespace nlsm
+namespace maxwell
 {
 /**
- * @brief These variable indexes are based on the variables defined in rkNLSM.h
+ * @brief These variable indexes are based on the variables defined in rkMAXWELL.h
  * */
 enum VAR {U_AX=0,U_AY,U_AZ,U_EX,U_EY,U_EZ,U_GAM,U_PSI};
 
-static const char * NLSM_VAR_NAMES[]={"U_AX","U_AY"...........};
+static const char * MAXWELL_VAR_NAMES[]={"U_AX","U_AY","U_AZ","U_EX","U_EY","U_EZ","U_GAM","U_PSI"};
 
 /**
  * @brief internal variables needed for rk update.
@@ -64,7 +64,7 @@ static const char * NLSM_VAR_NAMES[]={"U_AX","U_AY"...........};
  * @brief Initialize all the variables for a given point in space.
  * @param [in] coord: coordinates of the point.
  * @param [out] var: pointer to the list of variables, computed. var size should be (VAR::U_SYMAT5+1)
- * @note This function is taken from the old single core nlsm version.
+ * @note This function is taken from the old single core maxwell version.
  **/
 
  // Initial data
@@ -82,11 +82,11 @@ static const char * NLSM_VAR_NAMES[]={"U_AX","U_AY"...........};
    * */
   double computeWTol(double x,double y,double z,double tol_min);
 
-}// end of namespace nlsm
+}// end of namespace maxwell
 
 
 
-namespace nlsm
+namespace maxwell
 {
 
     namespace timer

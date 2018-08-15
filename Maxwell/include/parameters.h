@@ -1,12 +1,3 @@
-//
-// Created by milinda on 7/25/17.
-/**
-*@author Milinda Fernando
-*School of Computing, University of Utah
-*@brief This file contains all the parameters related to NLSM simulation.
-*/
-//
-
 #ifndef SFCSORTBENCH_PARAMETERS_H
 #define SFCSORTBENCH_PARAMETERS_H
 
@@ -14,215 +5,108 @@
 #include <iostream>
 
 
-
-
-namespace nlsm
+namespace maxwell
 {
 
-    /**@brief element order*/
-    static const unsigned int NLSM_ELE_ORDER=4;
+	static const unsigned int MAXWELL_ELE_ORDER = 4;
 
-    /**@brief number of variables*/
-    static const unsigned int NLSM_NUM_VARS=2;
+	static const unsigned int MAXWELL_RK45_STAGES = 6;
 
-    /***@brief number of RK45 stages*/
-    static const unsigned int NLSM_RK45_STAGES=6;
+	static const unsigned int MAXWELL_RK4_STAGES = 4;
 
-    /***@brief number of RK4 stages*/
-    static const unsigned int NLSM_RK4_STAGES=4;
+	static const unsigned int MAXWELL_RK3_STAGES = 3;
 
-    /**@brief number of rk4 stages*/
-    static const unsigned int NLSM_RK3_STAGES=3;
+	static const double MAXWELL_SAFETY_FAC = 0.8;
 
-    /**@brief CFL stability number number (specifies how dt=NLSM_CFL_FACTOR*dx)*/
-    static const double NLSM_CFL_FACTOR=0.1;
+	extern unsigned int MAXWELL_TIME_STEP_OUTPUT_FREQ;extern unsigned int MAXWELL_SPLIT_FIX;	extern double MAXWELL_COMPD_MIN[3];
 
-    /**@brief: parameter used for adaptive time step update. */
-    static const double NLSM_SAFETY_FAC=0.8;
+	extern double MAXWELL_COMPD_MAX[3];
 
-    /**@brief number of internal variables*/
-    static const unsigned int NLSM_NUM_VARS_INTENL=(NLSM_RK45_STAGES+1)*NLSM_NUM_VARS;
+	extern double MAXWELL_OCTREE_MIN[3];
 
-    /**@brief min bh domain add these to the parameter file.*/
-    extern double NLSM_COMPD_MIN[3];
-    /**@brief min bh domain @todo add these to the parameter file. */
-    extern double NLSM_COMPD_MAX[3];
+	extern double MAXWELL_OCTREE_MAX[3];
 
-    /**@brief min coords of the OCTREE */
-    extern double NLSM_OCTREE_MIN[3];
-    /**@brief max coords of the OCTREE */
-    extern double NLSM_OCTREE_MAX[3];
+	static const unsigned int MAXWELL_NUM_VARS = 8;
 
-    /**@brief solution output frequency*/
-    extern unsigned int NLSM_IO_OUTPUT_FREQ;
+	extern unsigned int MAXWELL_RESTORE_SOLVER;
 
-    /**@brief timestep norms out put freq.*/
-    extern unsigned int NLSM_TIME_STEP_OUTPUT_FREQ;
+	extern unsigned int MAXWELL_IO_OUTPUT_FREQ;
 
-    /**@brief remesh test frequency*/
-    extern unsigned int NLSM_REMESH_TEST_FREQ;
+	extern unsigned int MAXWELL_REMESH_TEST_FREQ;
 
-    /**@brief checkpoint store frequency*/
-    extern unsigned int NLSM_CHECKPT_FREQ;
+	extern unsigned int MAXWELL_CHECKPT_FREQ;
 
-    /**@brief restore the solver from check point if set to 1. */
-    extern unsigned int NLSM_RESTORE_SOLVER;
+	extern double MAXWELL_IO_OUTPUT_GAP;
 
-    /**@brief use the block adaptivity and disable the AMR*/
-    extern unsigned int NLSM_ENABLE_BLOCK_ADAPTIVITY;
+	extern std::string MAXWELL_VTU_FILE_PREFIX;
 
-    /**@brief file prefix for VTU*/
-    extern std::string NLSM_VTU_FILE_PREFIX;
+	extern std::string MAXWELL_CHKPT_FILE_PREFIX;
 
-    /**@brief file prefix for write check point*/
-    extern std::string NLSM_CHKPT_FILE_PREFIX;
+	extern std::string MAXWELL_PROFILE_FILE_PREFIX;
 
-    /**@brief file prefix to write profile info.*/
-    extern std::string NLSM_PROFILE_FILE_PREFIX;
+	extern unsigned int MAXWELL_NUM_EVOL_VARS_VTU_OUTPUT;
 
-    /**@brief number of refine variables*/
-    extern unsigned int NLSM_NUM_REFINE_VARS;
+	extern unsigned int MAXWELL_VTU_OUTPUT_EVOL_INDICES[MAXWELL_NUM_VARS];
 
-    /**@brief indices of refine var ids*/
-    extern unsigned int NLSM_REFINE_VARIABLE_INDICES[NLSM_NUM_VARS];
+	extern unsigned int MAXWELL_DENDRO_GRAIN_SZ;
 
-    /**@brief number of evolution variables written to vtu files*/
-    extern unsigned int NLSM_NUM_EVOL_VARS_VTU_OUTPUT;
+	extern unsigned int MAXWELL_ASYNC_COMM_K;
 
-    /**@brief evolution variable IDs written to vtu files*/
-    extern unsigned int NLSM_VTU_OUTPUT_EVOL_INDICES[NLSM_NUM_VARS];
+	extern double MAXWELL_DENDRO_AMR_FAC;
 
-    /**@brief solution output gap (instead of freq. we can use to output the solution if currentTime > lastIOOutputTime + NLSM_IO_OUTPUT_GAP)*/
-    extern  double NLSM_IO_OUTPUT_GAP;
+	extern double MAXWELL_LOAD_IMB_TOL;
 
-    /**@brief prefered grain sz to use when selecting active npes*/
-    extern unsigned int NLSM_DENDRO_GRAIN_SZ;
+	extern unsigned int MAXWELL_DIM;
 
-    /**@brief AMR coarsening factor (we coarsen if tol<NLSM_DENDRO_AMR_FAC*NLSM_WAVELET_TOL)*/
-    extern double NLSM_DENDRO_AMR_FAC;
+	extern unsigned int MAXWELL_MAXDEPTH;
 
-    /**@brief wavelet tolerance value. */
-    extern  double NLSM_WAVELET_TOL;
-    /**@brief load-imbalance tolerance value. */
-    extern  double NLSM_LOAD_IMB_TOL;
-    /**@brief: Splitter fix value*/
-    extern unsigned int NLSM_SPLIT_FIX;
+	extern double MAXWELL_WAVELET_TOL;
 
-    /**@brief: async. communication at a time. (upper bound shoud be NLSM_NUM_VARS) */
-    extern unsigned int NLSM_ASYNC_COMM_K;
+	extern unsigned int MAXWELL_NUM_REFINE_VARS;
 
+	extern unsigned int MAXWELL_REFINE_VARIABLE_INDICES[MAXWELL_NUM_VARS];
 
-    /**@brief simulation begin time. */
-    extern double NLSM_RK45_TIME_BEGIN;
-    /**@brief simulation end time*/
-    extern double NLSM_RK45_TIME_END;
-    /**@brief rk time step size. */
-    extern double NLSM_RK45_TIME_STEP_SIZE;
+	extern double MAXWELL_RK45_TIME_BEGIN;
 
-    /** desired tolerance value for the rk45 method (adaptive time stepping. )*/
-    extern double NLSM_RK45_DESIRED_TOL;
+	extern double MAXWELL_RK45_TIME_END;
 
-    /**@brief BBH initial data type */
-    extern unsigned int NLSM_ID_TYPE;
+	extern double MAXWELL_RK45_TIME_STEP_SIZE;
 
-    /**@brief physical coordinates for grid, x_min */
-    extern double NLSM_GRID_MIN_X;
+	extern double MAXWELL_RK45_DESIRED_TOL;
 
-    /**@brief physical coordinates for grid, x_max */
-    extern double NLSM_GRID_MAX_X;
+	extern double KO_DISS_SIGMA;
 
-    /**@brief physical coordinates for grid, y_min */
-    extern double NLSM_GRID_MIN_Y;
+	extern unsigned int MAXWELL_ENABLE_BLOCK_ADAPTIVITY;
 
-    /**@brief physical coordinates for grid, y_max */
-    extern double NLSM_GRID_MAX_Y;
+	extern double MAXWELL_BLK_MIN_X;
 
-    /**@brief physical coordinates for grid, z_min */
-    extern double NLSM_GRID_MIN_Z;
+	extern double MAXWELL_BLK_MIN_Y;
 
-    /**@brief physical coordinates for grid, z_max */
-    extern double NLSM_GRID_MAX_Z;
+	extern double MAXWELL_BLK_MIN_Z;
 
-    /**@brief physical coordinates for the blk adaptive x_min*/
-    extern double NLSM_BLK_MIN_X;
+	extern double MAXWELL_BLK_MAX_X;
 
-    /**@brief physical coordinates for the blk adaptive x_min*/
-    extern double NLSM_BLK_MIN_Y;
+	extern double MAXWELL_BLK_MAX_Y;
 
-    /**@brief physical coordinates for the blk adaptive x_min*/
-    extern double NLSM_BLK_MIN_Z;
+	extern double MAXWELL_BLK_MAX_Z;
 
-    /**@brief physical coordinates for the blk adaptive x_min*/
-    extern double NLSM_BLK_MAX_X;
+	extern double MAXWELL_GRID_MIN_X;
 
-    /**@brief physical coordinates for the blk adaptive x_min*/
-    extern double NLSM_BLK_MAX_Y;
+	extern double MAXWELL_GRID_MAX_X;
 
-    /**@brief physical coordinates for the blk adaptive x_min*/
-    extern double NLSM_BLK_MAX_Z;
+	extern double MAXWELL_GRID_MIN_Y;
 
-    /**@brief: dimension of the grid*/
-    extern unsigned int NLSM_DIM;
+	extern double MAXWELL_GRID_MAX_Y;
 
-    /**@brief: max refinement level*/
-    extern unsigned int NLSM_MAXDEPTH;
+	extern double MAXWELL_GRID_MIN_Z;
 
-    /**@brief: Kreiss-Oliger dissipation */
-    extern double KO_DISS_SIGMA;
+	extern double MAXWELL_GRID_MAX_Z;
 
-    /**@brief: Kreiss-Oliger dissipation */
-    extern double KO_DISS_SIGMA;
+	static const double MAXWELL_CFL_FACTOR = 0.1;
 
+	extern unsigned int MAXWELL_ID_TYPE;
 
-
-    /**@brief: Initial data Gaussian amplitude */
-    extern double NLSM_ID_AMP1;
-
-    /**@brief: Initial data Gaussian amplitude */
-    extern double NLSM_ID_AMP2;
-
-    /**@brief: Initial data Gaussian width */
-    extern double NLSM_ID_DELTA1;
-
-    /**@brief: Initial data Gaussian width */
-    extern double NLSM_ID_DELTA2;
-
-    /**@brief: Initial data Gaussian x offset */
-    extern double NLSM_ID_XC1;
-    extern double NLSM_ID_YC1;
-    extern double NLSM_ID_ZC1;
-
-    /**@brief: Initial data Gaussian x offset */
-    extern double NLSM_ID_XC2;
-    extern double NLSM_ID_YC2;
-    extern double NLSM_ID_ZC2;
-
-    /**@brief: Initial data Gaussian elliptic x factor */
-    extern double NLSM_ID_EPSX1;
-
-    /**@brief: Initial data Gaussian elliptic y factor */
-    extern double NLSM_ID_EPSY1;
-
-    /**@brief: Initial data Gaussian elliptic x factor */
-    extern double NLSM_ID_EPSX2;
-
-    /**@brief: Initial data Gaussian elliptic y factor */
-    extern double NLSM_ID_EPSY2;
-
-    /**@brief: Initial data Gaussian R */
-    extern double NLSM_ID_R1;
-
-    /**@brief: Initial data Gaussian R */
-    extern double NLSM_ID_R2;
-
-    /**@brief: Initial data Gaussian nu */
-    extern double NLSM_ID_NU1;
-
-    /**@brief: Initial data Gaussian nu */
-    extern double NLSM_ID_NU2;
-
-    /**@brief: Initial data Gaussian Omega */
-    extern double NLSM_ID_OMEGA;
+	static const unsigned int MAXWELL_NUM_VARS_INTENL=(MAXWELL_RK45_STAGES+1)*MAXWELL_NUM_VARS;
 
 }
 

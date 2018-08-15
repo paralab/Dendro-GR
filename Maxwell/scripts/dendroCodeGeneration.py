@@ -5,7 +5,7 @@ Created on Mon Jul  2 16:04:15 2018
 @author: Dave
 
 This is a script that reads in a csv file, containing variables for Dendro-GR
-code, and then writes nlsmA.par.json, parameters.h, and parameters.cpp.
+code, and then writes maxwellA.par.json, parameters.h, and parameters.cpp.
 Hopefully it will also write utils files too.
 
 !!! NOTES !!!
@@ -22,7 +22,7 @@ def main():
     
 def createJson():
     #open our new .json file
-    file = open("nlsmADAVE.par.json","w+")
+    file = open("maxwellADAVE.par.json","w+")
     
     #start writing to the new .json file
     #writes everything EXCEPT the last '}'
@@ -41,12 +41,12 @@ def createJson():
     
     #This makes sure the last line does NOT end with a comma
     #which is a serious sin in a .json file
-    with open('nlsmADAVE.par.json', 'rb+') as binaryFile:
+    with open('maxwellADAVE.par.json', 'rb+') as binaryFile:
         binaryFile.seek(-1, os.SEEK_END)
         binaryFile.truncate()
     
     #this adds opens the file in append mode and writes the final }
-    file = open("nlsmADAVE.par.json","a")
+    file = open("maxwellADAVE.par.json","a")
     file.write("\n\n}")
     file.close()
 
@@ -55,19 +55,19 @@ def createHeader():
     file.write("#ifndef SFCSORTBENCH_PARAMETERS_H\n")
     file.write("#define SFCSORTBENCH_PARAMETERS_H\n\n")
     file.write("#include <string.h>\n#include <iostream>\n\n\n")
-    file.write("namespace nlsm\n{\n\n")
+    file.write("namespace maxwell\n{\n\n")
     
-    file.write("\tstatic const unsigned int NLSM_ELE_ORDER = 4;\n\n")
-    file.write("\tstatic const unsigned int NLSM_RK45_STAGES = 6;\n\n")
-    file.write("\tstatic const unsigned int NLSM_RK4_STAGES = 4;\n\n")
-    file.write("\tstatic const unsigned int NLSM_RK3_STAGES = 3;\n\n")
-    file.write("\tstatic const double NLSM_SAFETY_FAC = 0.8;\n\n")
+    file.write("\tstatic const unsigned int MAXWELL_ELE_ORDER = 4;\n\n")
+    file.write("\tstatic const unsigned int MAXWELL_RK45_STAGES = 6;\n\n")
+    file.write("\tstatic const unsigned int MAXWELL_RK4_STAGES = 4;\n\n")
+    file.write("\tstatic const unsigned int MAXWELL_RK3_STAGES = 3;\n\n")
+    file.write("\tstatic const double MAXWELL_SAFETY_FAC = 0.8;\n\n")
     
     #next four lines are NOT read in from JSON file. They are defined in parameters.cpp
-    file.write("\textern unsigned int NLSM_TIME_STEP_OUTPUT_FREQ;")
-    file.write("extern unsigned int NLSM_SPLIT_FIX;")
-    file.write("\textern double NLSM_COMPD_MIN[3];\n\n\textern double NLSM_COMPD_MAX[3];\n\n")
-    file.write("\textern double NLSM_OCTREE_MIN[3];\n\n\textern double NLSM_OCTREE_MAX[3];\n\n")
+    file.write("\textern unsigned int MAXWELL_TIME_STEP_OUTPUT_FREQ;")
+    file.write("extern unsigned int MAXWELL_SPLIT_FIX;")
+    file.write("\textern double MAXWELL_COMPD_MIN[3];\n\n\textern double MAXWELL_COMPD_MAX[3];\n\n")
+    file.write("\textern double MAXWELL_OCTREE_MIN[3];\n\n\textern double MAXWELL_OCTREE_MAX[3];\n\n")
     
     
     with open("DENDRO_GR_VAR_DATA.csv","r") as csvfile:
@@ -85,7 +85,7 @@ def createHeader():
                 file.write("\t" + row[2] + " " + row[3] + " " + row[4] + "[" + row[1] + "];\n\n")
             
                 
-        file.write("\tstatic const unsigned int NLSM_NUM_VARS_INTENL=(NLSM_RK45_STAGES+1)*NLSM_NUM_VARS;\n\n")
+        file.write("\tstatic const unsigned int MAXWELL_NUM_VARS_INTENL=(MAXWELL_RK45_STAGES+1)*MAXWELL_NUM_VARS;\n\n")
         file.write("}\n\n#endif //SFCSORTBENCH_PARAMETERS_H")
     
 
@@ -93,7 +93,7 @@ def createCpp():
     file = open("parameters.cpp","w+")
     
     file.write("#include \"parameters.h\"\n\n")
-    file.write("namespace nlsm\n{\n\n")
+    file.write("namespace maxwell\n{\n\n")
     
     with open("DENDRO_GR_VAR_DATA.csv","r") as csvfile:
         reader = csv.reader(csvfile,delimiter=",")
@@ -105,12 +105,12 @@ def createCpp():
                 file.write("\t" + row[3] + " " + row[4] + "[" + row[1] + "] = {" + row[5] +"};\n\n")
                 
     #Here, we assign values to the variables that do not exist in the .json
-    file.write("\tdouble NLSM_COMPD_MIN[3]={NLSM_GRID_MIN_X,NLSM_GRID_MIN_Y,NLSM_GRID_MIN_Z};\n")
-    file.write("\tdouble NLSM_COMPD_MAX[3]={NLSM_GRID_MAX_X,NLSM_GRID_MAX_Y,NLSM_GRID_MAX_Z};\n\n")
-    file.write("\tdouble NLSM_OCTREE_MIN[3]={0.0,0.0,0.0};\n")
-    file.write("\tdouble NLSM_OCTREE_MAX[3]={(double)(1u<<NLSM_MAXDEPTH),(double)(1u<<NLSM_MAXDEPTH),(double)(1u<<NLSM_MAXDEPTH)};\n\n")
-    file.write("\tunsigned int NLSM_TIME_STEP_OUTPUT_FREQ=10;\n\n")
-    file.write("\tunsigned int NLSM_SPLIT_FIX=2;\n\n")
+    file.write("\tdouble MAXWELL_COMPD_MIN[3]={MAXWELL_GRID_MIN_X,MAXWELL_GRID_MIN_Y,MAXWELL_GRID_MIN_Z};\n")
+    file.write("\tdouble MAXWELL_COMPD_MAX[3]={MAXWELL_GRID_MAX_X,MAXWELL_GRID_MAX_Y,MAXWELL_GRID_MAX_Z};\n\n")
+    file.write("\tdouble MAXWELL_OCTREE_MIN[3]={0.0,0.0,0.0};\n")
+    file.write("\tdouble MAXWELL_OCTREE_MAX[3]={(double)(1u<<MAXWELL_MAXDEPTH),(double)(1u<<MAXWELL_MAXDEPTH),(double)(1u<<MAXWELL_MAXDEPTH)};\n\n")
+    file.write("\tunsigned int MAXWELL_TIME_STEP_OUTPUT_FREQ=10;\n\n")
+    file.write("\tunsigned int MAXWELL_SPLIT_FIX=2;\n\n")
     file.write("}")
     
 #This function is still under construction!!!
@@ -121,12 +121,12 @@ def createReadParam():
     tab3 = "\t\t\t"
     line1 = "\n"
     line2 = "\n\n"
-    nspace = "nlsm::"
+    nspace = "maxwell::"
     par = "par::Mpi_Bcast(&"
     
     file = open("readParam.cpp","w+")
-    file.write("#include \"nlsmUtils.h\"\n\n")
-    file.write("namespace nlsm\n{\n\n")
+    file.write("#include \"maxwellUtils.h\"\n\n")
+    file.write("namespace maxwell\n{\n\n")
     file.write(tab1+"void readParamFile(const char * fName,MPI_Comm comm)\n" + tab1 + "{" + line2)
     file.write(tab2 + "json parFile;" + line1)
     file.write(tab2 + "int rank,npes;" + line1)
@@ -153,14 +153,14 @@ def createReadParam():
     
     #This is probably defined above in the for loop.
     #I will need to delete the early def/assign
-    file.write(tab3 + "for(unsigned int i=0;i<nlsm::NLSM_NUM_REFINE_VARS;i++)" + line1)
-    file.write(tab3 + tab1 + "nlsm::NLSM_REFINE_VARIABLE_INDICES[i]=parFile[\"NLSM_REFINE_VARIABLE_INDICES\"][i];" + line2)
-    file.write(tab3 + "for(unsigned int i=0;i<nlsm::NLSM_NUM_EVOL_VARS_VTU_OUTPUT;i++)" + line1)
-    file.write(tab3 + tab1 + "nlsm::NLSM_VTU_OUTPUT_EVOL_INDICES[i]=parFile[\"NLSM_VTU_OUTPUT_EVOL_INDICES\"][i];" + line2)
+    file.write(tab3 + "for(unsigned int i=0;i<maxwell::MAXWELL_NUM_REFINE_VARS;i++)" + line1)
+    file.write(tab3 + tab1 + "maxwell::MAXWELL_REFINE_VARIABLE_INDICES[i]=parFile[\"MAXWELL_REFINE_VARIABLE_INDICES\"][i];" + line2)
+    file.write(tab3 + "for(unsigned int i=0;i<maxwell::MAXWELL_NUM_EVOL_VARS_VTU_OUTPUT;i++)" + line1)
+    file.write(tab3 + tab1 + "maxwell::MAXWELL_VTU_OUTPUT_EVOL_INDICES[i]=parFile[\"MAXWELL_VTU_OUTPUT_EVOL_INDICES\"][i];" + line2)
     
-    file.write(tab3 + "vtu_len=NLSM_VTU_FILE_PREFIX.size();" + line1)
-    file.write(tab3 + "chp_len=NLSM_CHKPT_FILE_PREFIX.size();" + line1)
-    file.write(tab3 + "prf_len=NLSM_PROFILE_FILE_PREFIX.size();" + line2 + tab2 +"}" + line2 + line1)
+    file.write(tab3 + "vtu_len=MAXWELL_VTU_FILE_PREFIX.size();" + line1)
+    file.write(tab3 + "chp_len=MAXWELL_CHKPT_FILE_PREFIX.size();" + line1)
+    file.write(tab3 + "prf_len=MAXWELL_PROFILE_FILE_PREFIX.size();" + line2 + tab2 +"}" + line2 + line1)
     
     with open("DENDRO_GR_VAR_DATA.csv","r") as csvfile:
         reader = csv.reader(csvfile,delimiter=",")
@@ -176,11 +176,11 @@ def createReadParam():
     #but I think it would be a good idea
     file.write(tab2 + "if(!rank)" + line1 + tab2 + "{" + line1)
     file.write(tab3 + "for(unsigned int k=0;k<vtu_len;k++){" +line1)
-    file.write(tab3 + tab1 + "vtu_name[k]=NLSM_VTU_FILE_PREFIX[k];" +line1 + tab3 + "}" + line2)
+    file.write(tab3 + tab1 + "vtu_name[k]=MAXWELL_VTU_FILE_PREFIX[k];" +line1 + tab3 + "}" + line2)
     file.write(tab3 + "for(unsigned int k=0;k<chp_len;k++){" + line1)
-    file.write(tab3 + tab1 + "chp_name[k]=NLSM_CHKPT_FILE_PREFIX[k];" + line1 + tab3 + "}" +line2)
+    file.write(tab3 + tab1 + "chp_name[k]=MAXWELL_CHKPT_FILE_PREFIX[k];" + line1 + tab3 + "}" +line2)
     file.write(tab3 + "for(unsigned int k=0;k<prf_len;k++){" + line1)
-    file.write(tab3 + tab1 + "prf_name[k]=NLSM_PROFILE_FILE_PREFIX[k];" + line1 + tab3 + "}" +line2)
+    file.write(tab3 + tab1 + "prf_name[k]=MAXWELL_PROFILE_FILE_PREFIX[k];" + line1 + tab3 + "}" +line2)
     file.write(tab3 + "vtu_name[vtu_len]='\\0';" + line1)
     file.write(tab3 + "chp_name[chp_len]='\\0';" + line1)
     file.write(tab3 + "prf_name[prf_len]='\\0';" + line2)
@@ -188,9 +188,9 @@ def createReadParam():
     file.write(tab2 + "MPI_Bcast(vtu_name,vtu_len+1,MPI_CHAR,0,comm);" + line1)
     file.write(tab2 + "MPI_Bcast(chp_name,chp_len+1,MPI_CHAR,0,comm);" + line1)
     file.write(tab2 + "MPI_Bcast(prf_name,prf_len+1,MPI_CHAR,0,comm);" + line2)
-    file.write(tab2 + "NLSM_VTU_FILE_PREFIX=std::string(vtu_name);" + line1)
-    file.write(tab2 + "NLSM_CHKPT_FILE_PREFIX=std::string(chp_name);" + line1)
-    file.write(tab2 + "NLSM_PROFILE_FILE_PREFIX=std::string(prf_name);" + line2) 
+    file.write(tab2 + "MAXWELL_VTU_FILE_PREFIX=std::string(vtu_name);" + line1)
+    file.write(tab2 + "MAXWELL_CHKPT_FILE_PREFIX=std::string(chp_name);" + line1)
+    file.write(tab2 + "MAXWELL_PROFILE_FILE_PREFIX=std::string(prf_name);" + line2) 
     """
     END lines 120-149, also the brackets might
     not be so necessary if no one needs to edit
