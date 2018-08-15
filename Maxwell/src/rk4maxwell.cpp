@@ -266,8 +266,137 @@ namespace ode
             maxwell::timer::t_ioVtu.start();
 
             std::vector<std::string> pDataNames;
+#ifdef MAXWELL_ANALYTIC_SOL_TEST
+            double *pData[(numConstVars+numEvolVars+8)];
+#else
             double *pData[(numConstVars+numEvolVars)];
+#endif
 
+#ifdef MAXWELL_ANALYTIC_SOL_TEST
+            double * Ax0=m_uiMesh->createVector<double>();
+            double * Ay0=m_uiMesh->createVector<double>();
+            double * Ex0=m_uiMesh->createVector<double>();
+            double * Ey0=m_uiMesh->createVector<double>();
+
+            double * Axdf=m_uiMesh->createVector<double>();
+            double * Aydf=m_uiMesh->createVector<double>();
+            double * Exdf=m_uiMesh->createVector<double>();
+            double * Eydf=m_uiMesh->createVector<double>();
+
+            std::function<void(double,double,double,double,double*)> u_x_t=[](double t,double x,double y,double z,double*var){maxwell::solToroidalDipole(t,x,y,z,var);};
+
+            // initialize diff begin
+            unsigned int nodeLookUp_CG;
+            unsigned int nodeLookUp_DG;
+            unsigned int x,y,z,len;
+            const ot::TreeNode * pNodes=&(*(m_uiMesh->getAllElements().begin()));
+            unsigned int ownerID,ii_x,jj_y,kk_z;
+            unsigned int eleOrder=m_uiMesh->getElementOrder();
+            const unsigned int * e2n_cg=&(*(m_uiMesh->getE2NMapping().begin()));
+            const unsigned int * e2n_dg=&(*(m_uiMesh->getE2NMapping_DG().begin()));
+            const unsigned int nPe=m_uiMesh->getNumNodesPerElement();
+            const unsigned int nodeLocalBegin=m_uiMesh->getNodeLocalBegin();
+            const unsigned int nodeLocalEnd=m_uiMesh->getNodeLocalEnd();
+
+
+            double var[8];
+
+            //double mp, mm, mp_adm, mm_adm, E, J1, J2, J3;
+
+            for(unsigned int elem=m_uiMesh->getElementLocalBegin();elem<m_uiMesh->getElementLocalEnd();elem++)
+            {
+                for(unsigned int k=0;k<(eleOrder+1);k++)
+                    for(unsigned int j=0;j<(eleOrder+1);j++ )
+                        for(unsigned int i=0;i<(eleOrder+1);i++)
+                        {
+                            nodeLookUp_CG=e2n_cg[elem*nPe+k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i];
+                            if(nodeLookUp_CG>=nodeLocalBegin && nodeLookUp_CG<nodeLocalEnd)
+                            {
+                                nodeLookUp_DG=e2n_dg[elem*nPe+k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i];
+                                m_uiMesh->dg2eijk(nodeLookUp_DG,ownerID,ii_x,jj_y,kk_z);
+                                len=1u<<(m_uiMaxDepth-pNodes[ownerID].getLevel());
+                                x=pNodes[ownerID].getX()+ ii_x*(len/(eleOrder));
+                                y=pNodes[ownerID].getY()+ jj_y*(len/(eleOrder));
+                                z=pNodes[ownerID].getZ()+ kk_z*(len/(eleOrder));
+                                assert(len%eleOrder==0);
+                                
+                                u_x_t(m_uiCurrentTime,(double)x,(double)y,(double)z,var);
+                                Axdf[nodeLookUp_CG]=var[maxwell::VAR::U_AX]-evolZipVarIn[maxwell::VAR::U_AX][nodeLookUp_CG];
+                                Aydf[nodeLookUp_CG]=var[maxwell::VAR::U_AY]-evolZipVarIn[maxwell::VAR::U_AY][nodeLookUp_CG];
+                                Axdf[nodeLookUp_CG]=var[maxwell::VAR::U_EX]-evolZipVarIn[maxwell::VAR::U_EX][nodeLookUp_CG];
+                                Aydf[nodeLookUp_CG]=var[maxwell::VAR::U_EY]-evolZipVarIn[maxwell::VAR::U_EY][nodeLookUp_CG];
+                                Ax0[nodeLookUp_CG]=var[maxwell::VAR::U_AX];
+                                Ay0[nodeLookUp_CG]=var[maxwell::VAR::U_AY];
+                                Ex0[nodeLookUp_CG]=var[maxwell::VAR::U_EX];
+                                Ey0[nodeLookUp_CG]=var[maxwell::VAR::U_EY];
+
+                            }
+
+                        }
+
+            }
+
+            m_uiMesh->performGhostExchange(Ax0);
+            m_uiMesh->performGhostExchange(Ay0);
+            m_uiMesh->performGhostExchange(Ex0);
+            m_uiMesh->performGhostExchange(Ey0);
+            m_uiMesh->performGhostExchange(Axdf);
+            m_uiMesh->performGhostExchange(Aydf);
+            m_uiMesh->performGhostExchange(Exdf);
+            m_uiMesh->performGhostExchange(Eydf);
+
+            double Axl_min=vecMin(Axdf+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
+            double Axl_max=vecMax(Axdf+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
+            double Axl2_norm=normL2(Axdf+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
+            DendroIntL local_dof=m_uiMesh->getNumLocalMeshNodes();
+            DendroIntL total_dof=0;
+            par::Mpi_Reduce(&local_dof,&total_dof,1,MPI_SUM,0,m_uiMesh->getMPICommunicator());
+
+            double Ayl_min=vecMin(Aydf+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
+            double Ayl_max=vecMax(Aydf+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
+            double Ayl2_norm=normL2(Aydf+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
+
+            double Exl_min=vecMin(Exdf+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
+            double Exl_max=vecMax(Exdf+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
+            double Exl2_norm=normL2(Exdf+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
+
+            double Eyl_min=vecMin(Eydf+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
+            double Eyl_max=vecMax(Eydf+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
+            double Eyl2_norm=normL2(Eydf+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
+
+
+            if(!m_uiMesh->getMPIRank()) {
+                //std::cout << "executing step: " << m_uiCurrentStep << " dt: " << m_uiT_h << " rk_time : "<< m_uiCurrentTime << std::endl;
+                Axl2_norm=sqrt((Axl2_norm*Axl2_norm)/(double)total_dof);
+                Ayl2_norm=sqrt((Ayl2_norm*Ayl2_norm)/(double)total_dof);
+                Exl2_norm=sqrt((Exl2_norm*Axl2_norm)/(double)total_dof);
+                Eyl2_norm=sqrt((Eyl2_norm*Ayl2_norm)/(double)total_dof);
+                std::cout <<YLW<< "\t ||VAR::DIFF AX|| (min, max,l2) : ("<<Axl_min<<", "<<Axl_max<<", "<<Axl2_norm<<")"<<NRM<<std::endl;
+                std::cout <<YLW<< "\t ||VAR::DIFF AY|| (min, max,l2) : ("<<Ayl_min<<", "<<Ayl_max<<", "<<Ayl2_norm<<")"<<NRM<<std::endl;
+                std::cout <<YLW<< "\t ||VAR::DIFF EX|| (min, max,l2) : ("<<Exl_min<<", "<<Exl_max<<", "<<Exl2_norm<<")"<<NRM<<std::endl;
+                std::cout <<YLW<< "\t ||VAR::DIFF EY|| (min, max,l2) : ("<<Eyl_min<<", "<<Eyl_max<<", "<<Eyl2_norm<<")"<<NRM<<std::endl;
+            }
+    // initialize diff end
+#endif
+
+#ifdef MAXWELL_ANALYTIC_SOL_TEST
+            pDataNames.push_back("Axdf");
+            pDataNames.push_back("Aydf");
+            pDataNames.push_back("Exdf");
+            pDataNames.push_back("Eydf");
+            pDataNames.push_back("Ax0");
+            pDataNames.push_back("Ay0");
+            pDataNames.push_back("Ex0");
+            pDataNames.push_back("Ey0");
+            pData[numConstVars+numEvolVars+0]=Axdf;
+            pData[numConstVars+numEvolVars+1]=Aydf;
+            pData[numConstVars+numEvolVars+2]=Exdf;
+            pData[numConstVars+numEvolVars+3]=Eydf;
+            pData[numConstVars+numEvolVars+4]=Ax0;
+            pData[numConstVars+numEvolVars+5]=Ay0;
+            pData[numConstVars+numEvolVars+6]=Ex0;
+            pData[numConstVars+numEvolVars+7]=Ey0;
+#endif
             for(unsigned int i=0;i<numEvolVars;i++)
             {
                 pDataNames.push_back(std::string(maxwell::MAXWELL_VAR_NAMES[evolVarIndices[i]]));
@@ -287,7 +416,22 @@ namespace ode
             char fPrefix[256];
             sprintf(fPrefix,"%s_%d",maxwell::MAXWELL_VTU_FILE_PREFIX.c_str(),m_uiCurrentStep);
 
+#ifdef MAXWELL_ANALYTIC_SOL_TEST
+            io::vtk::mesh2vtuFine(m_uiMesh,fPrefix,2,fDataNames,fData,(numEvolVars+numConstVars+8),(const char **)&pDataNames_char[0],(const double **)pData);
+#else
             io::vtk::mesh2vtuFine(m_uiMesh,fPrefix,2,fDataNames,fData,(numEvolVars+numConstVars),(const char **)&pDataNames_char[0],(const double **)pData);
+#endif
+
+#ifdef MAXWELL_ANALYTIC_SOL_TEST
+            delete [] Ax0;
+            delete [] Ay0;
+            delete [] Ex0;
+            delete [] Ey0;
+            delete [] Axdf;
+            delete [] Aydf;
+            delete [] Exdf;
+            delete [] Eydf;
+#endif
 
             maxwell::timer::t_ioVtu.stop();
 

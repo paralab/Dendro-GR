@@ -203,27 +203,106 @@ namespace maxwell
           var[VAR::U_AX] = 0;
           var[VAR::U_AY] = 0;
           var[VAR::U_AZ] = 0;
-	  var[VAR::U_EX] = -8.0*y*r*exp(-r*r);
-	  var[VAR::U_EY] = 8.0*x*r*exp(-r*r);
-	  var[VAR::U_EZ] = 0;
-	  var[VAR::U_GAM] = 0;
-	  var[VAR::U_PSI] = 0;
-
-
+	      var[VAR::U_EX] = -8.0*y*exp(-r*r);
+	      var[VAR::U_EY] = 8.0*x*exp(-r*r);
+	      var[VAR::U_EZ] = 0;
+	      var[VAR::U_GAM] = 0;
+	      var[VAR::U_PSI] = 0;
         }
 
 	else if (maxwell::MAXWELL_ID_TYPE == 1) {
           var[VAR::U_AX] = 0;
           var[VAR::U_AY] = 0;
           var[VAR::U_AZ] = 0;
-	  var[VAR::U_EX] = .001*sin(3.0*x)+.001*sin(5.0*x)+.001*sin(11.0*x);
-	  var[VAR::U_EY] = 0;
-	  var[VAR::U_EZ] = 0;
-	  var[VAR::U_GAM] = 0;
-	  var[VAR::U_PSI] = 0;
-
-
+	      var[VAR::U_EX] = .001*sin(3.0*x)+.001*sin(5.0*x)+.001*sin(11.0*x);
+	      var[VAR::U_EY] = 0;
+	      var[VAR::U_EZ] = 0;
+	      var[VAR::U_GAM] = 0;
+	      var[VAR::U_PSI] = 0;
         }
+
+    }
+
+    void solToroidalDipole(const double t, const double xx1, const double yy1, const double zz1, double *var)
+    {
+        const double x=GRIDX_TO_X(xx1);
+        const double y=GRIDY_TO_Y(yy1);
+        const double z=GRIDZ_TO_Z(zz1);
+        const double r=sqrt(x*x + y*y + z*z);
+
+        double t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t16;
+        double t20,t21,t22,t24,t30,t31,t39,t44,t47,t48,t51,t54;
+        double t55,t63,t66,t69,t78,t81;
+        // Ax
+        t1 = x * x;
+        t2 = y * y;
+        t3 = z * z;
+        t4 = t1 + t2 + t3 + 1.0e-11;
+        t5 = sqrt(t4);
+        t6 = 0.1e1 / t5;
+        t8 = t - t5;
+        t9 = t8 * t8;
+        t10 = exp(-t9);
+        t11 = t + t5;
+        t12 = t11 * t11;
+        t13 = exp(-t12);
+        var[VAR::U_AX] = -(0.1e1 / t4 * (t10 - t13) - 0.2e1 * t6 * (t10 * t8 + t13 * t11)) * t6 * y;
+
+        // Ay
+        t6 = 0.1e1 / t5;
+        t8 = t - t5;
+        t9 = t8 * t8;
+        t10 = exp(-t9);
+        t11 = t + t5;
+        t12 = t11 * t11;
+        t13 = exp(-t12);
+        var[VAR::U_AY] = (0.1e1 / t4 * (t10 - t13) - 0.2e1 * t6 * (t10 * t8 + t13 * t11)) * t6 * x;
+
+        // Ex
+        t7 = (t + t5)*(t + t5);
+        t8 = exp(-t7);
+        t9 = t * t8;
+        t11 = t * t;
+        t12 = t11 * t8;
+        t20 = (-t + t5) * (-t + t5);
+        t21 = exp(-t20);
+        t22 = t * t21;
+        t24 = t11 * t21;
+        t31 = t1 * t8;
+        t39 = t1 * t21;
+        t44 = t5 * t9 + 0.2e1 * t1 * t12 + 0.2e1 * t2 * t12 + 0.2e1 * t3 * t12 - t5 * t22 + 0.2e1 * t1 * t24 + 0.2e1 * t2 * t24 + 0.2e1 * t3 * t24 + 0.4e1 * t2 * t31 + 0.4e1 * t3 * t31 + 0.4e1 * t3 * t2 * t8 + 0.4e1 * t2 * t39 + 0.4e1 * t3 * t39;
+        t48 = t1 * t1;
+        t51 = t2 * t2;
+        t54 = t3 * t3;
+        t63 = t1 * t5;
+        t66 = t2 * t5;
+        t69 = t3 * t5;
+        t78 = 0.4e1 * t3 * t2 * t21 + 0.2e1 * t48 * t8 + 0.2e1 * t51 * t8 + 0.2e1 * t54 * t8 + 0.2e1 * t48 * t21 + 0.2e1 * t51 * t21 + 0.2e1 * t54 * t21 + 0.4e1 * t63 * t9 + 0.4e1 * t66 * t9 + 0.4e1 * t69 * t9 - 0.4e1 * t63 * t22 - 0.4e1 * t66 * t22 - 0.4e1 * t69 * t22;
+        t81 = t4 * t4;
+        var[VAR::U_EX] = -0.2e1 / t81 * (t44 + t78) * y;
+
+        // Ey
+        t7 = (t + t5) * (t + t5);
+        t8 = exp(-t7);
+        t9 = t * t8;
+        t10 = t1 * t5;
+        t13 = t2 * t5;
+        t16 = t3 * t5;
+        t20 = (-t + t5) * (-t + t5);
+        t21 = exp(-t20);
+        t22 = t * t21;
+        t30 = t * t;
+        t31 = t30 * t8;
+        t39 = t30 * t21;
+        t44 = 0.4e1 * t10 * t9 + 0.4e1 * t13 * t9 + 0.4e1 * t16 * t9 - 0.4e1 * t10 * t22 - 0.4e1 * t13 * t22 - 0.4e1 * t16 * t22 + t5 * t9 + 0.2e1 * t1 * t31 + 0.2e1 * t2 * t31 + 0.2e1 * t3 * t31 - t5 * t22 + 0.2e1 * t1 * t39 + 0.2e1 * t2 * t39;
+        t47 = t1 * t8;
+        t55 = t1 * t21;
+        t63 = t1 * t1;
+        t66 = t2 * t2;
+        t69 = t3 * t3;
+        t78 = 0.2e1 * t3 * t39 + 0.4e1 * t2 * t47 + 0.4e1 * t3 * t47 + 0.4e1 * t3 * t2 * t8 + 0.4e1 * t2 * t55 + 0.4e1 * t3 * t55 + 0.4e1 * t3 * t2 * t21 + 0.2e1 * t63 * t8 + 0.2e1 * t66 * t8 + 0.2e1 * t69 * t8 + 0.2e1 * t63 * t21 + 0.2e1 * t66 * t21 + 0.2e1 * t69 * t21;
+        t81 = t4 * t4;
+        var[VAR::U_EY] = 0.2e1 / t81 * (t44 + t78) * x;
 
     }
 

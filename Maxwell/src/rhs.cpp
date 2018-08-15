@@ -193,7 +193,7 @@ maxwell::timer::t_deriv.stop();
   for(int counter = 0; counter < n; counter++){
     jx[counter] = 0;
   }
-  bool antennaSource = true;
+  bool antennaSource = false;
   if(antennaSource == true){
   for (unsigned int k = 3; k < nz-3; k++) {
       z = pmin[2] + k*hz;

@@ -19,7 +19,6 @@
 #include "dendroProfileParams.h"
 #include "profile_params.h"
 
-
 #define Rx (maxwell::MAXWELL_COMPD_MAX[0]-maxwell::MAXWELL_COMPD_MIN[0])
 #define Ry (maxwell::MAXWELL_COMPD_MAX[1]-maxwell::MAXWELL_COMPD_MIN[1])
 #define Rz (maxwell::MAXWELL_COMPD_MAX[2]-maxwell::MAXWELL_COMPD_MIN[2])
@@ -69,6 +68,7 @@ static const char * MAXWELL_VAR_NAMES[]={"U_AX","U_AY","U_AZ","U_EX","U_EY","U_E
 
  // Initial data
  void initData(const double xx1,const double yy1,const double zz1, double *var);
+ void solToroidalDipole(const double t, const double xx1, const double yy1, const double zz1, double *var);
 
  /**
   * @brief: Generates block adaptive octree for the given binary blockhole problem.
