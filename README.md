@@ -43,7 +43,7 @@
     <video width="600" controls>
     <source src="doc/vids/bssn_r1_Img_psi4.mp4" type="video/mp4">
     Your browser does not support the video tag.
-    </video> 
+    </video> <br>
 
    Imaginary part of psi4 scalar which will be used for gravitational wave analysis
    
@@ -63,6 +63,8 @@ This figure illustrates the calculation of a single Runge-Kutta (RK) time step, 
 ## Symbolic Code Generation for Computational Relativity
 
 ![Symbolic code generation](doc/figs/symbolic_eq.png)
+
+In the left which shows the BSSN formulation of Einstien equation while in the right figure shows how the BSSN formulation written using our symbolic code generation framework. 
 
 ## How Wavelet Adaptive Mesh Refinement (WAMR) works ?
 <img src ="doc/figs/wamr.png" height="600" align="center">
