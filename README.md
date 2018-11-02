@@ -7,18 +7,21 @@
       <video width="600" controls>
       <source src="doc/vids/bssn_r1_chi.mp4" type="video/mp4">
       Your browser does not support the video tag.
-      </video> 
- 
- BSSN variable chi
-  </div>
+      </video> <br>
+
+  Equal mass ratio binary compact merger, slice over the octree of BSSN variable chi variable
+<br>
+<br>
+</div>
   
   <div class="column">
     <video width="600" controls>
     <source src="doc/vids/bssn_r1_chi_wf.mp4" type="video/mp4">
     Your browser does not support the video tag.
-    </video> 
- 
- BSSN variable chi with underlying refinement
+    </video> <br>
+   Equal mass ratio binary compact merger, slice over the octree of BSSN variable chi variable with underlying WAMR grid
+<br>
+<br>
 
   </div>
 </div> 
@@ -29,10 +32,11 @@
       <video width="600"  controls>
       <source src="doc/vids/bssn_r1_Re_psi4.mp4" type="video/mp4">
       Your browser does not support the video tag.
-      </video> 
+      </video> <br>
 
-Real part of psi4 scalar
-
+  Real part of psi4 scalar which will be used for gravitational wave analysis
+<br>
+<br>
   </div>
   
   <div class="column">
@@ -41,8 +45,8 @@ Real part of psi4 scalar
     Your browser does not support the video tag.
     </video> 
 
-   Imaginary part of psi4 scalar
-
+   Imaginary part of psi4 scalar which will be used for gravitational wave analysis
+   
   </div>
 </div> 
 
@@ -55,6 +59,10 @@ Real part of psi4 scalar
 
 ![Dendro-Gr overview](doc/figs/bssn_overview.png)
 This figure illustrates the calculation of a single Runge-Kutta (RK) time step, computing the solution at the advanced time, u n+1 , from data at the previous time step, $u_n$. For computational efficiency, spatial and time derivatives are evaluated on equispaced blocks (unzipped); a sparse grid constructed from wavelet coefficients is used for communication and to store the final solution (zipped). For each RK stage s we perform the unzip operation which results in a sequence of blocks which are used to compute the solution on the internal block (green), using the padding values at the block boundary (yellow) followed by a zip operation in between RK stages while the final update (i.e. next time step) performed using the zip version of the variables. Note that the re-meshing is performed as needed based on the wavelet expansion of the current solution
+
+## Symbolic Code Generation for Computational Relativity
+
+![Symbolic code generation](doc/figs/symbolic_eq.png)
 
 ## How Wavelet Adaptive Mesh Refinement (WAMR) works ?
 <img src ="doc/figs/wamr.png" height="600" align="center">
