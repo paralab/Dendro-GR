@@ -4,7 +4,7 @@
 
  <div class="row">
   <div class="column">
-      <video width="320" height="240" controls>
+      <video width="600" controls>
       <source src="doc/vids/bssn_r1_chi.mp4" type="video/mp4">
       Your browser does not support the video tag.
       </video> 
