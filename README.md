@@ -8,16 +8,17 @@
       <source src="doc/vids/bssn_r1_chi.mp4" type="video/mp4">
       Your browser does not support the video tag.
       </video> 
-      BSSN variable chi
+ 
+ BSSN variable chi
   </div>
   
   <div class="column">
-    <video width="320" height="240" controls>
+    <video width="600" controls>
     <source src="doc/vids/bssn_r1_chi_wf.mp4" type="video/mp4">
     Your browser does not support the video tag.
     </video> 
-
-    BSSN variable chi with refinement
+ 
+ BSSN variable chi with refinement
 
   </div>
 </div> 
@@ -25,22 +26,22 @@
 
  <div class="row">
   <div class="column">
-      <video width="320" height="240" controls>
+      <video width="600"  controls>
       <source src="doc/vids/bssn_r1_Re_psi4.mp4" type="video/mp4">
       Your browser does not support the video tag.
       </video> 
 
-      Real part of psi4 scalar
+Real part of psi4 scalar
 
   </div>
   
   <div class="column">
-    <video width="320" height="240" controls>
+    <video width="600" controls>
     <source src="doc/vids/bssn_r1_Img_psi4.mp4" type="video/mp4">
     Your browser does not support the video tag.
     </video> 
 
-    Imaginary part of psi4 scalar
+   Imaginary part of psi4 scalar
 
   </div>
 </div> 
