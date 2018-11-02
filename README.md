@@ -67,7 +67,7 @@ This figure illustrates the calculation of a single Runge-Kutta (RK) time step, 
 In the left which shows the BSSN formulation of Einstien equation while in the right figure shows how the BSSN formulation written using our symbolic code generation framework. 
 
 ## How Wavelet Adaptive Mesh Refinement (WAMR) works ?
-<img src ="doc/figs/wamr.png" height="600" align="center">
+<img src ="doc/figs/wamr.png" height="600" align="center"><br>
 For a given function $f:V \rightarrow R$ let $V_i \in V$ be the finite dimensional approximation of $f$ (see Figure 3a). As number of nodes increases (i.e. going from $V_i$ to $V_{i+1}$ ) for each additional node introduced, we compute wavelet coefficients based on the absolute difference between $f(V_{i,k})$ and interpolated value from previous level $f($V_{i−1},:)$ (see Figure 3b). In Figure 3c shows the chosen nodes that violate specified wavelet tolerance epsilon and these nodal wavelets are stored as the sparse/wavelet representation of function f (see Figure 3d).
 
 ## Contributions
