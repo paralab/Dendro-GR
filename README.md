@@ -80,7 +80,7 @@ for %compressible plasma dynamics and radiation hydrodynamics.
 ![weak_scalability](doc/figs/weak_scaling.png)
 Weak scaling results in ORNL's Titan for  $RK/(dof/p)$ (averaged over 10 steps) where $RK,dof,p$ denotes the time for single $RK$ step, degrees of freedom, and number of cores respectively,  with derivative computation (\texttt{deriv}), right hand side( {\texttt rhs}) computation, \texttt{unzip} cost, wavelet computation(\texttt{wavelets}) and communication cost (\texttt{comm}) with the average of 1.41M unknowns per core where the number of cores ranging from $32$ to $131,072$ cores on $8,192$ nodes where the largest problem having $206$ Billion unknowns. Above results are generated with mass ratio $\mu=10$ with \maxDepth~ 18 and wavelet tolerance of $10^{-6}$. Note that the unknowns per core have a slight variation since with WAMR we do not have explicit control over the grid size and WAMR decides the refinement region on the mesh based on the how wavelets behave during the time evolution. This is why we have reported normalized $RK$ with $dof/p$ metrics to report accurate weak scaling results.
 
-# Strong scalability (upto 64,000 cores)
+# Strong scalability (upto 65,000 cores)
 ![strong_scalability](doc/figs/strong_sc.png)
 Strong scaling results in ORNL's Titan for a single RK step (averaged over 10 steps) with derivative computation (\texttt{deriv}), right hand side( {\texttt rhs}) computation, \texttt{unzip} cost and communication cost (\texttt{comm}) for a fixed problem size of $10.5B$ unknowns where the number of cores ranging from $4,096$ to $65,536$ cores on $4096$ nodes. Note that for strong scaling results re-meshing is disabled in order to keep the problem size fixed.
 
