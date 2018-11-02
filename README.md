@@ -18,7 +18,7 @@
     Your browser does not support the video tag.
     </video> 
  
- BSSN variable chi with refinement
+ BSSN variable chi with underlying refinement
 
   </div>
 </div> 
