@@ -2,33 +2,50 @@
 
 ## Binary compact mergers
 
-<video width="320" height="240" controls>
-<source src="doc/vids/bssn_r1_chi.mp4" type="video/mp4">
-Your browser does not support the video tag.
-</video> 
+ <div class="row">
+  <div class="column">
+      <video width="320" height="240" controls>
+      <source src="doc/vids/bssn_r1_chi.mp4" type="video/mp4">
+      Your browser does not support the video tag.
+      </video> 
+      BSSN variable chi
+  </div>
+  
+  <div class="column">
+    <video width="320" height="240" controls>
+    <source src="doc/vids/bssn_r1_chi_wf.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+    </video> 
 
-BSSN variable chi
+    BSSN variable chi with refinement
 
-<video width="320" height="240" controls>
-<source src="doc/vids/bssn_r1_chi_wf.mp4" type="video/mp4">
-Your browser does not support the video tag.
-</video> 
+  </div>
+</div> 
 
-BSSN variable chi with refinement
 
-<video width="320" height="240" controls>
-<source src="doc/vids/bssn_r1_Re_psi4.mp4" type="video/mp4">
-Your browser does not support the video tag.
-</video> 
+ <div class="row">
+  <div class="column">
+      <video width="320" height="240" controls>
+      <source src="doc/vids/bssn_r1_Re_psi4.mp4" type="video/mp4">
+      Your browser does not support the video tag.
+      </video> 
 
-Real part of psi4 scalar
+      Real part of psi4 scalar
 
-<video width="320" height="240" controls>
-<source src="doc/vids/bssn_r1_Img_psi4.mp4" type="video/mp4">
-Your browser does not support the video tag.
-</video> 
+  </div>
+  
+  <div class="column">
+    <video width="320" height="240" controls>
+    <source src="doc/vids/bssn_r1_Img_psi4.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+    </video> 
 
-Imaginary part of psi4 scalar
+    Imaginary part of psi4 scalar
+
+  </div>
+</div> 
+
+
 
 ![bh_wamr](doc/figs/bh_amr.png)
 (left) A example of the adaptive mesh created by Dendro for the binary black-hole system. (right) the hierarchical wavelet grids generated for the binary black hole system. 
