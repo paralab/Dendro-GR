@@ -103,4 +103,5 @@ Dendro-GR Team
  * David Neilsen (Department of Physics and Astronomy, Brigham Young University)
  * Hyun Lim (Department of Physics and Astronomy, Brigham Young University)
  * Eric Hirschmann (Department of Physics and Astronomy, Brigham Young University)
+ * Yosef Zlochower (School of Mathematical Sciences, Rochester Institute of Technology) 
 
