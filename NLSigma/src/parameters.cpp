@@ -11,6 +11,9 @@
 
 namespace nlsm
 {
+    
+    unsigned int NLSM_ELE_ORDER =4;
+    unsigned int NLSM_PADDING_WIDTH = NLSM_ELE_ORDER>>1u;
     unsigned int NLSM_IO_OUTPUT_FREQ=10;
     unsigned int NLSM_TIME_STEP_OUTPUT_FREQ=10;
     unsigned int NLSM_REMESH_TEST_FREQ=10;
@@ -19,7 +22,7 @@ namespace nlsm
     double NLSM_WAVELET_TOL=0.0001;
 
     double NLSM_LOAD_IMB_TOL=0.1;
-    unsigned int NLSM_SPLIT_FIX=2;
+    unsigned int NLSM_SPLIT_FIX=256;
     unsigned int NLSM_ASYNC_COMM_K=4;
     double NLSM_RK45_TIME_BEGIN=0;
     double NLSM_RK45_TIME_END=10;
@@ -38,8 +41,10 @@ namespace nlsm
 
     unsigned int NLSM_DIM=3;
     unsigned int NLSM_MAXDEPTH=8;
+    unsigned int NLSM_MINDEPTH=3;
 
     unsigned int NLSM_ID_TYPE=0;
+    double NLSM_CFL_FACTOR=0.1;
 
     double NLSM_GRID_MIN_X=-50.0;
     double NLSM_GRID_MAX_X=50.0;
@@ -88,14 +93,26 @@ namespace nlsm
     double NLSM_ID_XC2 = 0.0;
     double NLSM_ID_YC2 = 0.0;
     double NLSM_ID_ZC2 = 0.0;
-    double NLSM_ID_EPSX1 = 0.0;
-    double NLSM_ID_EPSY1 = 0.0;
-    double NLSM_ID_EPSX2 = 0.0;
-    double NLSM_ID_EPSY2 = 0.0;
+    double NLSM_ID_EPSX1 = 1.0;
+    double NLSM_ID_EPSY1 = 1.0;
+    double NLSM_ID_EPSZ1 = 1.0;
+    double NLSM_ID_EPSX2 = 1.0;
+    double NLSM_ID_EPSY2 = 1.0;
+    double NLSM_ID_EPSZ2 = 1.0;
     double NLSM_ID_R1 = 0.0;
     double NLSM_ID_R2 = 0.0;
     double NLSM_ID_NU1 = 0.0;
     double NLSM_ID_NU2 = 0.0;
     double NLSM_ID_OMEGA = 0.0;
 
+    double NLSM_WAVE_SPEED_X = 1.0;
+    double NLSM_WAVE_SPEED_Y = 0.0;
+    double NLSM_WAVE_SPEED_Z = 0.0;
+
+    double NLSM_CHI_REFINE_VAL= std::max(nlsm::NLSM_ID_AMP1,nlsm::NLSM_ID_AMP2);
+    double NLSM_CHI_COARSEN_VAL=0.1;
+
+    RefineMode NLSM_REFINE_MODE=RefineMode::WAMR;
+
+    
 }

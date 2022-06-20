@@ -13,10 +13,9 @@
  * 2). Assumes that there is no duplicate nodes.
  *
  *
- * Communicator swithch assumptions.
- *
- ** global rank=0 is always active.
- ** communicator split should be always contigous.
+ * Communicator switch assumptions.
+ * 1). global rank=0 is always active.
+ * 2). communicator split should be always contigious.
  *
  *
  *
@@ -42,9 +41,12 @@ namespace ot {
 
 
 
-    Mesh::Mesh(std::vector<ot::TreeNode> &in, unsigned int k_s, unsigned int pOrder,unsigned int activeNpes,MPI_Comm comm,unsigned int grainSz,double ld_tol,unsigned int sf_k)
+    Mesh::Mesh(std::vector<ot::TreeNode> &in, unsigned int k_s, unsigned int pOrder,unsigned int activeNpes,MPI_Comm comm,bool pBlockSetup, SM_TYPE smType ,unsigned int grainSz,double ld_tol,unsigned int sf_k)
     {
         m_uiCommGlobal=comm;
+        m_uiIsBlockSetup=pBlockSetup;
+        m_uiScatterMapType= smType;
+        m_uiIsF2ESetup=false;
         MPI_Comm_rank(m_uiCommGlobal,&m_uiGlobalRank);
         MPI_Comm_size(m_uiCommGlobal,&m_uiGlobalNpes);
 
@@ -144,8 +146,23 @@ namespace ot {
             double t_e2e_end = MPI_Wtime();
             t_e2e = t_e2e_end - t_e2e_begin;
 
+            if(smType == SM_TYPE::E2E_ONLY)
+                return;
+
             double t_e2n_begin = MPI_Wtime();
-            buildE2NMap();
+            if(smType==SM_TYPE::FDM)
+            {
+                // build the scatter map for finite difference computations
+                buildE2NWithSM();
+            }else if(smType == SM_TYPE::FEM_CG)
+            {
+                buildE2NWithSM();
+
+            }else if(m_uiScatterMapType == SM_TYPE::FEM_DG)
+            {
+                buildE2N_DG();
+            }
+
             double t_e2n_end = MPI_Wtime();
             t_e2n = t_e2n_end - t_e2n_begin;
 
@@ -154,49 +171,61 @@ namespace ot {
             //if(m_uiActiveNpes>1)computeNodalScatterMap(m_uiCommActive);
             //if(m_uiActiveNpes>1)computeNodalScatterMap1(m_uiCommActive);
             //if(m_uiActiveNpes>1)computeNodalScatterMap2(m_uiCommActive);
-            if (m_uiActiveNpes > 1)computeNodalScatterMap4(m_uiCommActive);
+            if (m_uiActiveNpes > 1)
+            {   
+                if(m_uiScatterMapType == SM_TYPE::FEM_DG)
+                {
+                    // elemental scatter map. 
+                    computeNodalScatterMapDG(m_uiCommActive);
+                    buildF2EMap();
+
+                }
+                // nodal scatter map is build above. 
+                // else
+                // computeNodalScatterMap4(m_uiCommActive);
+            }
+            
 
             double t_sm_end = MPI_Wtime();
             t_sm = t_sm_end - t_sm_begin;
 
             double t_blk_begin = MPI_Wtime();
-            performBlocksSetup();
+            if(m_uiIsBlockSetup)
+            {
+                performBlocksSetup(m_uiCoarsetBlkLev,NULL,0);
+                //computeSMSpecialPts();
+                buildE2BlockMap();
+            }
+                
             double t_blk_end = MPI_Wtime();
             t_blk = t_blk_end - t_blk_begin;
 
-
-            par::Mpi_Reduce(&t_e2e, t_e2e_g, 1, MPI_MIN, 0, m_uiCommActive);
-            par::Mpi_Reduce(&t_e2e, t_e2e_g + 1, 1, MPI_SUM, 0, m_uiCommActive);
-            par::Mpi_Reduce(&t_e2e, t_e2e_g + 2, 1, MPI_MAX, 0, m_uiCommActive);
-            t_e2e_g[1] /= (double) m_uiActiveNpes;
-
-            par::Mpi_Reduce(&t_e2n, t_e2n_g, 1, MPI_MIN, 0, m_uiCommActive);
-            par::Mpi_Reduce(&t_e2n, t_e2n_g + 1, 1, MPI_SUM, 0, m_uiCommActive);
-            par::Mpi_Reduce(&t_e2n, t_e2n_g + 2, 1, MPI_MAX, 0, m_uiCommActive);
-            t_e2n_g[1] /= (double) m_uiActiveNpes;
-
-            par::Mpi_Reduce(&t_sm, t_sm_g, 1, MPI_MIN, 0, m_uiCommActive);
-            par::Mpi_Reduce(&t_sm, t_sm_g + 1, 1, MPI_SUM, 0, m_uiCommActive);
-            par::Mpi_Reduce(&t_sm, t_sm_g + 2, 1, MPI_MAX, 0, m_uiCommActive);
-            t_sm_g[1] /= (double) m_uiActiveNpes;
-
-            par::Mpi_Reduce(&t_blk, t_blk_g, 1, MPI_MIN, 0, m_uiCommActive);
-            par::Mpi_Reduce(&t_blk, t_blk_g + 1, 1, MPI_SUM, 0, m_uiCommActive);
-            par::Mpi_Reduce(&t_blk, t_blk_g + 2, 1, MPI_MAX, 0, m_uiCommActive);
-            t_blk_g[1] /= (double) m_uiActiveNpes;
-
-            for(unsigned int p=0;p<m_uiActiveNpes;p++)
+            #ifdef __PROFILE_MESH__
+                par::computeOverallStats(&t_e2e,t_e2e_g,m_uiCommActive,"mesh e2e ");
+                par::computeOverallStats(&t_e2n,t_e2n_g,m_uiCommActive,"mesh e2n (+ sm for fdm type) ");
+                par::computeOverallStats(&t_sm,t_sm_g,m_uiCommActive,"mesh sm (DG type) ");
+                par::computeOverallStats(&t_blk,t_blk_g,m_uiCommActive,"block setup ");
+            #endif
+            
+            if(m_uiActiveNpes>1)
             {
-                if(m_uiSendNodeCount[p]!=0)
-                    m_uiSendProcList.push_back(p);
+                for(unsigned int p=0;p<m_uiActiveNpes;p++)
+                {
+                
+                    if(m_uiSendNodeCount[p]!=0)
+                        m_uiSendProcList.push_back(p);
 
-                if(m_uiRecvNodeCount[p]!=0)
-                    m_uiRecvProcList.push_back(p);
+                    if(m_uiRecvNodeCount[p]!=0)
+                        m_uiRecvProcList.push_back(p);
+
+                }
+
+                m_uiSendBufferNodes.resize(m_uiSendNodeOffset[m_uiActiveNpes-1]+m_uiSendNodeCount[m_uiActiveNpes-1]);
+                m_uiRecvBufferNodes.resize(m_uiRecvNodeOffset[m_uiActiveNpes-1]+m_uiRecvNodeCount[m_uiActiveNpes-1]);
 
             }
 
-            m_uiSendBufferNodes.resize(m_uiSendNodeOffset[m_uiActiveNpes-1]+m_uiSendNodeCount[m_uiActiveNpes-1]);
-            m_uiRecvBufferNodes.resize(m_uiRecvNodeOffset[m_uiActiveNpes-1]+m_uiRecvNodeCount[m_uiActiveNpes-1]);
+            
 
             // release comm counter memory
             if (m_uiActiveNpes > 1) {
@@ -237,10 +266,15 @@ namespace ot {
     }
 
 
-    Mesh::Mesh(std::vector<ot::TreeNode> &in, unsigned int k_s, unsigned int pOrder,MPI_Comm comm,unsigned int grainSz,double ld_tol,unsigned int sf_k)
+    Mesh::Mesh(std::vector<ot::TreeNode> &in, unsigned int k_s, unsigned int pOrder,MPI_Comm comm,bool pBlockSetup, SM_TYPE smType, unsigned int grainSz,double ld_tol,unsigned int sf_k,unsigned int (*getWeight)(const ot::TreeNode *), unsigned int* blk_tags, unsigned int blk_tags_sz)
     {
 
         m_uiCommGlobal=comm;
+        m_uiIsBlockSetup=pBlockSetup;
+        m_uiScatterMapType= smType;
+        m_uiIsF2ESetup=false;
+        // now m_uiCoarsetBlkLev set by the cmake;
+        //m_uiCoarsetBlkLev = 0;
         MPI_Comm_rank(m_uiCommGlobal,&m_uiGlobalRank);
         MPI_Comm_size(m_uiCommGlobal,&m_uiGlobalNpes);
 
@@ -248,10 +282,10 @@ namespace ot {
         DendroIntL globalSz;
 
         par::Mpi_Allreduce(&localSz,&globalSz,1,MPI_SUM,m_uiCommGlobal);
-        int p_npes_prev=binOp::getPrevHighestPowerOfTwo((globalSz/grainSz));
-        int p_npes_next=binOp::getNextHighestPowerOfTwo((globalSz/grainSz));
-        
-        int p_npes=globalSz/grainSz;
+        int p_npes=std::max(globalSz/grainSz,(DendroIntL)1);
+        int p_npes_prev=binOp::getPrevHighestPowerOfTwo(p_npes);
+        int p_npes_next=binOp::getNextHighestPowerOfTwo(p_npes);
+
         //if(!m_uiGlobalRank) std::cout<<"p_npes_prev: "<<p_npes_prev<<" p_npes_next: "<<p_npes_next<<" p_npes: "<<p_npes<<" diff1: "<<std::abs(p_npes_prev-p_npes)<<" diff2: "<<std::abs(p_npes_next-p_npes)<<std::endl;
         (std::abs(p_npes_prev-p_npes)<=std::abs(p_npes_next-p_npes)) ? p_npes=p_npes_prev : p_npes=p_npes_next;
         
@@ -272,7 +306,7 @@ namespace ot {
             par::splitComm2way(m_uiIsActive,&m_uiCommActive,m_uiCommGlobal);
         }
 
-        shrinkOrExpandOctree(in,ld_tol,sf_k,m_uiIsActive,m_uiCommActive,m_uiCommGlobal);
+        shrinkOrExpandOctree(in,ld_tol,sf_k,m_uiIsActive,m_uiCommActive,m_uiCommGlobal,getWeight);
 
         m_uiMeshDomain_min=0;
         m_uiMeshDomain_max=(1u<<(m_uiMaxDepth));
@@ -361,8 +395,24 @@ namespace ot {
             double t_e2e_end=MPI_Wtime();
             t_e2e=t_e2e_end-t_e2e_begin;
 
+            if(smType == SM_TYPE::E2E_ONLY)
+                return;
+
             double t_e2n_begin=MPI_Wtime();
-            buildE2NMap();
+            
+            if(m_uiScatterMapType==SM_TYPE::FDM)
+            {
+                // build the scatter map for finite difference computations
+                buildE2NWithSM();
+
+            }else if(m_uiScatterMapType == SM_TYPE::FEM_CG)
+            {
+                buildE2NWithSM(); 
+            }else if(m_uiScatterMapType == SM_TYPE::FEM_DG)
+            {
+                buildE2N_DG();
+            }
+           
             double t_e2n_end=MPI_Wtime();
             t_e2n=t_e2n_end-t_e2n_begin;
 
@@ -371,39 +421,42 @@ namespace ot {
             //if(m_uiActiveNpes>1)computeNodalScatterMap(m_uiCommActive);
             //if(m_uiActiveNpes>1)computeNodalScatterMap1(m_uiCommActive);
             //if(m_uiActiveNpes>1)computeNodalScatterMap2(m_uiCommActive);
-            if(m_uiActiveNpes>1)computeNodalScatterMap4(m_uiCommActive);
+            if (m_uiActiveNpes > 1)
+            {
+                if(m_uiScatterMapType == SM_TYPE::FEM_DG)
+                {
+                    computeNodalScatterMapDG(m_uiCommActive);
+                    buildF2EMap(); // this is more of the elemental scatter map. 
+                }
+                // Note: that the scatter map is updated from above. 
+                // else
+                // computeNodalScatterMap4(m_uiCommActive);
+            
+            }
+
 
             double t_sm_end=MPI_Wtime();
             t_sm=t_sm_end-t_sm_begin;
 
             double t_blk_begin=MPI_Wtime();
-            performBlocksSetup();
+
+            if(m_uiIsBlockSetup)
+            {
+                performBlocksSetup(m_uiCoarsetBlkLev,blk_tags,blk_tags_sz);
+                //computeSMSpecialPts();
+                buildE2BlockMap();
+            }
+                
+
             double t_blk_end=MPI_Wtime();
             t_blk=t_blk_end-t_blk_begin;
 
-
-            par::Mpi_Reduce(&t_e2e,t_e2e_g,1,MPI_MIN,0,m_uiCommActive);
-            par::Mpi_Reduce(&t_e2e,t_e2e_g+1,1,MPI_SUM,0,m_uiCommActive);
-            par::Mpi_Reduce(&t_e2e,t_e2e_g+2,1,MPI_MAX,0,m_uiCommActive);
-            t_e2e_g[1]/=(double)m_uiActiveNpes;
-
-            par::Mpi_Reduce(&t_e2n,t_e2n_g,1,MPI_MIN,0,m_uiCommActive);
-            par::Mpi_Reduce(&t_e2n,t_e2n_g+1,1,MPI_SUM,0,m_uiCommActive);
-            par::Mpi_Reduce(&t_e2n,t_e2n_g+2,1,MPI_MAX,0,m_uiCommActive);
-            t_e2n_g[1]/=(double)m_uiActiveNpes;
-
-            par::Mpi_Reduce(&t_sm,t_sm_g,1,MPI_MIN,0,m_uiCommActive);
-            par::Mpi_Reduce(&t_sm,t_sm_g+1,1,MPI_SUM,0,m_uiCommActive);
-            par::Mpi_Reduce(&t_sm,t_sm_g+2,1,MPI_MAX,0,m_uiCommActive);
-            t_sm_g[1]/=(double)m_uiActiveNpes;
-
-            par::Mpi_Reduce(&t_blk,t_blk_g,1,MPI_MIN,0,m_uiCommActive);
-            par::Mpi_Reduce(&t_blk,t_blk_g+1,1,MPI_SUM,0,m_uiCommActive);
-            par::Mpi_Reduce(&t_blk,t_blk_g+2,1,MPI_MAX,0,m_uiCommActive);
-            t_blk_g[1]/=(double)m_uiActiveNpes;
-
-
-            
+            #ifdef __PROFILE_MESH__
+                par::computeOverallStats(&t_e2e,t_e2e_g,m_uiCommActive,"mesh e2e ");
+                par::computeOverallStats(&t_e2n,t_e2n_g,m_uiCommActive,"mesh e2n (+ sm for fdm type) ");
+                par::computeOverallStats(&t_sm,t_sm_g,m_uiCommActive,"mesh sm (DG type) ");
+                par::computeOverallStats(&t_blk,t_blk_g,m_uiCommActive,"block setup ");
+            #endif
             
             if(m_uiActiveNpes>1)
             {
@@ -498,6 +551,7 @@ namespace ot {
 
         m_uiSendProcList.clear();
         m_uiRecvProcList.clear();
+        m_uiE2BlkMap.clear();
 
         MPI_Comm_free(&m_uiCommActive);
 
@@ -1376,10 +1430,6 @@ namespace ot {
         MPI_Comm_rank(comm, &rank);
         MPI_Comm_size(comm, &npes);
 
-
-#ifdef DEBUG_MESH_GENERATION
-        //treeNodesTovtk(in,rank,"balOct");
-#endif
         std::swap(m_uiEmbeddedOctree, in);
         in.clear();
 
@@ -1394,11 +1444,9 @@ namespace ot {
         assert(par::test::isUniqueAndSorted(m_uiEmbeddedOctree, comm));
 
 
-#ifdef DEBUG_MESH_GENERATION
-        treeNodesTovtk(m_uiEmbeddedOctree,rank,"m_uiEmbeddedOctree");
-#endif
-
-
+        #ifdef DEBUG_MESH_GENERATION
+            treeNodesTovtk(m_uiEmbeddedOctree,rank,"m_uiEmbeddedOctree");
+        #endif
 
         // AllGather of the the max local octant. This will be used to split the keys among the processors.
         m_uiLocalSplitterElements.resize(2*npes);
@@ -1408,33 +1456,33 @@ namespace ot {
         par::Mpi_Allgather(localMinMaxElement, &(*(m_uiLocalSplitterElements.begin())), 2, comm);
 
 
-#ifdef DEBUG_MESH_GENERATION
-        if(!rank)
-        {
-            std::vector<ot::TreeNode> splitter_vec;
-            for(int i=0;i<npes;i++)
+        #ifdef DEBUG_MESH_GENERATION
+            if(!rank)
             {
-                splitter_vec.push_back(m_uiLocalSplitterElements[i]);
+                std::vector<ot::TreeNode> splitter_vec;
+                for(int i=0;i<npes;i++)
+                {
+                    splitter_vec.push_back(m_uiLocalSplitterElements[i]);
+                }
+                treeNodesTovtk(splitter_vec,rank,"splitters");
             }
-            treeNodesTovtk(splitter_vec,rank,"splitters");
-        }
-#endif
+        #endif
 
 
         // 2- generate the keys. (These are the keys for the local elements \tau_{loc})
-       generateSearchKeys();
+        generateSearchKeys();
 
-#ifdef DEBUG_MESH_GENERATION
-        if(!rank) std::cout<<"Key generation completed "<<std::endl;
-#endif
+        #ifdef DEBUG_MESH_GENERATION
+            if(!rank) std::cout<<"Key generation completed "<<std::endl;
+        #endif
 
 
-#ifdef DEBUG_MESH_GENERATION
-       /* unsigned int localKeySz=keys_vec.size();
-        unsigned int globalKeySz=0;
-        par::Mpi_Reduce(&localKeySz,&globalKeySz,1,MPI_SUM,0,comm);
-        if(!rank) std::cout<<" Total number of keys generated: "<<globalKeySz<<std::endl;*/
-#endif
+        #ifdef DEBUG_MESH_GENERATION
+            /* unsigned int localKeySz=keys_vec.size();
+                unsigned int globalKeySz=0;
+                par::Mpi_Reduce(&localKeySz,&globalKeySz,1,MPI_SUM,0,comm);
+                if(!rank) std::cout<<" Total number of keys generated: "<<globalKeySz<<std::endl;*/
+        #endif
 
 
 
@@ -1445,9 +1493,9 @@ namespace ot {
         assert(seq::test::isUniqueAndSorted(m_uiKeys));
 
 
-#ifdef DEBUG_MESH_GENERATION
-        treeNodesTovtk(m_uiKeys,rank,"m_uiKeys",false);
-#endif
+        #ifdef DEBUG_MESH_GENERATION
+                treeNodesTovtk(m_uiKeys,rank,"m_uiKeys",false);
+        #endif
 
 
         m_uiSendKeyCount = new unsigned int[npes];
@@ -1535,20 +1583,20 @@ namespace ot {
 
 
 
-#ifdef DEBUG_MESH_GENERATION
-       /* MPI_Barrier(comm);
-        if(!rank) std::cout<<"Ghost Element Size: "<<m_uiScatterMapElementRound1.size()<<" without removing duplicates: "<<m_uiGhostElementIDsToBeSent.size()<<std::endl;*/
-#endif
+        #ifdef DEBUG_MESH_GENERATION
+            /* MPI_Barrier(comm);
+                if(!rank) std::cout<<"Ghost Element Size: "<<m_uiScatterMapElementRound1.size()<<" without removing duplicates: "<<m_uiGhostElementIDsToBeSent.size()<<std::endl;*/
+        #endif
         m_uiGhostElementIDsToBeSent.clear();
 
 
-#ifdef DEBUG_MESH_GENERATION
-         if(!rank)
-         for(unsigned int k=0;k<npes;k++)
-         {
-             std::cout<<"Processor "<<k<<" sendCnt: "<<m_uiSendKeyCount[k]<<" recvCnt: "<<m_uiRecvKeyCount[k]<<std::endl;
-         }
-#endif
+        #ifdef DEBUG_MESH_GENERATION
+                if(!rank)
+                for(unsigned int k=0;k<npes;k++)
+                {
+                    std::cout<<"Processor "<<k<<" sendCnt: "<<m_uiSendKeyCount[k]<<" recvCnt: "<<m_uiRecvKeyCount[k]<<std::endl;
+                }
+        #endif
 
         par::Mpi_Alltoall(m_uiSendOctCountRound1,m_uiRecvOctCountRound1,1,comm);
 
@@ -1824,18 +1872,18 @@ namespace ot {
         const unsigned int FACE_MISNG_EXC_ELE_END=m_uiElementLocalEnd;
 
 
-#ifdef DEBUG_MESH_GENERATION
+        #ifdef DEBUG_MESH_GENERATION
 
-        for(unsigned int ele=m_uiElementPreGhostBegin;ele<m_uiElementPreGhostEnd;ele++)
-            m_uiGhostOctants.push_back(m_uiAllElements[ele]);
+            for(unsigned int ele=m_uiElementPreGhostBegin;ele<m_uiElementPreGhostEnd;ele++)
+                m_uiGhostOctants.push_back(m_uiAllElements[ele]);
 
-        for(unsigned int ele=m_uiElementPostGhostBegin;ele<m_uiElementPostGhostEnd;ele++)
-            m_uiGhostOctants.push_back(m_uiAllElements[ele]);
+            for(unsigned int ele=m_uiElementPostGhostBegin;ele<m_uiElementPostGhostEnd;ele++)
+                m_uiGhostOctants.push_back(m_uiAllElements[ele]);
 
-        treeNodesTovtk(m_uiGhostOctants,rank,"ghostR1");
-        m_uiGhostOctants.clear();
+            treeNodesTovtk(m_uiGhostOctants,rank,"ghostR1");
+            m_uiGhostOctants.clear();
 
-#endif
+        #endif
 
 
         // E2E Mapping for the Round face-1 & face-2 face ghost exchange.
@@ -1854,10 +1902,7 @@ namespace ot {
             ownerList = m_uiKeysPtr[k].getOwnerList();
             if(ownerList->size() && (!((OCT_FOUND & m_uiKeysPtr[k].getFlag())))) {
                 std::cout<<"rank: "<<m_uiActiveRank<<"[E2E Error]: Local  face key missing after R1 face-1 & face-2 ghost exchange: "<<m_uiKeysPtr[k]<<std::endl;
-                exit(0); // no point in continuing if this fails E2N fails for sure :)
-                //std::cout<<"rank: "<<m_uiActiveRank<<" key: "<<m_uiKeysPtr[k]<<" missing "<<" status: "<<(splitterElements[4]<=m_uiKeysPtr[k] && m_uiKeysPtr[k]<=splitterElements[5])<<" k: "<<k<<" sbegin: "<<splitterElements[44].getSearchResult()<<" sEnd: "<<splitterElements[45].getSearchResult()<<std::endl;
-                //missingKeys.push_back(m_uiKeysPtr[k]);
-                //continue;
+                exit(0);
             }
 
             stencilIndexDirection = m_uiKeysPtr[k].getStencilIndexDirectionList();
@@ -1898,18 +1943,18 @@ namespace ot {
         }
 
 
-    //===========================================================================================================================================================================================================================================
+        //===========================================================================================================================================================================================================================================
 
 
-    // 6- Perform exchange for edge and vertex neighbors. =======================================================================================================================================================================================
+        // 6- Perform exchange for edge and vertex neighbors. =======================================================================================================================================================================================
 
 
         m_uiKeysDiag.clear();
         generateBdyElementDiagonalSearchKeys();
 
-#ifdef DEBUG_MESH_GENERATION
-        treeNodesTovtk(m_uiKeysDiag,rank,"m_uiKeyDiag");
-#endif
+        #ifdef DEBUG_MESH_GENERATION
+            treeNodesTovtk(m_uiKeysDiag,rank,"m_uiKeyDiag");
+        #endif
 
 
 
@@ -1990,9 +2035,9 @@ namespace ot {
                            &(*(recvDiagKeyOct.begin())), (int *) m_uiRecvKeyDiagCount, (int *) m_uiRecvKeyDiagOffset, comm);
 
 
-#ifdef DEBUG_MESH_GENERATION
-        treeNodesTovtk(recvDiagKeyOct,rank,"recvDiagKeyOct");
-#endif
+        #ifdef DEBUG_MESH_GENERATION
+            treeNodesTovtk(recvDiagKeyOct,rank,"recvDiagKeyOct");
+        #endif
 
         std::vector<ot::Key> recvDiagKey_keys;
         std::vector<ot::Key>::iterator itKey;
@@ -2066,10 +2111,10 @@ namespace ot {
 
 
 
-#ifdef DEBUG_MESH_GENERATION
-        treeNodesTovtk(m_uiGhostOctants,rank,"ghostR1Diag");
-        std::vector<ot::TreeNode> missingKeys;
-#endif
+        #ifdef DEBUG_MESH_GENERATION
+            treeNodesTovtk(m_uiGhostOctants,rank,"ghostR1Diag");
+            std::vector<ot::TreeNode> missingKeys;
+        #endif
 
         m_uiAllElements.insert(m_uiAllElements.end(),m_uiGhostOctants.begin(),m_uiGhostOctants.end());
         m_uiGhostOctants.clear();
@@ -2133,10 +2178,7 @@ namespace ot {
 
             if(ownerList->size() && (!((OCT_FOUND & m_uiKeysPtr[k].getFlag())))) {
                 std::cout<<"rank: "<<m_uiActiveRank<<"[E2E Error]: Local  face key missing after R1 (face edge vertex) ghost exchange: "<<m_uiKeysPtr[k]<<std::endl;
-                exit(0); // no point in continuing if this fails E2N fails for sure :)
-                //std::cout<<"rank: "<<m_uiActiveRank<<" key: "<<m_uiKeysPtr[k]<<" missing "<<" status: "<<(splitterElements[4]<=m_uiKeysPtr[k] && m_uiKeysPtr[k]<=splitterElements[5])<<" k: "<<k<<" sbegin: "<<splitterElements[44].getSearchResult()<<" sEnd: "<<splitterElements[45].getSearchResult()<<std::endl;
-                //missingKeys.push_back(m_uiKeysPtr[k]);
-                //continue;
+                exit(0); 
             }
 
             if(ownerList->size()) assert((OCT_FOUND & m_uiKeysPtr[k].getFlag()));// Note that all the keys should be found locally due to the fact that we have exchanged ghost elements.
@@ -2187,8 +2229,6 @@ namespace ot {
 
             if(ownerList->size() && (!((OCT_FOUND & m_uiKeysPtr[k].getFlag())))) {
                 std::cout<<"rank: "<<m_uiActiveRank<<"[E2E Error]: Local edge or vertex key missing after R1 (face edge vertex) ghost exchange: "<<m_uiKeysPtr[k]<<std::endl;
-                //missingKeys.push_back(m_uiKeysPtr[k]);
-                //continue;
                 exit(0); // no point in continuing if this fails E2N fails for sure :)
             }
 
@@ -2202,17 +2242,47 @@ namespace ot {
         // determine whether the each local element is hanging or not. If is it hanging it will be participated in the layer 2 ghost level exchange.
 
         m_uiScatterMapElementRound1.clear();
+
+        m_uiSendEleCount.resize(npes);
+        m_uiRecvEleCount.resize(npes);
+        m_uiSendEleOffset.resize(npes);
+        m_uiRecvEleOffset.resize(npes);
+
         for(unsigned int p=0;p<npes;p++)
         {
             std::sort(scatterMapSend_R1[p].begin(),scatterMapSend_R1[p].end());
             scatterMapSend_R1[p].erase(std::unique(scatterMapSend_R1[p].begin(),scatterMapSend_R1[p].end()),scatterMapSend_R1[p].end());
             m_uiScatterMapElementRound1.insert(m_uiScatterMapElementRound1.end(),scatterMapSend_R1[p].begin(),scatterMapSend_R1[p].end());
             m_uiSendOctCountRound1[p]=scatterMapSend_R1[p].size();
+            m_uiSendEleCount[p] = scatterMapSend_R1[p].size();
             scatterMapSend_R1[p].clear();
         }
 
-        m_uiSendOctOffsetRound1[0]=0;
-        omp_par::scan(m_uiSendOctCountRound1,m_uiSendOctOffsetRound1,npes);
+
+        // finalized round 1 ghost exchange elements including face, edge and vertex. 
+
+        par::Mpi_Alltoall(m_uiSendEleCount.data(),m_uiRecvEleCount.data(),1,m_uiCommActive);
+        m_uiSendEleOffset[0]=0;
+        m_uiRecvEleOffset[0]=0;
+
+        omp_par::scan(m_uiSendEleCount.data() , m_uiSendEleOffset.data() , npes);
+        omp_par::scan(m_uiRecvEleCount.data() , m_uiRecvEleOffset.data() , npes);
+
+
+        for(unsigned int p=0; p < npes ; p ++)
+            m_uiSendOctOffsetRound1[p] = m_uiSendEleOffset[p];
+        
+
+
+        // for(unsigned int p=0;p<npes;p++)
+        // {
+        // std::cout<<" proc: "<<m_uiActiveRank<<" to "<<p<<" sendOctR1 : "<<m_uiSendEleCount[p] <<" offset send : "<<m_uiSendEleOffset[p]<<std::endl;
+        // }
+
+        // for(unsigned int p=0;p<npes;p++)
+        // {
+        //     std::cout<<" proc: "<<m_uiActiveRank<<" from "<<p<<" recvOctR1 : "<<m_uiRecvEleCount[p]<<" offset recv : "<<m_uiRecvEleOffset[p]<<std::endl;
+        // }
 
         delete [] scatterMapSend_R1;
 
@@ -2226,6 +2296,8 @@ namespace ot {
         for(unsigned int e=m_uiElementPostGhostBegin;e<m_uiElementPostGhostEnd;e++)
             gKeys_R1.push_back(m_uiAllElements[e]);
 
+        
+        
 
 
         //8 R2 ghost exchange =====================================================================================================================================================================================================
@@ -2255,6 +2327,17 @@ namespace ot {
 
                     if((elementLookup!=LOOK_UP_TABLE_DEFAULT) && (m_uiAllElements[elementLookup].getLevel()<=m_uiAllElements[(m_uiScatterMapElementRound1[ele]+m_uiElementLocalBegin)].getLevel())) {
                         setHintUint = tmpSendEleIdR2[p].emplace(elementLookup);
+                        // this part of the ghost elements added to make the Scatter map consitant for FEM computations. (these are not used for FDM computations) 03/27/2019 -milinda. 
+                        /*for(unsigned int dir2=0;dir2<m_uiNumDirections;dir2++)
+                        {
+                            lookUp=m_uiE2EMapping[elementLookup*m_uiNumDirections+dir2];
+                            if((lookUp!=LOOK_UP_TABLE_DEFAULT) && (m_uiAllElements[lookUp].getLevel()<=m_uiAllElements[(m_uiScatterMapElementRound1[ele]+m_uiElementLocalBegin)].getLevel()))
+                                setHintUint = tmpSendEleIdR2[p].emplace(lookUp);
+                        }*/
+                        //(Milinda)27/05/20: I realized this was a wrong fix to the correct the SM in FEM computations, this descrease the mesh generation performance a lot since we increase the pre and post ghost
+                        // elements an inactive ghost nodes, I realized this running perfromace for mesh generations in Frontera, the fix made for this was write to ghost nodes and accumilate from ghost but I think I forgot to remove
+                        // above code portion after FEM SM fix. 
+
                     }
 
                 }
@@ -2374,9 +2457,9 @@ namespace ot {
 
 
 
-#ifdef DEBUG_MESH_GENERATION
-            treeNodesTovtk(m_uiGhostOctants,rank,"ghostR2");
-#endif
+            #ifdef DEBUG_MESH_GENERATION
+                treeNodesTovtk(m_uiGhostOctants,rank,"ghostR2");
+            #endif
 
 
             m_uiAllElements.insert(m_uiAllElements.end(),m_uiGhostOctants.begin(),m_uiGhostOctants.end());
@@ -2489,43 +2572,29 @@ namespace ot {
 
 
 
-//===========================================================================================================================================================================================================================================
+        //===========================================================================================================================================================================================================================================
 
-#ifdef DEBUG_MESH_GENERATION
-        /* if(!m_uiActiveRank)
-        {
-            for(unsigned int ele=0;ele<m_uiE2HangingFaces.size();ele++)
-            {
-                printf("ele: %d value: %d \n",ele,m_uiE2HangingFaces[ele]);
-            }
-        }*/
-        treeNodesTovtk(m_uiAllElements,rank,"m_uiAllElements");
-        //std::cout<<"rank: "<<rank<<"pre begin: "<<m_uiElementPreGhostBegin<<" pre end: "<<m_uiElementPreGhostEnd<<" local begin: "<<m_uiElementLocalBegin<<" local end: "<<m_uiElementLocalEnd<<" post begin: "<<m_uiElementPostGhostBegin<<" post end: "<<m_uiElementPostGhostEnd<<std::endl;
-#endif
+        #ifdef DEBUG_MESH_GENERATION
+                treeNodesTovtk(m_uiAllElements,rank,"m_uiAllElements");
+                //std::cout<<"rank: "<<rank<<"pre begin: "<<m_uiElementPreGhostBegin<<" pre end: "<<m_uiElementPreGhostEnd<<" local begin: "<<m_uiElementLocalBegin<<" local end: "<<m_uiElementLocalEnd<<" post begin: "<<m_uiElementPostGhostBegin<<" post end: "<<m_uiElementPostGhostEnd<<std::endl;
+        #endif
 
         // Note: Note that m_uiAlllNodes need not to be sorted and contains duplicates globally.
 
 
-#ifdef DEBUG_MESH_GENERATION
-        std::vector<ot::TreeNode> missedKeys;
-            for (unsigned int k = 0; k < m_uiKeys.size(); k++) {
-                if (!(m_uiAllElements[result].isAncestor(m_uiKeys[k]) || m_uiAllElements[result]==m_uiKeys[k])) {
-                    /*std::cout << "rank: " << rank << " key : " << m_uiKeys[k] << " not found!" << " Search index count: "
-                              << searchResults.size() << std::endl;*/
-                    missedKeys.push_back(m_uiKeys[k]);
-                }
-            }
+        #ifdef DEBUG_MESH_GENERATION
+                std::vector<ot::TreeNode> missedKeys;
+                    for (unsigned int k = 0; k < m_uiKeys.size(); k++) {
+                        if (!(m_uiAllElements[result].isAncestor(m_uiKeys[k]) || m_uiAllElements[result]==m_uiKeys[k])) {
+                            /*std::cout << "rank: " << rank << " key : " << m_uiKeys[k] << " not found!" << " Search index count: "
+                                    << searchResults.size() << std::endl;*/
+                            missedKeys.push_back(m_uiKeys[k]);
+                        }
+                    }
 
-        treeNodesTovtk(missedKeys,rank,"missedKeys");
-#endif
+                treeNodesTovtk(missedKeys,rank,"missedKeys");
+        #endif
 
-
-
-#ifdef DEBUG_MESH_GENERATION
-        treeNodesTovtk(notFoundKeys,rank,"notFoundKeys");
-        treeNodesTovtk(m_uiGhostKeys,rank,"m_uiGhostKeys");
-        treeNodesTovtk(foundResult,rank,"foundResult");
-#endif
 
 
         // to identify the true ghost (level 1) elements.
@@ -2533,13 +2602,21 @@ namespace ot {
         m_uiGhostElementRound1Index.clear();
         unsigned int r1_count=0;
         m_uiGhostElementRound1Index.resize(gKeys_R1.size());
+
+        m_uiIsNodalMapValid.clear();
+        m_uiIsNodalMapValid.resize(m_uiAllElements.size(),true);
+
         for(unsigned int e=m_uiElementPreGhostBegin;e<m_uiElementPreGhostEnd;e++)
         {
             if(m_uiAllElements[e]==gKeys_R1[r1_count])
             {
                 m_uiGhostElementRound1Index[r1_count]=e;
                 r1_count++;
+            }else
+            {
+                m_uiIsNodalMapValid[e]=false;
             }
+            
 
             if(r1_count==gKeys_R1.size()) break;
         }
@@ -2553,6 +2630,9 @@ namespace ot {
                 {
                     m_uiGhostElementRound1Index[r1_count]=e;
                     r1_count++;
+                }else
+                {
+                    m_uiIsNodalMapValid[e]=false;
                 }
 
                 if(r1_count==gKeys_R1.size()) break;
@@ -2560,6 +2640,48 @@ namespace ot {
 
 
         }
+
+        for(unsigned int i=0;i<m_uiGhostElementRound1Index.size();i++)
+            if(!m_uiIsNodalMapValid[m_uiGhostElementRound1Index[i]])
+                std::cout<<"invalid nodal elemental map"<<std::endl;
+
+        
+        // clear and compute the send & recv proc list for elemental ghost exchange
+
+        m_uiElementSendProcList.clear();
+        m_uiElementRecvProcList.clear();
+
+        for(unsigned int p=0; p < m_uiActiveNpes; p++ )
+        {
+            if(m_uiSendEleCount[p] > 0)
+                m_uiElementSendProcList.push_back(p);
+
+            if(m_uiRecvEleCount[p] > 0 )
+                m_uiElementRecvProcList.push_back(p);
+
+        }
+
+        // if(m_uiActiveRank==1)
+        // {
+        //     for(unsigned int i=0;  i < m_uiScatterMapElementRound1.size(); i++)
+        //         std::cout<<YLW<<" rank: "<<m_uiActiveRank<< " send ele : "<<m_uiAllElements[ m_uiElementLocalBegin + m_uiScatterMapElementRound1[i]]<<NRM<<"\n";
+
+        //     for(unsigned int i=0;  i < m_uiGhostElementRound1Index.size(); i++)
+        //         std::cout<<GRN<<" rank: "<<m_uiActiveRank<< " recv ele : "<<m_uiAllElements[m_uiGhostElementRound1Index[i]]<<NRM<<"\n";
+        // }
+
+        // MPI_Barrier(m_uiCommActive);
+
+        // if(m_uiActiveRank==0)
+        // {
+        //     for(unsigned int i=0;  i < m_uiScatterMapElementRound1.size(); i++)
+        //         std::cout<<YLW<<" rank: "<<m_uiActiveRank<< " send ele : "<<m_uiAllElements[ m_uiElementLocalBegin +  m_uiScatterMapElementRound1[i]]<<NRM<<"\n";
+
+        //     for(unsigned int i=0;  i < m_uiGhostElementRound1Index.size(); i++)
+        //         std::cout<<GRN<<" rank: "<<m_uiActiveRank<< " recv ele : "<<m_uiAllElements[m_uiGhostElementRound1Index[i]]<<NRM<<"\n";
+        // }
+            
+
 
         //std::cout<<" rank: "<<m_uiActiveRank<<" m_uiGR1 Size: "<<m_uiGhostElementRound1Index.size()<<std::endl;
 
@@ -2612,29 +2734,28 @@ namespace ot {
         m_uiGhostElementRound1Index.erase(std::unique(m_uiGhostElementRound1Index.begin(),m_uiGhostElementRound1Index.end()),m_uiGhostElementRound1Index.end());*/
 
 
-#ifdef DEBUG_MESH_GENERATION
-        std::vector<ot::TreeNode> r1GhostElements;
-        std::vector<ot::TreeNode> localElements;
-        std::vector<ot::TreeNode> ghostElements;
+        #ifdef DEBUG_MESH_GENERATION
+                std::vector<ot::TreeNode> r1GhostElements;
+                std::vector<ot::TreeNode> localElements;
+                std::vector<ot::TreeNode> ghostElements;
 
-        for(unsigned int e=m_uiElementPreGhostBegin;e<m_uiElementPreGhostEnd;e++)
-            ghostElements.push_back(m_uiAllElements[e]);
+                for(unsigned int e=m_uiElementPreGhostBegin;e<m_uiElementPreGhostEnd;e++)
+                    ghostElements.push_back(m_uiAllElements[e]);
 
-        for(unsigned int e=m_uiElementPostGhostBegin;e<m_uiElementPostGhostEnd;e++)
-            ghostElements.push_back(m_uiAllElements[e]);
+                for(unsigned int e=m_uiElementPostGhostBegin;e<m_uiElementPostGhostEnd;e++)
+                    ghostElements.push_back(m_uiAllElements[e]);
 
-        for(unsigned int e=m_uiElementLocalBegin;e<m_uiElementLocalEnd;e++)
-            localElements.push_back(m_uiAllElements[e]);
+                for(unsigned int e=m_uiElementLocalBegin;e<m_uiElementLocalEnd;e++)
+                    localElements.push_back(m_uiAllElements[e]);
 
-        for(unsigned int e=0;e<m_uiGhostElementRound1Index.size();e++)
-            r1GhostElements.push_back(m_uiAllElements[m_uiGhostElementRound1Index[e]]);
+                for(unsigned int e=0;e<m_uiGhostElementRound1Index.size();e++)
+                    r1GhostElements.push_back(m_uiAllElements[m_uiGhostElementRound1Index[e]]);
 
-        treeNodesTovtk(r1GhostElements,rank,"r1GhostElements");
-        treeNodesTovtk(localElements,rank,"localElements");
-        treeNodesTovtk(ghostElements,rank,"ghostElements");
-#endif
-        //std::cout<<" rank: "<<m_uiActiveRank<<" m_uiGR2 Size: "<<m_uiGhostElementRound1Index.size()<<std::endl;
-
+                treeNodesTovtk(r1GhostElements,rank,"r1GhostElements");
+                treeNodesTovtk(localElements,rank,"localElements");
+                treeNodesTovtk(ghostElements,rank,"ghostElements");
+        #endif
+        
         if (!rank)  std::cout << "E2E mapping Ended" << std::endl;
 
 
@@ -2732,57 +2853,573 @@ namespace ot {
         }
 
         assert(seq::test::checkE2EMapping(m_uiE2EMapping,m_uiAllElements,m_uiElementPreGhostBegin,m_uiElementPostGhostEnd,1,m_uiNumDirections));
-#ifdef DEBUG_MESH_GENERATION
-        treeNodesTovtk(m_uiAllElements,m_uiActiveRank,"m_uiAllElements");
-        //std::cout<<"rank: "<<rank<<"pre begin: "<<m_uiElementPreGhostBegin<<" pre end: "<<m_uiElementPreGhostEnd<<" local begin: "<<m_uiElementLocalBegin<<" local end: "<<m_uiElementLocalEnd<<" post begin: "<<m_uiElementPostGhostBegin<<" post end: "<<m_uiElementPostGhostEnd<<std::endl;
-#endif
+        #ifdef DEBUG_MESH_GENERATION
+            treeNodesTovtk(m_uiAllElements,m_uiActiveRank,"m_uiAllElements");
+            //std::cout<<"rank: "<<rank<<"pre begin: "<<m_uiElementPreGhostBegin<<" pre end: "<<m_uiElementPreGhostEnd<<" local begin: "<<m_uiElementLocalBegin<<" local end: "<<m_uiElementLocalEnd<<" post begin: "<<m_uiElementPostGhostBegin<<" post end: "<<m_uiElementPostGhostEnd<<std::endl;
+        #endif
 
         // Note: Note that m_uiAlllNodes need not to be sorted and contains duplicates globally.
 
+        m_uiIsNodalMapValid.clear();
+        m_uiIsNodalMapValid.resize(m_uiAllElements.size(),true);
 
-#ifdef DEBUG_MESH_GENERATION
-      /*  std::vector<ot::TreeNode> missedKeys;
-            for (unsigned int k = 0; k < m_uiKeys.size(); k++) {
-                if (!(OCT_FOUND & m_uiKeys[k].getFlag())) {
-                    std::cout << "rank: " << m_uiActiveRank << " key : " << m_uiKeys[k] << " not found!" << " Search index count: "
-                              << searchResults.size() << std::endl;
-                    missedKeys.push_back(m_uiKeys[k]);
-                }
-            }
 
-        treeNodesTovtk(missedKeys,rank,"missedKeys");*/
-#endif
+        #ifdef DEBUG_MESH_GENERATION
+            /*  std::vector<ot::TreeNode> missedKeys;
+                    for (unsigned int k = 0; k < m_uiKeys.size(); k++) {
+                        if (!(OCT_FOUND & m_uiKeys[k].getFlag())) {
+                            std::cout << "rank: " << m_uiActiveRank << " key : " << m_uiKeys[k] << " not found!" << " Search index count: "
+                                    << searchResults.size() << std::endl;
+                            missedKeys.push_back(m_uiKeys[k]);
+                        }
+                    }
+
+                treeNodesTovtk(missedKeys,rank,"missedKeys");*/
+        #endif
 
         std::cout << "Seq: E2E mapping Ended" << std::endl;
 
     }
+
+    void Mesh::buildE2NWithSM()
+    {
+        if(!m_uiIsActive) 
+            return;
+
+        // 1. first build all data structures for element order 2. (this serves as auxilary data strucutre to figure out hanging node information)
+        const unsigned int eleOrder = m_uiElementOrder;
+        const unsigned int pp = 2;
+        m_uiElementOrder = pp;
+        if(m_uiDim == 2 )
+         m_uiNpE = (pp+1)*(pp+1);
+        else if(m_uiDim==3) 
+         m_uiNpE = (pp+1)*(pp+1)*(pp+1);
+
+        buildE2NMap();
+
+        if(m_uiActiveNpes > 1 )
+            computeNodalScatterMap4(m_uiCommActive);
+
+        // 2. Use face edge vertex hanging information to modifying the data strucutres to the specified element order. 
+        std::vector<unsigned int > e2n_dg;
+        std::vector<unsigned int > e2n_cg;
+
+        const unsigned int nPe_1d = (eleOrder+1);
+        const unsigned int nPe_2d = (eleOrder+1)*(eleOrder+1);
+        const unsigned int nPe_3d = (eleOrder+1)*(eleOrder+1)*(eleOrder+1);
+
+        e2n_dg.resize(nPe_3d*m_uiNumTotalElements);
+        e2n_cg.resize(nPe_3d*m_uiNumTotalElements);
+
+        unsigned int ownerID, ii_x,jj_y,kk_z;
+        // idx for the element order 2
+        #define IDX2(i,j,k)  k*(pp+1)*(pp+1) + j*(pp+1) + i
+
+        // idx for the element order p. 
+        #define IDXp(i,j,k)  k*(eleOrder+1)*(eleOrder+1) + j*(eleOrder+1) + i
+        
+        for(unsigned int e=m_uiElementPreGhostBegin; e < m_uiElementPostGhostEnd; e++)
+        {
+            for(unsigned int n=0; n < nPe_3d; n++)
+                e2n_dg[e*(nPe_3d) + n ] = e*(nPe_3d) + n;
+
+         
+            // OCT_DIR_LEFT
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(0,1,1)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+            { // e does not own the face. 
+              
+              for(unsigned int d2 = 0; d2 < nPe_1d; d2++)
+                for(unsigned int d1 = 0; d1< nPe_1d; d1++)
+                 e2n_dg[e*(nPe_3d) + IDXp(0,d1,d2) ] = ownerID*(nPe_3d) + IDXp(eleOrder,d1,d2);
+            }
+
+
+            // OCT_DIR_RIGHT
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(2,1,1)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+            { // e does not own the face. 
+              for(unsigned int d2 = 0; d2 < nPe_1d; d2++)
+                for(unsigned int d1 = 0; d1< nPe_1d; d1++)
+                 e2n_dg[e*(nPe_3d) + IDXp(eleOrder,d1,d2) ] = ownerID*(nPe_3d) + IDXp(0,d1,d2);
+            }
+
+
+            // OCT_DIR_DOWN
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(1,0,1)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+            { // e does not own the face. 
+              for(unsigned int d2 = 0; d2 < nPe_1d; d2++)
+                for(unsigned int d1 = 0; d1< nPe_1d; d1++)
+                 e2n_dg[e*(nPe_3d) + IDXp(d1,0,d2) ] = ownerID*(nPe_3d) + IDXp(d1,eleOrder,d2);
+            }
+
+            // OCT_DIR_UP
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(1,2,1)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+            { // e does not own the face. 
+              for(unsigned int d2 = 0; d2 < nPe_1d; d2++)
+                for(unsigned int d1 = 0; d1< nPe_1d; d1++)
+                 e2n_dg[e*(nPe_3d) + IDXp(d1,eleOrder,d2) ] = ownerID*(nPe_3d) + IDXp(d1,0,d2);
+            }
+
+            // OCT_DIR_BACK
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(1,1,0)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+            { // e does not own the face. 
+              for(unsigned int d2 = 0; d2 < nPe_1d; d2++)
+                for(unsigned int d1 = 0; d1< nPe_1d; d1++)
+                 e2n_dg[e*(nPe_3d) + IDXp(d1,d2,0) ] = ownerID*(nPe_3d) + IDXp(d1,d2,eleOrder);
+            }
+
+            // OCT_DIR_FRONT
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(1,1,2)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+            { // e does not own the face. 
+              for(unsigned int d2 = 0; d2 < nPe_1d; d2++)
+                for(unsigned int d1 = 0; d1< nPe_1d; d1++)
+                 e2n_dg[e*(nPe_3d) + IDXp(d1,d2,eleOrder) ] = ownerID*(nPe_3d) + IDXp(d1,d2,0);
+            }
+
+
+            // LEFT FACE EDGES --------------------------------------------------------
+            unsigned int f1 = 0;
+            unsigned int f2 = 0;
+
+            // OCT_DIR_LEFT_DOWN
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(0,0,1)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+            { 
+              assert(kk_z==1);
+              // e does not own the edge. 
+              f1 = (ii_x*eleOrder)/pp;
+              f2 = (jj_y*eleOrder)/pp;
+
+              for(unsigned int d1 = 0; d1< nPe_1d; d1++)
+                e2n_dg[e*(nPe_3d) + IDXp(0,0,d1) ] = ownerID*(nPe_3d) + IDXp(f1,f2,d1);
+            }
+
+            // OCT_DIR_LEFT_UP
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(0,2,1)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+            { // e does not own the face. 
+
+              f1 = (ii_x*eleOrder)/pp;
+              f2 = (jj_y*eleOrder)/pp;  
+              for(unsigned int d1 = 0; d1< nPe_1d; d1++)
+                e2n_dg[e*(nPe_3d) + IDXp(0,eleOrder,d1) ] = ownerID*(nPe_3d) + IDXp(f1,f2,d1);
+            }
+
+            // OCT_DIR_LEFT_BACK
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(0,1,0)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+            { 
+              // e does not own the face. 
+              f1 = (ii_x*eleOrder)/pp;
+              f2 = (kk_z*eleOrder)/pp;
+              for(unsigned int d1 = 0; d1< nPe_1d; d1++)
+                e2n_dg[e*(nPe_3d) + IDXp(0,d1,0) ] = ownerID*(nPe_3d) + IDXp(f1,d1,f2);
+            }
+
+            // OCT_DIR_LEFT_FRONT
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(0,1,2)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+            { // e does not own the face. 
+
+              f1 = (ii_x*eleOrder)/pp;
+              f2 = (kk_z*eleOrder)/pp; 
+
+              for(unsigned int d1 = 0; d1< nPe_1d; d1++)
+                e2n_dg[e*(nPe_3d) + IDXp(0,d1,eleOrder) ] = ownerID*(nPe_3d) + IDXp(f1,d1,f2);
+            }
+
+            // RIGHT FACE EDGES -------------------------------------------------------
+
+            // OCT_DIR_RIGHT_DOWN
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(2,0,1)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+            { // e does not own the face.
+            
+              f1 = (ii_x*eleOrder)/pp;
+              f2 = (jj_y*eleOrder)/pp; 
+
+              for(unsigned int d1 = 0; d1< nPe_1d; d1++)
+                e2n_dg[e*(nPe_3d) + IDXp(eleOrder,0,d1) ] = ownerID*(nPe_3d) + IDXp(f1,f2,d1);
+            }
+
+            // OCT_DIR_RIGHT_UP
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(2,2,1)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+            { // e does not own the face. 
+              
+              f1 = (ii_x*eleOrder)/pp;
+              f2 = (jj_y*eleOrder)/pp; 
+
+              for(unsigned int d1 = 0; d1< nPe_1d; d1++)
+                e2n_dg[e*(nPe_3d) + IDXp(eleOrder,eleOrder,d1) ] = ownerID*(nPe_3d) + IDXp(f1,f2,d1);
+            }
+
+            // OCT_DIR_RIGHT_BACK
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(2,1,0)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+            { 
+              // e does not own the face. 
+              f1 = (ii_x*eleOrder)/pp;
+              f2 = (kk_z*eleOrder)/pp; 
+              for(unsigned int d1 = 0; d1< nPe_1d; d1++)
+                e2n_dg[e*(nPe_3d) + IDXp(eleOrder,d1,0) ] = ownerID*(nPe_3d) + IDXp(f1,d1,f2);
+            }
+
+            // OCT_DIR_RIGHT_FRONT
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(2,1,2)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+            { // e does not own the face. 
+
+               f1 = (ii_x*eleOrder)/pp;
+               f2 = (kk_z*eleOrder)/pp; 
+               for(unsigned int d1 = 0; d1< nPe_1d; d1++)
+                e2n_dg[e*(nPe_3d) + IDXp(eleOrder,d1,eleOrder) ] = ownerID*(nPe_3d) + IDXp(f1,d1,f2);
+            }
+
+
+            // BACK FACE EDGES ----------------------------------------------------
+
+            // OCT_DIR_BACK_DOWN
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(1,0,0)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+            { // e does not own the face. 
+              
+               f1 = (jj_y*eleOrder)/pp;
+               f2 = (kk_z*eleOrder)/pp; 
+
+               for(unsigned int d1 = 0; d1< nPe_1d; d1++)
+                 e2n_dg[e*(nPe_3d) + IDXp(d1,0,0) ] = ownerID*(nPe_3d) + IDXp(d1,f1,f2);
+            }
+
+            // OCT_DIR_BACK_UP
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(1,2,0)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+            { // e does not own the face. 
+               
+              f1 = (jj_y*eleOrder)/pp;
+              f2 = (kk_z*eleOrder)/pp; 
+
+              for(unsigned int d1 = 0; d1< nPe_1d; d1++)
+                e2n_dg[e*(nPe_3d) + IDXp(d1,eleOrder,0) ] = ownerID*(nPe_3d) + IDXp(d1,f1,f2);
+            }
+
+            // FRONT FACE EDGES ----------------------------------------------------
+
+            // OCT_DIR_FRONT_DOWN
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(1,0,2)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+            { // e does not own the face. 
+              
+              f1 = (jj_y*eleOrder)/pp;
+              f2 = (kk_z*eleOrder)/pp; 
+
+              for(unsigned int d1 = 0; d1< nPe_1d; d1++)
+                e2n_dg[e*(nPe_3d) + IDXp(d1,0,eleOrder) ] = ownerID*(nPe_3d) + IDXp(d1,f1,f2);
+            }
+
+            // OCT_DIR_FRONT_UP
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(1,2,2)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+            { // e does not own the face. 
+              
+              f1 = (jj_y*eleOrder)/pp;
+              f2 = (kk_z*eleOrder)/pp; 
+
+              for(unsigned int d1 = 0; d1< nPe_1d; d1++)
+                e2n_dg[e*(nPe_3d) + IDXp(d1,eleOrder,eleOrder) ] = ownerID*(nPe_3d) + IDXp(d1,f1,f2);
+            }
+
+            // VERTICES  --  (coner 2^dim)
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(0,0,0)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+                e2n_dg[e*(nPe_3d) + IDXp(0,0,0) ] = ownerID*(nPe_3d) + IDXp((ii_x*eleOrder)/pp,(jj_y*eleOrder)/pp,(kk_z*eleOrder)/pp);
+
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(2,0,0)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+                e2n_dg[e*(nPe_3d) + IDXp(eleOrder,0,0) ] = ownerID*(nPe_3d) + IDXp((ii_x*eleOrder)/pp,(jj_y*eleOrder)/pp,(kk_z*eleOrder)/pp);
+
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(0,2,0)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+                e2n_dg[e*(nPe_3d) + IDXp(0,eleOrder,0) ] = ownerID*(nPe_3d) + IDXp((ii_x*eleOrder)/pp,(jj_y*eleOrder)/pp,(kk_z*eleOrder)/pp);
+
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(2,2,0)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+                e2n_dg[e*(nPe_3d) + IDXp(eleOrder,eleOrder,0) ] = ownerID*(nPe_3d) + IDXp((ii_x*eleOrder)/pp,(jj_y*eleOrder)/pp,(kk_z*eleOrder)/pp);
+
+
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(0,0,2)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+                e2n_dg[e*(nPe_3d) + IDXp(0,0,eleOrder) ] = ownerID*(nPe_3d) + IDXp((ii_x*eleOrder)/pp,(jj_y*eleOrder)/pp,(kk_z*eleOrder)/pp);
+
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(2,0,2)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+                e2n_dg[e*(nPe_3d) + IDXp(eleOrder,0,eleOrder) ] = ownerID*(nPe_3d) + IDXp((ii_x*eleOrder)/pp,(jj_y*eleOrder)/pp,(kk_z*eleOrder)/pp);
+
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(0,2,2)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+                e2n_dg[e*(nPe_3d) + IDXp(0,eleOrder,eleOrder) ] = ownerID*(nPe_3d) + IDXp((ii_x*eleOrder)/pp,(jj_y*eleOrder)/pp,(kk_z*eleOrder)/pp);
+
+            dg2eijk(m_uiE2NMapping_DG[e*m_uiNpE + IDX2(2,2,2)],ownerID,ii_x,jj_y,kk_z);
+            if(e != ownerID)
+                e2n_dg[e*(nPe_3d) + IDXp(eleOrder,eleOrder,eleOrder) ] = ownerID*(nPe_3d) + IDXp((ii_x*eleOrder)/pp,(jj_y*eleOrder)/pp,(kk_z*eleOrder)/pp);
+
+                
+        }
+
+        e2n_cg = e2n_dg;
+        std::sort(e2n_dg.begin(),e2n_dg.end());
+        e2n_dg.erase(std::unique(e2n_dg.begin(),e2n_dg.end()),e2n_dg.end());
+
+        std::vector<unsigned int > cg2dg;
+        cg2dg.resize(e2n_dg.size());
+        cg2dg = e2n_dg;
+
+        e2n_dg.resize(nPe_3d*m_uiNumTotalElements);
+        e2n_dg = e2n_cg;
+
+        std::vector<unsigned int > dg2cg;
+        dg2cg.resize(nPe_3d*m_uiNumTotalElements,LOOK_UP_TABLE_DEFAULT);
+
+        for(unsigned int i=0; i < cg2dg.size(); i++ )
+            dg2cg[cg2dg[i]] = i;
+
+        
+        for(unsigned int i=0; i < e2n_cg.size(); i++)
+            e2n_cg[i] = dg2cg[e2n_cg[i]];
+        
+        // for(unsigned int i=0;i< e2n_cg.size(); i++)
+        // {
+        //     std::cout<<"i: "<<i<<" e2n_dg: "<<e2n_dg[i]<<" m_uiE2N_DG:"<<m_uiE2NMapping_DG[i]<<std::endl;;
+        // }
+        const unsigned int numCGNodes = cg2dg.size();
+        
+        unsigned int n_dg;
+        unsigned int dir;
+        unsigned int ib,ie,jb,je,kb,ke;
+
+       
+        if(m_uiActiveNpes>1)
+        {
+
+            std::vector<unsigned int> sendNodeCount;
+            std::vector<unsigned int> recvNodeCount;
+            std::vector<unsigned int> sendNodeSM;
+            std::vector<unsigned int> recvNodeSM;
+
+            sendNodeCount.resize(m_uiActiveNpes,0);
+            recvNodeCount.resize(m_uiActiveNpes,0);
+
+            
+            // send SM
+            for(unsigned int m = 0; m < m_uiActiveNpes ; m++)
+            {
+                for(unsigned int n = m_uiSendNodeOffset[m]; n< (m_uiSendNodeOffset[m] + m_uiSendNodeCount[m]); n++)
+                {
+                    n_dg = m_uiCG2DG[m_uiScatterMapActualNodeSend[n]];
+                    dg2eijk(n_dg,ownerID,ii_x,jj_y,kk_z);
+
+                    // std::cout << " owner "<<ownerID<<" ii_x: "<<ii_x<<" jj_y: "<<jj_y<<" kk_z: "<<kk_z<<std::endl; 
+
+                    
+                    if( ii_x  == 0 ) { ib=0; ie=0;}
+                    if( jj_y  == 0 ) { jb=0; je=0;}
+                    if( kk_z  == 0 ) { kb=0; ke=0;}
+
+                    if( ii_x == 1)  { ib=1; ie = eleOrder-1;}
+                    if( jj_y == 1)  { jb=1; je = eleOrder-1;}
+                    if( kk_z == 1)  { kb=1; ke = eleOrder-1;}
+
+                    if( ii_x == 2 ) { ib=eleOrder; ie = eleOrder;}
+                    if( jj_y == 2 ) { jb=eleOrder; je = eleOrder;}
+                    if( kk_z == 2 ) { kb=eleOrder; ke = eleOrder;}
+
+
+                    for(unsigned int k=kb; k<= ke; k++)
+                    for(unsigned int j=jb; j<= je; j++)
+                    for(unsigned int i=ib; i<= ie; i++)
+                    {
+                        sendNodeCount[m]++;
+                        sendNodeSM.push_back(e2n_cg[ownerID*nPe_3d + IDXp(i,j,k)]);
+                    }
+                    
+                }
+            
+            }
+
+            // recv SM
+            for(unsigned int m = 0; m < m_uiActiveNpes ; m++)
+            {
+                for(unsigned int n = m_uiRecvNodeOffset[m]; n< (m_uiRecvNodeOffset[m] + m_uiRecvNodeCount[m]); n++)
+                {
+                    n_dg = m_uiCG2DG[m_uiScatterMapActualNodeRecv[n]];
+                    dg2eijk(n_dg,ownerID,ii_x,jj_y,kk_z);
+                    
+                    if( ii_x  == 0 ) { ib=0; ie=0;}
+                    if( jj_y  == 0 ) { jb=0; je=0;}
+                    if( kk_z  == 0 ) { kb=0; ke=0;}
+
+                    if( ii_x == 1)  { ib=1; ie = eleOrder-1;}
+                    if( jj_y == 1)  { jb=1; je = eleOrder-1;}
+                    if( kk_z == 1)  { kb=1; ke = eleOrder-1;}
+
+                    if( ii_x == 2 ) { ib=eleOrder; ie = eleOrder;}
+                    if( jj_y == 2 ) { jb=eleOrder; je = eleOrder;}
+                    if( kk_z == 2 ) { kb=eleOrder; ke = eleOrder;}
+
+                    for(unsigned int k=kb; k<= ke; k++)
+                    for(unsigned int j=jb; j<= je; j++)
+                    for(unsigned int i=ib; i<= ie; i++)
+                    {
+                        recvNodeCount[m]++;
+                        recvNodeSM.push_back(e2n_cg[ownerID*nPe_3d + IDXp(i,j,k)]);
+                    }
+                    
+                }
+            
+            }
+
+            // for(unsigned int k=0 ; k < m_uiScatterMapActualNodeSend.size(); k++)
+            // {
+            //     std::cout<<" k : "<<k<< " scatter map : "<<m_uiScatterMapActualNodeSend[k]<<" "<<sendNodeSM[k]<<" "<<std::endl;
+            // }
+
+            // for(unsigned int k=0 ; k < m_uiScatterMapActualNodeRecv.size(); k++)
+            // {
+            //     std::cout<<" k : "<<k<< " scatter map : "<<m_uiScatterMapActualNodeRecv[k]<<" "<<recvNodeSM[k]<<" "<<std::endl;
+            // }
+
+            // up date the scatter maps. 
+            std::swap(m_uiSendNodeCount,sendNodeCount);
+            std::swap(m_uiRecvNodeCount,recvNodeCount);
+
+            m_uiSendNodeOffset[0]=0;
+            m_uiRecvNodeOffset[0]=0;
+
+            omp_par::scan(m_uiSendNodeCount.data(),m_uiSendNodeOffset.data(),m_uiActiveNpes);
+            omp_par::scan(m_uiRecvNodeCount.data(),m_uiRecvNodeOffset.data(),m_uiActiveNpes);
+
+            std::swap(m_uiScatterMapActualNodeSend, sendNodeSM);
+            std::swap(m_uiScatterMapActualNodeRecv, recvNodeSM);
+
+
+        }
+
+        // update the nodal bounds. 
+        m_uiNumActualNodes = numCGNodes;
+        m_uiElementOrder = eleOrder;
+
+        if(m_uiDim==2 )
+           m_uiNpE = (m_uiElementOrder+1)*(m_uiElementOrder+1);
+        else
+           m_uiNpE = (m_uiElementOrder+1)*(m_uiElementOrder+1)*(m_uiElementOrder+1);
+
+
+
+        std::swap(m_uiE2NMapping_CG,e2n_cg);
+        std::swap(m_uiE2NMapping_DG,e2n_dg);
+        std::swap(m_uiCG2DG,cg2dg);
+        std::swap(m_uiDG2CG,dg2cg);
+        
+
+        m_uiNodePreGhostBegin=UINT_MAX;
+        m_uiNodeLocalBegin=UINT_MAX;
+        m_uiNodePostGhostBegin=UINT_MAX;
+
+        unsigned int preOwner=UINT_MAX;
+        unsigned int localOwner=UINT_MAX;
+        unsigned int postOwner=UINT_MAX;
+
+        for(unsigned int e=m_uiElementPreGhostBegin;e<m_uiElementPostGhostEnd;e++)
+        {
+            unsigned int tmpIndex;
+            for(unsigned int k=0;k<m_uiNpE;k++)
+            {
+
+                tmpIndex = (m_uiE2NMapping_DG[e * m_uiNpE + k]/m_uiNpE);
+                if ((tmpIndex >= m_uiElementPreGhostBegin) && (tmpIndex < m_uiElementPreGhostEnd) && /*(preOwner>=(m_uiE2NMapping_CG[e * m_uiNpE + k])/m_uiNpE) &&*/ (m_uiNodePreGhostBegin>m_uiE2NMapping_DG[e * m_uiNpE + k])){
+                    //preOwner = m_uiE2NMapping_CG[e * m_uiNpE + k]/m_uiNpE;
+                    m_uiNodePreGhostBegin = m_uiE2NMapping_DG[e * m_uiNpE + k];
+                }
+
+                if ((tmpIndex >= m_uiElementLocalBegin) && (tmpIndex < m_uiElementLocalEnd) && /*(localOwner >=(m_uiE2NMapping_CG[e * m_uiNpE + k])/m_uiNpE) &&*/ (m_uiNodeLocalBegin > m_uiE2NMapping_DG[e * m_uiNpE + k])) {
+                    //localOwner = m_uiE2NMapping_CG[e * m_uiNpE + k]/m_uiNpE;
+                    m_uiNodeLocalBegin = m_uiE2NMapping_DG[e * m_uiNpE + k];
+                }
+
+                if ((tmpIndex >= m_uiElementPostGhostBegin) && (tmpIndex < m_uiElementPostGhostEnd) && /*(postOwner >=(m_uiE2NMapping_CG[e * m_uiNpE + k])/m_uiNpE) &&*/ (m_uiNodePostGhostBegin>m_uiE2NMapping_DG[e * m_uiNpE + k])) {
+                    //postOwner = m_uiE2NMapping_CG[e * m_uiNpE + k]/m_uiNpE;
+                    m_uiNodePostGhostBegin = m_uiE2NMapping_DG[e * m_uiNpE + k];
+                }
+
+            }
+
+        }
+
+
+        assert(m_uiNodeLocalBegin!=UINT_MAX); // local node begin should be found.
+        assert(m_uiDG2CG[m_uiNodeLocalBegin]!=LOOK_UP_TABLE_DEFAULT);
+        m_uiNodeLocalBegin=m_uiDG2CG[m_uiNodeLocalBegin];//(std::lower_bound(E2N_DG_Sorted.begin(),E2N_DG_Sorted.end(),m_uiNodeLocalBegin)-E2N_DG_Sorted.begin());
+        if(m_uiNodePreGhostBegin==UINT_MAX) {
+            m_uiNodePreGhostBegin=0;
+            m_uiNodePreGhostEnd=0;
+            assert(m_uiNodeLocalBegin==0);
+        }
+        else{
+            assert(m_uiDG2CG[m_uiNodePreGhostBegin]!=LOOK_UP_TABLE_DEFAULT);
+            m_uiNodePreGhostBegin=m_uiDG2CG[m_uiNodePreGhostBegin];//(std::lower_bound(E2N_DG_Sorted.begin(),E2N_DG_Sorted.end(),m_uiNodePreGhostBegin)-E2N_DG_Sorted.begin());
+            m_uiNodePreGhostEnd=m_uiNodeLocalBegin;
+        }
+
+        if(m_uiNodePostGhostBegin==UINT_MAX) {
+            m_uiNodeLocalEnd=m_uiCG2DG.size(); //E2N_DG_Sorted.size();
+            m_uiNodePostGhostBegin=m_uiNodeLocalEnd;
+            m_uiNodePostGhostEnd=m_uiNodeLocalEnd;
+        }
+        else
+        {
+            assert(m_uiDG2CG[m_uiNodePostGhostBegin]!=LOOK_UP_TABLE_DEFAULT);
+            m_uiNodePostGhostBegin=m_uiDG2CG[m_uiNodePostGhostBegin];//(std::lower_bound(E2N_DG_Sorted.begin(),E2N_DG_Sorted.end(),m_uiNodePostGhostBegin)-E2N_DG_Sorted.begin());
+            m_uiNodeLocalEnd=m_uiNodePostGhostBegin;
+            m_uiNodePostGhostEnd=m_uiCG2DG.size();//E2N_DG_Sorted.size();
+
+        }
+
+        if(!m_uiActiveRank) std::cout<<"E2N Mapping ended"<<std::endl;
+
+    }
+
 
     void Mesh::buildE2NMap() {
 
         // should not be called if the mesh is not active
         if(!m_uiIsActive) return;
 
-#ifdef DEBUG_E2N_MAPPING
-        std::vector<ot::TreeNode> invalidatedPreGhost;
-        std::vector<ot::TreeNode> invalidatedPostGhost;
-        //if(!m_uiActiveRank)  std::cout<<"E2E  rank : "<<m_uiActiveRank<<std::endl;
-        //if(!m_uiActiveRank)
-            for(unsigned int e=0;e<m_uiAllElements.size();e++)
-            {
-                //if(m_uiAllElements[e].getLevel()!=1) {
-                //std::cout << "Element : "<<e<<" " << m_uiAllElements[e] << " : Node List :";
-                for (unsigned int k = 0; k < m_uiNumDirections; k++) {
+        #ifdef DEBUG_E2N_MAPPING
+                std::vector<ot::TreeNode> invalidatedPreGhost;
+                std::vector<ot::TreeNode> invalidatedPostGhost;
+                //if(!m_uiActiveRank)  std::cout<<"E2E  rank : "<<m_uiActiveRank<<std::endl;
+                //if(!m_uiActiveRank)
+                    for(unsigned int e=0;e<m_uiAllElements.size();e++)
+                    {
+                        //if(m_uiAllElements[e].getLevel()!=1) {
+                        //std::cout << "Element : "<<e<<" " << m_uiAllElements[e] << " : Node List :";
+                        for (unsigned int k = 0; k < m_uiNumDirections; k++) {
 
-                  //  std::cout << " " << m_uiE2EMapping[e * m_uiNumDirections + k];
-                   if(m_uiE2EMapping[e * m_uiNumDirections + k]!=LOOK_UP_TABLE_DEFAULT) assert(m_uiE2EMapping[e * m_uiNumDirections + k]<m_uiAllElements.size());
+                        //  std::cout << " " << m_uiE2EMapping[e * m_uiNumDirections + k];
+                        if(m_uiE2EMapping[e * m_uiNumDirections + k]!=LOOK_UP_TABLE_DEFAULT) assert(m_uiE2EMapping[e * m_uiNumDirections + k]<m_uiAllElements.size());
 
-                }
+                        }
 
-                //std::cout << std::endl;
-                //}
+                        //std::cout << std::endl;
+                        //}
 
-            }
-#endif
+                    }
+        #endif
 
         // update the E2E mapping with fake elements.
         unsigned int lookUp = 0;
@@ -2792,22 +3429,23 @@ namespace ot {
         unsigned int child;
         unsigned int parent;
 
-#ifdef DEBUG_E2N_MAPPING
-        for(unsigned int ge=m_uiElementPreGhostBegin;ge<m_uiElementPreGhostEnd;ge++)
-        {
-            for(unsigned int dir=0;dir<m_uiNumDirections;dir++)
-              if(m_uiE2EMapping[ge*m_uiNumDirections+dir]!=LOOK_UP_TABLE_DEFAULT)
-                  assert((m_uiE2EMapping[ge*m_uiNumDirections+dir]>=m_uiElementLocalBegin) && (m_uiE2EMapping[ge*m_uiNumDirections+dir]<m_uiElementLocalEnd) );
-        }
+        #ifdef DEBUG_E2N_MAPPING
+                for(unsigned int ge=m_uiElementPreGhostBegin;ge<m_uiElementPreGhostEnd;ge++)
+                {
+                    for(unsigned int dir=0;dir<m_uiNumDirections;dir++)
+                    if(m_uiE2EMapping[ge*m_uiNumDirections+dir]!=LOOK_UP_TABLE_DEFAULT)
+                        assert((m_uiE2EMapping[ge*m_uiNumDirections+dir]>=m_uiElementLocalBegin) && (m_uiE2EMapping[ge*m_uiNumDirections+dir]<m_uiElementLocalEnd) );
+                }
 
-        for(unsigned int ge=m_uiElementPostGhostBegin;ge<m_uiElementPostGhostEnd;ge++)
-        {
-            for(unsigned int dir=0;dir<m_uiNumDirections;dir++)
-                if(m_uiE2EMapping[ge*m_uiNumDirections+dir]!=LOOK_UP_TABLE_DEFAULT)
-                    assert((m_uiE2EMapping[ge*m_uiNumDirections+dir]>=m_uiElementLocalBegin) && (m_uiE2EMapping[ge*m_uiNumDirections+dir]<m_uiElementLocalEnd) );
-        }
+                for(unsigned int ge=m_uiElementPostGhostBegin;ge<m_uiElementPostGhostEnd;ge++)
+                {
+                    for(unsigned int dir=0;dir<m_uiNumDirections;dir++)
+                        if(m_uiE2EMapping[ge*m_uiNumDirections+dir]!=LOOK_UP_TABLE_DEFAULT)
+                            assert((m_uiE2EMapping[ge*m_uiNumDirections+dir]>=m_uiElementLocalBegin) && (m_uiE2EMapping[ge*m_uiNumDirections+dir]<m_uiElementLocalEnd) );
+                }
 
-#endif
+        #endif
+
         assert(m_uiNumTotalElements == m_uiAllElements.size());
         assert((m_uiElementPostGhostEnd - m_uiElementPreGhostBegin) > 0);
         assert(m_uiNumTotalElements == ((m_uiElementPostGhostEnd - m_uiElementPreGhostBegin)));
@@ -2826,12 +3464,12 @@ namespace ot {
                                 j * (m_uiElementOrder + 1) + i;
 
 
-#ifdef DEBUG_E2N_MAPPING
-        MPI_Barrier(MPI_COMM_WORLD);
-        if (!m_uiActiveRank) std::cout << "Invalid nodes removed " << std::endl;
-        //treeNodesTovtk(invalidatedPreGhost,m_uiActiveRank,"invalidPre");
-        //treeNodesTovtk(invalidatedPostGhost,m_uiActiveRank,"invalidPost");
-#endif
+        #ifdef DEBUG_E2N_MAPPING
+                MPI_Barrier(MPI_COMM_WORLD);
+                if (!m_uiActiveRank) std::cout << "Invalid nodes removed " << std::endl;
+                //treeNodesTovtk(invalidatedPreGhost,m_uiActiveRank,"invalidPre");
+                //treeNodesTovtk(invalidatedPostGhost,m_uiActiveRank,"invalidPost");
+        #endif
 
         // 2. Removing the duplicate nodes from the mapping.
         unsigned int ownerIndexChild;
@@ -2841,31 +3479,31 @@ namespace ot {
         unsigned int parent_i,parent_j,parent_k;
 
 
-#ifdef DEBUG_E2N_MAPPING
-        std::vector<ot::TreeNode> cusE2ECheck;
+        #ifdef DEBUG_E2N_MAPPING
+                std::vector<ot::TreeNode> cusE2ECheck;
 
-        if(!m_uiActiveRank && m_uiActiveNpes>1){
+                if(!m_uiActiveRank && m_uiActiveNpes>1){
 
-            unsigned int eleID=2;
-            //cusE2ECheck.push_back(m_uiAllElements[eleID]);
-            for(unsigned int dir=0;dir<(m_uiNumDirections);dir++){
-                if(m_uiE2EMapping[eleID*m_uiNumDirections+dir]!=LOOK_UP_TABLE_DEFAULT)
-                    cusE2ECheck.push_back(m_uiAllElements[m_uiE2EMapping[eleID*m_uiNumDirections+dir]]);
-            }
+                    unsigned int eleID=2;
+                    //cusE2ECheck.push_back(m_uiAllElements[eleID]);
+                    for(unsigned int dir=0;dir<(m_uiNumDirections);dir++){
+                        if(m_uiE2EMapping[eleID*m_uiNumDirections+dir]!=LOOK_UP_TABLE_DEFAULT)
+                            cusE2ECheck.push_back(m_uiAllElements[m_uiE2EMapping[eleID*m_uiNumDirections+dir]]);
+                    }
 
-            treeNodesTovtk(cusE2ECheck,m_uiActiveRank,"cusE2ECheck");
-        }
+                    treeNodesTovtk(cusE2ECheck,m_uiActiveRank,"cusE2ECheck");
+                }
 
-        unsigned int eleVtk=2;
-        unsigned int eleVtkAt=1;
+                unsigned int eleVtk=2;
+                unsigned int eleVtkAt=1;
 
-        unsigned  int lookUp1,lookUp2,lookUp3,lookUp4;
-        unsigned int edgeOwner;
-        unsigned int cornerNodeOwner;
+                unsigned  int lookUp1,lookUp2,lookUp3,lookUp4;
+                unsigned int edgeOwner;
+                unsigned int cornerNodeOwner;
 
-        unsigned int cornerNodeOwnerIndex;
-        unsigned int cornerNodeChildIndex;
-#endif
+                unsigned int cornerNodeOwnerIndex;
+                unsigned int cornerNodeChildIndex;
+        #endif
 
         bool parentChildLevEqual=false;
         std::vector<unsigned int> faceChildIndex; // indices that are being updated for a face
@@ -3183,26 +3821,26 @@ namespace ot {
 
 
 
-#ifdef DEBUG_E2N_MAPPING
-         MPI_Barrier(MPI_COMM_WORLD);
-         unsigned int eleIndex;
-         if(m_uiActiveRank==0)  std::cout<<"E2N  rank : "<<m_uiActiveRank<<std::endl;
-         if(m_uiActiveRank==0)
-         for(unsigned int e=0;e<m_uiAllElements.size();e++)
-         {
-             //if(m_uiAllElements[e].getLevel()!=1) {
-                 std::cout << "Element : "<<e<<" " << m_uiAllElements[e] << " : Node List :";
-                 for (unsigned int k = 0; k < m_uiNpE; k++) {
+        #ifdef DEBUG_E2N_MAPPING
+                MPI_Barrier(MPI_COMM_WORLD);
+                unsigned int eleIndex;
+                if(m_uiActiveRank==0)  std::cout<<"E2N  rank : "<<m_uiActiveRank<<std::endl;
+                if(m_uiActiveRank==0)
+                for(unsigned int e=0;e<m_uiAllElements.size();e++)
+                {
+                    //if(m_uiAllElements[e].getLevel()!=1) {
+                        std::cout << "Element : "<<e<<" " << m_uiAllElements[e] << " : Node List :";
+                        for (unsigned int k = 0; k < m_uiNpE; k++) {
 
-                     std::cout << " " << m_uiE2NMapping_CG[e * m_uiNpE + k];
-          }
+                            std::cout << " " << m_uiE2NMapping_CG[e * m_uiNpE + k];
+                }
 
-                 std::cout << std::endl;
-             //}
+                        std::cout << std::endl;
+                    //}
 
-         }
+                }
 
-#endif
+        #endif
 
 
 
@@ -3216,7 +3854,7 @@ namespace ot {
         m_uiDG2CG.resize(m_uiAllElements.size()*m_uiNpE,LOOK_UP_TABLE_DEFAULT);
         dg2dg_p.resize(m_uiAllElements.size()*m_uiNpE,LOOK_UP_TABLE_DEFAULT);
 
-// 3. Update DG indexing with CG indexing.
+        // 3. Update DG indexing with CG indexing.
         std::sort( E2N_DG_Sorted.begin(), E2N_DG_Sorted.end() );
         E2N_DG_Sorted.erase( std::unique( E2N_DG_Sorted.begin(), E2N_DG_Sorted.end() ), E2N_DG_Sorted.end() );
 
@@ -3320,10 +3958,10 @@ namespace ot {
 
 
 
-#ifdef DEBUG_E2N_MAPPING
-        //MPI_Barrier(MPI_COMM_WORLD);
-        if(!m_uiActiveRank) std::cout<<"m_uiActiveRank: "<<m_uiActiveRank<<"Number of actual nodes: "<<(E2N_DG_Sorted.size())<<std::endl;
-#endif
+        #ifdef DEBUG_E2N_MAPPING
+                //MPI_Barrier(MPI_COMM_WORLD);
+                if(!m_uiActiveRank) std::cout<<"m_uiActiveRank: "<<m_uiActiveRank<<"Number of actual nodes: "<<(E2N_DG_Sorted.size())<<std::endl;
+        #endif
 
         m_uiNodePreGhostBegin=UINT_MAX;
         m_uiNodeLocalBegin=UINT_MAX;
@@ -3408,14 +4046,14 @@ namespace ot {
         E2N_DG_Sorted.clear();
 
 
-#ifdef DEBUG_E2N_MAPPING
-        MPI_Barrier(MPI_COMM_WORLD);
-        if(m_uiActiveRank) std::cout<<" DG to CG index updated "<<std::endl;
-#endif
+        #ifdef DEBUG_E2N_MAPPING
+                MPI_Barrier(MPI_COMM_WORLD);
+                if(m_uiActiveRank) std::cout<<" DG to CG index updated "<<std::endl;
+        #endif
 
 
 
-    /*    for(unsigned int e=m_uiElementPreGhostBegin;e<m_uiElementPostGhostEnd;e++)
+        /*for(unsigned int e=m_uiElementPreGhostBegin;e<m_uiElementPostGhostEnd;e++)
         {
             if(m_uiActiveRank==2 && e==28)
             {
@@ -3448,100 +4086,330 @@ namespace ot {
 
 
 
-          /*unsigned int eleIndex;
-          if(!m_uiActiveRank)  std::cout<<"E2N  rank : "<<m_uiActiveRank<<std::endl;
-          if(!m_uiActiveRank)
-              for(unsigned int e=0;e<m_uiAllElements.size();e++)
-              {
-                  if(m_uiAllElements[e]==ot::TreeNode(24, 12, 40, 4,m_uiDim,m_uiMaxDepth)) {
-                  std::cout << "rank: "<<m_uiActiveRank<<" Element : "<<e<<" " << m_uiAllElements[e] << " : Node List :";
-                  for (unsigned int k = 0; k < m_uiNpE; k++) {
-
-                      std::cout << " " << m_uiE2NMapping_DG[e * m_uiNpE + k];
-
-                  }
-
-                  std::cout << std::endl;
-                  }
-
-              }*/
-//--------------------------------------------------------PRINT THE E2N MAP------------------------------------------------------------------------------------
-        /*for(unsigned int w=0;w<m_uiE2NMapping_CG.size();w++)
-            std::cout<<"w: "<<w<<" -> : "<<m_uiE2NMapping_CG[w]<<std::endl;*/
-
-//--------------------------------------------------------PRINT THE E2N MAP------------------------------------------------------------------------------------
-
-
-#ifdef DEBUG_E2N_MAPPING
-        //MPI_Barrier(MPI_COMM_WORLD);
-        if(!m_uiActiveRank) std::cout<<"[NODE] rank:  "<<m_uiActiveRank<<" pre ( "<<m_uiNodePreGhostBegin<<", "<<m_uiNodePreGhostEnd<<") local ( "<<m_uiNodeLocalBegin<<", "<<m_uiNodeLocalEnd<<")"<<" post ("<<m_uiNodePostGhostBegin<<" , "<<m_uiNodePostGhostEnd<<")"<<std::endl;
-        if(!m_uiActiveRank) std::cout<<"[ELEMENT] rank:  "<<m_uiActiveRank<<" pre ( "<<m_uiElementPreGhostBegin<<", "<<m_uiElementPreGhostEnd<<") local ( "<<m_uiElementLocalBegin<<", "<<m_uiElementLocalEnd<<")"<<" post ("<<m_uiElementPostGhostBegin<<" , "<<m_uiElementPostGhostEnd<<")"<<std::endl;
-
-        if(m_uiActiveRank) std::cout<<"[NODE] rank:  "<<m_uiActiveRank<<" pre ( "<<m_uiNodePreGhostBegin<<", "<<m_uiNodePreGhostEnd<<") local ( "<<m_uiNodeLocalBegin<<", "<<m_uiNodeLocalEnd<<")"<<" post ("<<m_uiNodePostGhostBegin<<" , "<<m_uiNodePostGhostEnd<<")"<<std::endl;
-        if(m_uiActiveRank) std::cout<<"[ELEMENT] rank:  "<<m_uiActiveRank<<" pre ( "<<m_uiElementPreGhostBegin<<", "<<m_uiElementPreGhostEnd<<") local ( "<<m_uiElementLocalBegin<<", "<<m_uiElementLocalEnd<<")"<<" post ("<<m_uiElementPostGhostBegin<<" , "<<m_uiElementPostGhostEnd<<")"<<std::endl;
-
-#endif
-
-//---------------------------------------print out the E2N mapping of fake elements. (This is done for only the fake elements. ) ---------------------------------------------------------------------------------
-
-
-       /* MPI_Barrier(MPI_COMM_WORLD);
-        if(!m_uiActiveRank){
-            std::cout<<"rank: "<<m_uiActiveRank<<"fake element e2n mapping. "<<std::endl;
-            std::cout<<"number of Fake Elements : "<<fakeElements_vec.size()<<std::endl;
-            std::cout<<"number of FakeElement Nodes: "<<m_uiNumFakeNodes<<std::endl;
-            std::cout<<"[Fake ELEMENT] rank:  "<<m_uiActiveRank<<" pre ( "<<m_uiFElementPreGhostBegin<<", "<<m_uiFElementPreGhostEnd<<") local ( "<<m_uiFElementLocalBegin<<", "<<m_uiFElementLocalEnd<<")"<<" post ("<<m_uiFElementPostGhostBegin<<" , "<<m_uiFElementPostGhostEnd<<")"<<std::endl;
-          for(unsigned int e=0;e<fakeElements_vec.size();e++)
-          {
-                  std::cout << "Element : "<<e<<" " << fakeElements_vec[e] << " : Node List :";
-                  for (unsigned int k = 0; k < m_uiNpE; k++) {
-
-                      std::cout << " " << fakeElement2Node_CG[e * m_uiNpE + k];
-
-                  }
-
-                  std::cout << std::endl;
-
-
-          }
-        }
-        MPI_Barrier(MPI_COMM_WORLD);
-        if(m_uiActiveRank==1){
-            std::cout<<"rank: "<<m_uiActiveRank<<"fake element e2n mapping. "<<std::endl;
-            std::cout<<"number of Fake Elements : "<<fakeElements_vec.size()<<std::endl;
-            std::cout<<"number of FakeElement Nodes: "<<m_uiNumFakeNodes<<std::endl;
-            std::cout<<"[Fake ELEMENT] rank:  "<<m_uiActiveRank<<" pre ( "<<m_uiFElementPreGhostBegin<<", "<<m_uiFElementPreGhostEnd<<") local ( "<<m_uiFElementLocalBegin<<", "<<m_uiFElementLocalEnd<<")"<<" post ("<<m_uiFElementPostGhostBegin<<" , "<<m_uiFElementPostGhostEnd<<")"<<std::endl;
-            for(unsigned int e=0;e<fakeElements_vec.size();e++)
+        /*unsigned int eleIndex;
+        if(!m_uiActiveRank)  std::cout<<"E2N  rank : "<<m_uiActiveRank<<std::endl;
+        if(!m_uiActiveRank)
+            for(unsigned int e=0;e<m_uiAllElements.size();e++)
             {
-                std::cout << "Element : "<<e<<" " << fakeElements_vec[e] << " : Node List :";
+                if(m_uiAllElements[e]==ot::TreeNode(24, 12, 40, 4,m_uiDim,m_uiMaxDepth)) {
+                std::cout << "rank: "<<m_uiActiveRank<<" Element : "<<e<<" " << m_uiAllElements[e] << " : Node List :";
                 for (unsigned int k = 0; k < m_uiNpE; k++) {
-
-                    std::cout << " " << fakeElement2Node_CG[e * m_uiNpE + k];
-
+                    std::cout << " " << m_uiE2NMapping_DG[e * m_uiNpE + k];
                 }
 
                 std::cout << std::endl;
+                }
+
+            }*/
+        //--------------------------------------------------------PRINT THE E2N MAP------------------------------------------------------------------------------------
+            /*for(unsigned int w=0;w<m_uiE2NMapping_CG.size();w++)
+                std::cout<<"w: "<<w<<" -> : "<<m_uiE2NMapping_CG[w]<<std::endl;*/
+
+        //--------------------------------------------------------PRINT THE E2N MAP------------------------------------------------------------------------------------
 
 
-            }
-        }
-        MPI_Barrier(MPI_COMM_WORLD);*/
+        #ifdef DEBUG_E2N_MAPPING
+                //MPI_Barrier(MPI_COMM_WORLD);
+                if(!m_uiActiveRank) std::cout<<"[NODE] rank:  "<<m_uiActiveRank<<" pre ( "<<m_uiNodePreGhostBegin<<", "<<m_uiNodePreGhostEnd<<") local ( "<<m_uiNodeLocalBegin<<", "<<m_uiNodeLocalEnd<<")"<<" post ("<<m_uiNodePostGhostBegin<<" , "<<m_uiNodePostGhostEnd<<")"<<std::endl;
+                if(!m_uiActiveRank) std::cout<<"[ELEMENT] rank:  "<<m_uiActiveRank<<" pre ( "<<m_uiElementPreGhostBegin<<", "<<m_uiElementPreGhostEnd<<") local ( "<<m_uiElementLocalBegin<<", "<<m_uiElementLocalEnd<<")"<<" post ("<<m_uiElementPostGhostBegin<<" , "<<m_uiElementPostGhostEnd<<")"<<std::endl;
 
-//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                if(m_uiActiveRank) std::cout<<"[NODE] rank:  "<<m_uiActiveRank<<" pre ( "<<m_uiNodePreGhostBegin<<", "<<m_uiNodePreGhostEnd<<") local ( "<<m_uiNodeLocalBegin<<", "<<m_uiNodeLocalEnd<<")"<<" post ("<<m_uiNodePostGhostBegin<<" , "<<m_uiNodePostGhostEnd<<")"<<std::endl;
+                if(m_uiActiveRank) std::cout<<"[ELEMENT] rank:  "<<m_uiActiveRank<<" pre ( "<<m_uiElementPreGhostBegin<<", "<<m_uiElementPreGhostEnd<<") local ( "<<m_uiElementLocalBegin<<", "<<m_uiElementLocalEnd<<")"<<" post ("<<m_uiElementPostGhostBegin<<" , "<<m_uiElementPostGhostEnd<<")"<<std::endl;
+
+        #endif
+
+        //---------------------------------------print out the E2N mapping of fake elements. (This is done for only the fake elements. ) ---------------------------------------------------------------------------------
+
+
+            /* MPI_Barrier(MPI_COMM_WORLD);
+                if(!m_uiActiveRank){
+                    std::cout<<"rank: "<<m_uiActiveRank<<"fake element e2n mapping. "<<std::endl;
+                    std::cout<<"number of Fake Elements : "<<fakeElements_vec.size()<<std::endl;
+                    std::cout<<"number of FakeElement Nodes: "<<m_uiNumFakeNodes<<std::endl;
+                    std::cout<<"[Fake ELEMENT] rank:  "<<m_uiActiveRank<<" pre ( "<<m_uiFElementPreGhostBegin<<", "<<m_uiFElementPreGhostEnd<<") local ( "<<m_uiFElementLocalBegin<<", "<<m_uiFElementLocalEnd<<")"<<" post ("<<m_uiFElementPostGhostBegin<<" , "<<m_uiFElementPostGhostEnd<<")"<<std::endl;
+                for(unsigned int e=0;e<fakeElements_vec.size();e++)
+                {
+                        std::cout << "Element : "<<e<<" " << fakeElements_vec[e] << " : Node List :";
+                        for (unsigned int k = 0; k < m_uiNpE; k++) {
+
+                            std::cout << " " << fakeElement2Node_CG[e * m_uiNpE + k];
+
+                        }
+
+                        std::cout << std::endl;
+
+
+                }
+                }
+                MPI_Barrier(MPI_COMM_WORLD);
+                if(m_uiActiveRank==1){
+                    std::cout<<"rank: "<<m_uiActiveRank<<"fake element e2n mapping. "<<std::endl;
+                    std::cout<<"number of Fake Elements : "<<fakeElements_vec.size()<<std::endl;
+                    std::cout<<"number of FakeElement Nodes: "<<m_uiNumFakeNodes<<std::endl;
+                    std::cout<<"[Fake ELEMENT] rank:  "<<m_uiActiveRank<<" pre ( "<<m_uiFElementPreGhostBegin<<", "<<m_uiFElementPreGhostEnd<<") local ( "<<m_uiFElementLocalBegin<<", "<<m_uiFElementLocalEnd<<")"<<" post ("<<m_uiFElementPostGhostBegin<<" , "<<m_uiFElementPostGhostEnd<<")"<<std::endl;
+                    for(unsigned int e=0;e<fakeElements_vec.size();e++)
+                    {
+                        std::cout << "Element : "<<e<<" " << fakeElements_vec[e] << " : Node List :";
+                        for (unsigned int k = 0; k < m_uiNpE; k++) {
+
+                            std::cout << " " << fakeElement2Node_CG[e * m_uiNpE + k];
+
+                        }
+
+                        std::cout << std::endl;
+
+
+                    }
+                }
+                MPI_Barrier(MPI_COMM_WORLD);*/
+
+        //-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
         // 8. Change the size of the original E2N mapping and copy fake element to node mapping at the end of the actual element to node mapping.
         //m_uiE2NMapping_CG.resize(m_uiNumTotalElements*m_uiNpE+(m_uiFElementPostGhostEnd-m_uiFElementPreGhostBegin)*m_uiNpE);
         //memcpy(&(*(m_uiE2NMapping_CG.begin()+(m_uiNumTotalElements*m_uiNpE))),&(*(fakeElement2Node_CG.begin())),sizeof(unsigned int )*(m_uiFElementPostGhostEnd-m_uiFElementPreGhostBegin)*m_uiNpE);
 
-//---------------------------------------print out the final e2n mapping of all, actual and fake element to node mapping.--------------------------------------------------------------------------
+        //---------------------------------------print out the final e2n mapping of all, actual and fake element to node mapping.--------------------------------------------------------------------------
 
-//----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-        if(!m_uiActiveRank) std::cout<<"E2N Mapping ended"<<std::endl;
+        //----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        //if(!m_uiActiveRank) std::cout<<"E2N Mapping ended"<<std::endl;
 
 
     }
 
+    void Mesh::buildFEM_E2N()
+    {
+        // todo we don't need to build the full e2n mapping only for the partition boundary and R1 ghost elements. 
+        buildE2NMap();
+        // for(unsigned int ele=m_uiElementPreGhostBegin;ele<m_uiElementPreGhostEnd;ele++)
+        // {
+        //     for(unsigned int node=0;node<m_uiNpE;node++)
+        //     {
+        //         const unsigned nodeLookUp = m_uiE2NMapping_CG [ele*m_uiNpE + node];
+        //         if(nodeLookUp>=m_uiNodeLocalBegin && nodeLookUp<m_uiNodeLocalEnd)
+        //         {
+        //             m_uiGhostElementRound1Index.push_back(ele);
+        //             break;
+        //         }
+        //     }
+        // }
+
+        // for(unsigned int ele=m_uiElementPostGhostBegin;ele<m_uiElementPostGhostEnd;ele++)
+        // {
+        //     for(unsigned int node=0;node<m_uiNpE;node++)
+        //     {
+        //         const unsigned nodeLookUp = m_uiE2NMapping_CG [ele*m_uiNpE + node];
+        //         if(nodeLookUp>=m_uiNodeLocalBegin && nodeLookUp<m_uiNodeLocalEnd)
+        //         {
+        //             m_uiGhostElementRound1Index.push_back(ele);
+        //             break;
+        //         }
+        //     }
+        // }
+
+        // std::sort(m_uiGhostElementRound1Index.begin(), m_uiGhostElementRound1Index.end());
+        // m_uiGhostElementRound1Index.erase(std::unique(m_uiGhostElementRound1Index.begin(), m_uiGhostElementRound1Index.end()),m_uiGhostElementRound1Index.end());
+
+        // m_uiCG2DG.clear();
+        // buildE2NMap();
+        
+    }
+
+    void Mesh::buildE2N_DG()
+    {
+
+        unsigned int lookUp = 0;
+        unsigned int lev1 = 0;
+        unsigned int lev2 = 0;
+
+        unsigned int child;
+        unsigned int parent;
+
+        #ifdef DEBUG_E2N_MAPPING
+                for(unsigned int ge=m_uiElementPreGhostBegin;ge<m_uiElementPreGhostEnd;ge++)
+                {
+                    for(unsigned int dir=0;dir<m_uiNumDirections;dir++)
+                    if(m_uiE2EMapping[ge*m_uiNumDirections+dir]!=LOOK_UP_TABLE_DEFAULT)
+                        assert((m_uiE2EMapping[ge*m_uiNumDirections+dir]>=m_uiElementLocalBegin) && (m_uiE2EMapping[ge*m_uiNumDirections+dir]<m_uiElementLocalEnd) );
+                }
+
+                for(unsigned int ge=m_uiElementPostGhostBegin;ge<m_uiElementPostGhostEnd;ge++)
+                {
+                    for(unsigned int dir=0;dir<m_uiNumDirections;dir++)
+                        if(m_uiE2EMapping[ge*m_uiNumDirections+dir]!=LOOK_UP_TABLE_DEFAULT)
+                            assert((m_uiE2EMapping[ge*m_uiNumDirections+dir]>=m_uiElementLocalBegin) && (m_uiE2EMapping[ge*m_uiNumDirections+dir]<m_uiElementLocalEnd) );
+                }
+
+        #endif
+
+        assert(m_uiNumTotalElements == m_uiAllElements.size());
+        assert((m_uiElementPostGhostEnd - m_uiElementPreGhostBegin) > 0);
+        assert(m_uiNumTotalElements == ((m_uiElementPostGhostEnd - m_uiElementPreGhostBegin)));
+
+        m_uiE2NMapping_CG.resize(m_uiNumTotalElements * m_uiNpE);
+        m_uiE2NMapping_DG.resize(m_uiNumTotalElements * m_uiNpE);
+
+        // initialize the DG mapping. // this order is mandotory.
+        for (unsigned int e = 0; e < (m_uiNumTotalElements); e++)
+            for (unsigned int k = 0; k < (m_uiElementOrder + 1); k++) //z coordinate
+                for (unsigned int j = 0; j < (m_uiElementOrder + 1); j++) // y coordinate
+                    for (unsigned int i = 0; i < (m_uiElementOrder + 1); i++) // x coordinate
+                        m_uiE2NMapping_CG[e * m_uiNpE + k * (m_uiElementOrder + 1) * (m_uiElementOrder + 1) +
+                                          j * (m_uiElementOrder + 1) + i] =
+                                e * m_uiNpE + k * (m_uiElementOrder + 1) * (m_uiElementOrder + 1) +
+                                j * (m_uiElementOrder + 1) + i;
+
+
+
+        m_uiNodePreGhostBegin = m_uiElementPreGhostBegin * m_uiNpE;
+        m_uiNodePreGhostEnd = m_uiElementPreGhostEnd * m_uiNpE;
+
+        m_uiNodeLocalBegin = m_uiElementLocalBegin * m_uiNpE;
+        m_uiNodeLocalEnd = m_uiElementLocalEnd * m_uiNpE;
+
+        m_uiNodePostGhostBegin = m_uiElementPostGhostBegin * m_uiNpE;
+        m_uiNodePostGhostEnd = m_uiElementPostGhostEnd * m_uiNpE;
+
+        
+        m_uiNumActualNodes = (m_uiNodePreGhostEnd - m_uiNodePreGhostBegin) + (m_uiNodeLocalEnd - m_uiNodeLocalBegin ) + (m_uiNodeLocalEnd - m_uiNodeLocalBegin);
+
+        m_uiE2NMapping_DG = m_uiE2NMapping_CG;
+        m_uiCG2DG = m_uiE2NMapping_CG;
+        //m_uiCG2DG.resize(m_uiE2NMapping_CG.size(),1);
+
+        if(!m_uiActiveRank)
+            std::cout<<"E2N_DG Ended"<<std::endl;
+
+
+    }
+
+    void Mesh::buildE2BlockMap()
+    {   
+        if(!m_uiIsActive)
+            return;
+
+        //clear all the maps. 
+        const unsigned int num_all_elements=m_uiAllElements.size();
+        m_e2b_unzip_counts.resize(num_all_elements,0);
+        m_e2b_unzip_offset.resize(num_all_elements,0);
+        
+
+        std::vector<unsigned int> eid;
+        eid.reserve((NUM_CHILDREN + NUM_EDGES + NUM_FACES + 1)*4);
+        
+        for(unsigned int blk=0; blk < m_uiLocalBlockList.size(); blk++)
+        {
+            this->blkUnzipElementIDs(blk,eid);
+            const unsigned int eLocalB = m_uiLocalBlockList[blk].getLocalElementBegin();
+            const unsigned int eLocalE = m_uiLocalBlockList[blk].getLocalElementEnd();
+            for(unsigned int elem = eLocalB ; elem < eLocalE; elem++)
+                m_e2b_unzip_counts[elem]++;
+
+            for(unsigned int i = 0 ; i < eid.size(); i++)
+            {
+                const unsigned int elem =  eid[i];
+                m_e2b_unzip_counts[elem]++;
+            }
+                
+        }
+        m_e2b_unzip_offset[0]=0;
+        omp_par::scan(m_e2b_unzip_counts.data(),m_e2b_unzip_offset.data(),m_e2b_unzip_counts.size());
+
+        const unsigned int e2b_map_size= m_e2b_unzip_offset[num_all_elements-1] + m_e2b_unzip_counts[num_all_elements-1];
+        m_e2b_unzip_map.resize(e2b_map_size,LOOK_UP_TABLE_DEFAULT);
+        
+        for(unsigned int i=0; i < m_e2b_unzip_counts.size();i++)
+            m_e2b_unzip_counts[i]=0;
+        
+        for(unsigned int blk=0; blk < m_uiLocalBlockList.size(); blk++)
+        {
+            this->blkUnzipElementIDs(blk,eid);
+            const unsigned int eLocalB = m_uiLocalBlockList[blk].getLocalElementBegin();
+            const unsigned int eLocalE = m_uiLocalBlockList[blk].getLocalElementEnd();
+            for(unsigned int elem = eLocalB ; elem < eLocalE; elem++)
+            {   
+                m_e2b_unzip_map[m_e2b_unzip_offset[elem]+ m_e2b_unzip_counts[elem]] = blk;
+                m_e2b_unzip_counts[elem]++;
+            }
+                
+
+            for(unsigned int i = 0 ; i < eid.size(); i++)
+            {   
+                const unsigned int elem =  eid[i];
+                m_e2b_unzip_map[m_e2b_unzip_offset[elem]+ m_e2b_unzip_counts[elem]] = blk;
+                m_e2b_unzip_counts[elem]++;
+            }
+                
+        }
+        
+        return;
+    }
+
+    void Mesh::computeNodalScatterMapDG(MPI_Comm comm)
+    {
+        
+        // should not be called if the mesh is not active
+        if(!m_uiIsActive) return;
+
+        int rank,npes;
+        MPI_Comm_rank(comm,&rank);
+        MPI_Comm_size(comm,&npes);
+
+        if(npes<=1) return; // nothing to do in the sequential case. (No scatter map required.)
+
+        m_uiSendNodeCount.resize(npes);
+        m_uiRecvNodeCount.resize(npes);
+        m_uiSendNodeOffset.resize(npes);
+        m_uiRecvNodeOffset.resize(npes);
+
+        for(unsigned int p=0;p<npes;p++)
+        {
+            m_uiSendNodeCount[p] = m_uiSendEleCount[p]*m_uiNpE;
+            m_uiRecvNodeCount[p] = m_uiRecvEleCount[p]*m_uiNpE;
+
+            m_uiSendNodeOffset[p] = m_uiSendEleOffset[p]*m_uiNpE;
+            m_uiRecvNodeOffset[p] = m_uiRecvNodeOffset[p]*m_uiNpE;
+
+        }
+        
+        if((m_uiRecvNodeOffset[npes-1] + m_uiRecvNodeCount[npes-1]) != m_uiGhostElementRound1Index.size()*m_uiNpE )
+        {
+            std::cout<<"Error: "<<__func__ <<" line: "<<__LINE__<<" send and recv DG node mismatch "<<std::endl;
+            MPI_Abort(comm,0);
+        }
+
+
+        m_uiScatterMapActualNodeSend.clear();
+        m_uiScatterMapActualNodeRecv.clear();
+
+        m_uiScatterMapActualNodeSend.resize( (m_uiSendNodeOffset[npes-1] + m_uiSendNodeCount[npes-1])  );
+        m_uiScatterMapActualNodeRecv.resize( (m_uiRecvNodeOffset[npes-1] + m_uiRecvNodeCount[npes-1])  );
+
+        unsigned int nCount = 0; 
+        // note that we don't need all the only surface points are enough. 
+        for(unsigned int p=0; p < npes; p++)
+        {
+            for(unsigned int k= m_uiSendEleOffset[p]; k < (m_uiSendEleOffset[p] + m_uiSendEleCount[p]) ; k++)
+            {
+                for(unsigned int n=0; n  < m_uiNpE; n++, nCount++)
+                    m_uiScatterMapActualNodeSend[nCount] = m_uiE2NMapping_CG[(m_uiScatterMapElementRound1[k] + m_uiElementLocalBegin )*m_uiNpE + n];
+            }
+        }
+        
+        nCount=0;
+        for(unsigned int p=0; p < npes; p++)
+        {
+            for(unsigned int k= m_uiRecvEleOffset[p]; k < (m_uiRecvEleOffset[p] + m_uiRecvEleCount[p]) ; k++)
+            {
+                for(unsigned int n=0; n  < m_uiNpE; n++, nCount++)
+                    m_uiScatterMapActualNodeRecv[nCount] = m_uiE2NMapping_CG[m_uiGhostElementRound1Index[k]*m_uiNpE + n];
+            }
+        }
+
+
+        return;
+
+    }
 
     void Mesh::computeNodeScatterMaps(MPI_Comm comm)
     {
@@ -3569,7 +4437,7 @@ namespace ot {
         unsigned int nodeIndex_DG;
         unsigned int elementLookUp;
 
-#ifdef DEBUG_E2N_MAPPING_SM
+        #ifdef DEBUG_E2N_MAPPING_SM
         std::vector<ot::TreeNode> cusEleCheck;
          /*  for(unsigned int ele=m_uiElementLocalBegin;ele<m_uiElementLocalEnd;ele++)
         {
@@ -3603,7 +4471,7 @@ namespace ot {
 
 
         }*/
-#endif
+        #endif
 
 
         // 1. compute the local nodes.
@@ -3647,9 +4515,9 @@ namespace ot {
         //minMaxLocalNode[0] = m_uiAllLocalNode.front();
         //minMaxLocalNode[1] = m_uiAllLocalNode.back();
 
-#ifdef DEBUG_E2N_MAPPING_SM
-        treeNodesTovtk(m_uiAllLocalNode,m_uiActiveRank,"m_uiAllLocalNode");
-#endif
+        #ifdef DEBUG_E2N_MAPPING_SM
+            treeNodesTovtk(m_uiAllLocalNode,m_uiActiveRank,"m_uiAllLocalNode");
+        #endif
 
         // 3. Gather the splitter max
         m_uiSplitterNodes=new ot::TreeNode[2*npes]; // both min and max
@@ -3657,21 +4525,21 @@ namespace ot {
         minMaxIDs.resize(2*npes);
 
         par::Mpi_Allgather(minMaxLocalNode,m_uiSplitterNodes,2,comm);
-#ifdef DEBUG_E2N_MAPPING_SM
-        std::vector<ot::TreeNode> splitterNodes;
-        std::vector<ot::TreeNode> splitterElements;
+        #ifdef DEBUG_E2N_MAPPING_SM
+                std::vector<ot::TreeNode> splitterNodes;
+                std::vector<ot::TreeNode> splitterElements;
 
-        for(unsigned int p=0;p<npes;p++)
-        {
-            splitterNodes.push_back(m_uiSplitterNodes[p]);
-            splitterElements.push_back(m_uiLocalSplitterElements[p]);
-        }
+                for(unsigned int p=0;p<npes;p++)
+                {
+                    splitterNodes.push_back(m_uiSplitterNodes[p]);
+                    splitterElements.push_back(m_uiLocalSplitterElements[p]);
+                }
 
-        if(!rank) treeNodesTovtk(splitterNodes,rank,"splitterNodes");
-        if(!rank) treeNodesTovtk(splitterElements,rank,"splitterElements");
+                if(!rank) treeNodesTovtk(splitterNodes,rank,"splitterNodes");
+                if(!rank) treeNodesTovtk(splitterElements,rank,"splitterElements");
 
-        assert(seq::test::isUniqueAndSorted(splitterElements));
-#endif
+                assert(seq::test::isUniqueAndSorted(splitterElements));
+        #endif
 
         m_uiScatterMapActualNodeSend.clear();
         m_uiSendNodeCount.resize(npes);//=new unsigned int [npes];
@@ -3686,17 +4554,17 @@ namespace ot {
         //assert((m_uiNumPreGhostElements+m_uiNumPostGhostElements)==(m_uiRecvOctOffsetRound1[npes-1]+m_uiRecvOctCountRound1[npes-1]));
 
 
-#ifdef DEBUG_E2N_MAPPING_SM
-        std::vector<ot::TreeNode> customElements;
-        std::vector<ot::TreeNode> sendNodes[npes];
+        #ifdef DEBUG_E2N_MAPPING_SM
+                std::vector<ot::TreeNode> customElements;
+                std::vector<ot::TreeNode> sendNodes[npes];
 
-        /*if(!m_uiActiveRank) customElements.push_back(m_uiAllElements[206]);
-        if(!m_uiActiveRank) customElements.push_back(m_uiAllElements[57]);
-        if(!m_uiActiveRank) treeNodesTovtk(customElements,m_uiActiveRank,"customElement");*/
+                /*if(!m_uiActiveRank) customElements.push_back(m_uiAllElements[206]);
+                if(!m_uiActiveRank) customElements.push_back(m_uiAllElements[57]);
+                if(!m_uiActiveRank) treeNodesTovtk(customElements,m_uiActiveRank,"customElement");*/
 
-        std::vector<ot::TreeNode> allocatedGNodes;
+                std::vector<ot::TreeNode> allocatedGNodes;
 
-#endif
+        #endif
 
         // 3a. Compute send nodes based on the send elements that processor p has sent to other processors in the round 1 ghost communication.
         for(unsigned int p=0;p<npes;p++)
@@ -3781,9 +4649,9 @@ namespace ot {
         }
 
 
-#ifdef DEBUG_E2N_MAPPING_SM
-        treeNodesTovtk(allocatedGhostNodes,rank,"allocatedGhostNodes");
-#endif
+        #ifdef DEBUG_E2N_MAPPING_SM
+                treeNodesTovtk(allocatedGhostNodes,rank,"allocatedGhostNodes");
+        #endif
 
 
         ghostElementChained.clear();
@@ -3817,10 +4685,10 @@ namespace ot {
         }
 
 
-#ifdef DEBUG_E2N_MAPPING_SM
-        std::cout<<"m_uiActiveRank "<<m_uiActiveRank<<" gElementChained.size(): "<<ghostElementChained.size()<<std::endl;
-        treeNodesTovtk(ghostElementChained,m_uiActiveRank,"ghostElementChained");
-#endif
+        #ifdef DEBUG_E2N_MAPPING_SM
+                std::cout<<"m_uiActiveRank "<<m_uiActiveRank<<" gElementChained.size(): "<<ghostElementChained.size()<<std::endl;
+                treeNodesTovtk(ghostElementChained,m_uiActiveRank,"ghostElementChained");
+        #endif
 
         std::vector<unsigned int> recvGhostChainedFlag;
         std::vector<Key> recvGhostChained;
@@ -4055,14 +4923,14 @@ namespace ot {
             }
 
 
-#ifdef DEBUG_E2N_MAPPING_SM
-            missingNodes.clear();
-            missingNodes.insert(missingNodes.end(),missingNodesSet.begin(),missingNodesSet.end());
-            std::cout<<"m_uiActiveRank: "<<m_uiActiveRank<<" missing node size: "<<missingNodes.size()<<std::endl;
-            treeNodesTovtk(missingNodes,m_uiActiveRank,"missingNodes");
-            treeNodesTovtk(nonLocalNodes,rank,"nonLocal");
-            missingNodes.clear();
-#endif
+            #ifdef DEBUG_E2N_MAPPING_SM
+                        missingNodes.clear();
+                        missingNodes.insert(missingNodes.end(),missingNodesSet.begin(),missingNodesSet.end());
+                        std::cout<<"m_uiActiveRank: "<<m_uiActiveRank<<" missing node size: "<<missingNodes.size()<<std::endl;
+                        treeNodesTovtk(missingNodes,m_uiActiveRank,"missingNodes");
+                        treeNodesTovtk(nonLocalNodes,rank,"nonLocal");
+                        missingNodes.clear();
+            #endif
 
 
 
@@ -4197,9 +5065,9 @@ namespace ot {
             recvChainedKeyOffset[0]=0;
             omp_par::scan(recvChainedKeyCount,recvChainedKeyOffset,npes);
 
-#ifdef DEBUG_E2N_MAPPING_SM
-            treeNodesTovtk(recvGhostChained,m_uiActiveRank,"recvGChained");
-#endif
+            #ifdef DEBUG_E2N_MAPPING_SM
+                        treeNodesTovtk(recvGhostChained,m_uiActiveRank,"recvGChained");
+            #endif
 
             recvGhostChainedSearchKeys.resize(recvGhostChained.size());
             for(unsigned int ele=0;ele<recvGhostChained.size();ele++)
@@ -4249,29 +5117,29 @@ namespace ot {
                     nodeFlag=recvGhostChainedFlag[ele];
                     nodeFlag=nodeFlag>>(CHAINED_GHOST_OFFSET);
 
-                    /*if(*//*m_uiActiveRank==12*//*(m_uiActiveRank==12 && ele==615) || ( m_uiActiveRank==12 && (recvGhostChained[ele]==recvGhostChained[615])))
-                {
-
-                    std::cout<<"ele: "<<ele<<" Key: "<<recvGhostChained[ele]<<" found: "<<m_uiAllElements[result]<<" nodeFlag: "<<recvGhostChainedFlag[ele]<<std::endl;
-                    for(unsigned int node=0;node<m_uiNpE;node++)
+                    /*if((m_uiActiveRank==12 && ele==615) || ( m_uiActiveRank==12 && (recvGhostChained[ele]==recvGhostChained[615])))
                     {
-                        nodeIndex=m_uiE2NMapping_CG[result*m_uiNpE+node];
-                        if(nodeIndex>=m_uiNodeLocalBegin && nodeIndex<m_uiNodeLocalEnd)
+
+                        std::cout<<"ele: "<<ele<<" Key: "<<recvGhostChained[ele]<<" found: "<<m_uiAllElements[result]<<" nodeFlag: "<<recvGhostChainedFlag[ele]<<std::endl;
+                        for(unsigned int node=0;node<m_uiNpE;node++)
                         {
-                            std::cout<<"E2N: "<<ele<<" found: "<<result<<" node: "<<"node: "<<node;
+                            nodeIndex=m_uiE2NMapping_CG[result*m_uiNpE+node];
+                            if(nodeIndex>=m_uiNodeLocalBegin && nodeIndex<m_uiNodeLocalEnd)
+                            {
+                                std::cout<<"E2N: "<<ele<<" found: "<<result<<" node: "<<"node: "<<node;
+                            }
+                            std::cout<<std::endl;
+
+
                         }
-                        std::cout<<std::endl;
+                        std::vector<ot::TreeNode> cusElement;
+                        cusElement.push_back(recvGhostChained[ele]);
+                        treeNodesTovtk(cusElement,ele,"cusElement");
+                        cusElement.clear();
 
 
                     }
-                    std::vector<ot::TreeNode> cusElement;
-                    cusElement.push_back(recvGhostChained[ele]);
-                    treeNodesTovtk(cusElement,ele,"cusElement");
-                    cusElement.clear();
-
-
-                }
-*/
+                    */
 
                     if(nodeFlag & (1u<<OCT_DIR_LEFT_DOWN_BACK))
                     {
@@ -4493,14 +5361,14 @@ namespace ot {
                                     tmpKey.addOwner((*setHintUint.first));
                                     assert((*setHintUint.first)==nodeIndex);
                                     sendNodeOctants[(*ownerList)[w]].push_back(tmpKey);
-#ifdef DEBUG_E2N_MAPPING_SM
-                                    x=m_uiAllElements[ownerID].getX();
-                                    y=m_uiAllElements[ownerID].getY();
-                                    z=m_uiAllElements[ownerID].getZ();
-                                    sz=1u<<(m_uiMaxDepth-m_uiAllElements[ownerID].getLevel());
-                                    sendNodes[(*ownerList)[w]].push_back(ot::TreeNode((x+ii_x*sz/m_uiElementOrder),(y+jj_y*sz/m_uiElementOrder),(z+kk_z*sz/m_uiElementOrder),m_uiMaxDepth,m_uiDim,m_uiMaxDepth));
-                                    //if((*ownerList)[w]==2) std::cout<<" m_uiActiveRank: "<<m_uiActiveRank<<" SendNode: "<<sendNodes[(*ownerList)[w]].back()<<" to rank 2"<<std::endl;
-#endif
+                                    #ifdef DEBUG_E2N_MAPPING_SM
+                                        x=m_uiAllElements[ownerID].getX();
+                                        y=m_uiAllElements[ownerID].getY();
+                                        z=m_uiAllElements[ownerID].getZ();
+                                        sz=1u<<(m_uiMaxDepth-m_uiAllElements[ownerID].getLevel());
+                                        sendNodes[(*ownerList)[w]].push_back(ot::TreeNode((x+ii_x*sz/m_uiElementOrder),(y+jj_y*sz/m_uiElementOrder),(z+kk_z*sz/m_uiElementOrder),m_uiMaxDepth,m_uiDim,m_uiMaxDepth));
+                                        //if((*ownerList)[w]==2) std::cout<<" m_uiActiveRank: "<<m_uiActiveRank<<" SendNode: "<<sendNodes[(*ownerList)[w]].back()<<" to rank 2"<<std::endl;
+                                    #endif
                                     m_uiSendNodeCount[(*ownerList)[w]]++;
                                     //std::cout<<"m_uiActiveRank: "<<m_uiActiveRank<<" R2 SendNodes Executed. "<<std::endl;
 
@@ -4586,103 +5454,103 @@ namespace ot {
 
 
 
-#ifdef DEBUG_E2N_MAPPING_SM
+        #ifdef DEBUG_E2N_MAPPING_SM
 
 
-        for(unsigned int p=0;p<npes;p++)
-        {
-            tmpNode.clear();
-            SFC::seqSort::SFC_treeSort(&(*(sendNodes[p].begin())),sendNodes[p].size(),tmpNode,tmpNode,tmpNode,m_uiMaxDepth,m_uiMaxDepth,rootNode,ROOT_ROTATION,1,TS_SORT_ONLY);
-            assert(seq::test::isUniqueAndSorted(sendNodes[p]));
-        }
+                for(unsigned int p=0;p<npes;p++)
+                {
+                    tmpNode.clear();
+                    SFC::seqSort::SFC_treeSort(&(*(sendNodes[p].begin())),sendNodes[p].size(),tmpNode,tmpNode,tmpNode,m_uiMaxDepth,m_uiMaxDepth,rootNode,ROOT_ROTATION,1,TS_SORT_ONLY);
+                    assert(seq::test::isUniqueAndSorted(sendNodes[p]));
+                }
 
 
-        unsigned int * sendNodeCount=new unsigned int [npes];
-        unsigned int * recvNodeCount=new unsigned int [npes];
-        unsigned int * sendNodeOffset=new unsigned int [npes];
-        unsigned int * recvNodeOffset=new unsigned int [npes];
+                unsigned int * sendNodeCount=new unsigned int [npes];
+                unsigned int * recvNodeCount=new unsigned int [npes];
+                unsigned int * sendNodeOffset=new unsigned int [npes];
+                unsigned int * recvNodeOffset=new unsigned int [npes];
 
-        std::vector<ot::TreeNode> sendNodeBuffer;
-        std::vector<ot::TreeNode> recvNodeBuffer;
-
-
-        for(unsigned int p=0;p<npes;p++) {
-            sendNodeCount[p] = scatterMapNodeSet[p].size();
-            sendNodeBuffer.insert(sendNodeBuffer.end(),sendNodes[p].begin(),sendNodes[p].end());
-        }
-
-        par::Mpi_Alltoall(sendNodeCount,recvNodeCount,1,comm);
-
-        sendNodeOffset[0]=0;
-        recvNodeOffset[0]=0;
-
-        omp_par::scan(sendNodeCount,sendNodeOffset,npes);
-        omp_par::scan(recvNodeCount,recvNodeOffset,npes);
-
-        recvNodeBuffer.resize(recvNodeCount[npes-1]+recvNodeOffset[npes-1]);
-        par::Mpi_Alltoallv(&(*(sendNodeBuffer.begin())),(int *) sendNodeCount,(int *) sendNodeOffset, &(*(recvNodeBuffer.begin())),(int *) recvNodeCount,(int *) recvNodeOffset,comm);
-
-        tmpNode.clear();
-        SFC::seqSort::SFC_treeSort(&(*(allocatedGNodes.begin())),allocatedGNodes.size(),tmpNode,tmpNode,tmpNode,m_uiMaxDepth,m_uiMaxDepth,rootNode,ROOT_ROTATION,1,TS_SORT_ONLY);
-        assert(seq::test::isUniqueAndSorted(allocatedGNodes));
+                std::vector<ot::TreeNode> sendNodeBuffer;
+                std::vector<ot::TreeNode> recvNodeBuffer;
 
 
-       /* if(m_uiActiveRank==2)
-        {
-            for(unsigned int ele=0;ele<recvNodeBuffer.size();ele++)
-            {
-                std::cout<<"recvNode: "<<recvNodeBuffer[ele]<<std::endl;
-            }
-        }*/
+                for(unsigned int p=0;p<npes;p++) {
+                    sendNodeCount[p] = scatterMapNodeSet[p].size();
+                    sendNodeBuffer.insert(sendNodeBuffer.end(),sendNodes[p].begin(),sendNodes[p].end());
+                }
 
-        tmpNode.clear();
-        SFC::seqSort::SFC_treeSort(&(*(recvNodeBuffer.begin())),recvNodeBuffer.size(),tmpNode,tmpNode,tmpNode,m_uiMaxDepth,m_uiMaxDepth,rootNode,ROOT_ROTATION,1,TS_SORT_ONLY);
-        assert(seq::test::isUniqueAndSorted(recvNodeBuffer));
+                par::Mpi_Alltoall(sendNodeCount,recvNodeCount,1,comm);
 
+                sendNodeOffset[0]=0;
+                recvNodeOffset[0]=0;
 
-        if(recvNodeBuffer.size()!=allocatedGNodes.size())
-        {
-            std::vector<Key> recvNodeKeys;
-            recvNodeKeys.resize(recvNodeBuffer.size());
-            std::vector<ot::TreeNode> missmatchedNodes;
+                omp_par::scan(sendNodeCount,sendNodeOffset,npes);
+                omp_par::scan(recvNodeCount,recvNodeOffset,npes);
 
+                recvNodeBuffer.resize(recvNodeCount[npes-1]+recvNodeOffset[npes-1]);
+                par::Mpi_Alltoallv(&(*(sendNodeBuffer.begin())),(int *) sendNodeCount,(int *) sendNodeOffset, &(*(recvNodeBuffer.begin())),(int *) recvNodeCount,(int *) recvNodeOffset,comm);
 
-            for(unsigned int e=0;e<recvNodeBuffer.size();e++)
-            {
-               unsigned int findIndex=std::find(allocatedGNodes.begin(),allocatedGNodes.end(),recvNodeBuffer[e])-allocatedGNodes.begin();
-               if(findIndex >=allocatedGNodes.size())
-                   missmatchedNodes.push_back(recvNodeBuffer[e]);
-            }
-
-            treeNodesTovtk(allocatedGNodes,rank,"allGNode");
-            treeNodesTovtk(recvNodeBuffer,rank,"recvNodeBuffer");
+                tmpNode.clear();
+                SFC::seqSort::SFC_treeSort(&(*(allocatedGNodes.begin())),allocatedGNodes.size(),tmpNode,tmpNode,tmpNode,m_uiMaxDepth,m_uiMaxDepth,rootNode,ROOT_ROTATION,1,TS_SORT_ONLY);
+                assert(seq::test::isUniqueAndSorted(allocatedGNodes));
 
 
-            treeNodesTovtk(missmatchedNodes,rank,"missmatchedNodes");
+            /* if(m_uiActiveRank==2)
+                {
+                    for(unsigned int ele=0;ele<recvNodeBuffer.size();ele++)
+                    {
+                        std::cout<<"recvNode: "<<recvNodeBuffer[ele]<<std::endl;
+                    }
+                }*/
 
-        }
+                tmpNode.clear();
+                SFC::seqSort::SFC_treeSort(&(*(recvNodeBuffer.begin())),recvNodeBuffer.size(),tmpNode,tmpNode,tmpNode,m_uiMaxDepth,m_uiMaxDepth,rootNode,ROOT_ROTATION,1,TS_SORT_ONLY);
+                assert(seq::test::isUniqueAndSorted(recvNodeBuffer));
 
 
+                if(recvNodeBuffer.size()!=allocatedGNodes.size())
+                {
+                    std::vector<Key> recvNodeKeys;
+                    recvNodeKeys.resize(recvNodeBuffer.size());
+                    std::vector<ot::TreeNode> missmatchedNodes;
 
+
+                    for(unsigned int e=0;e<recvNodeBuffer.size();e++)
+                    {
+                    unsigned int findIndex=std::find(allocatedGNodes.begin(),allocatedGNodes.end(),recvNodeBuffer[e])-allocatedGNodes.begin();
+                    if(findIndex >=allocatedGNodes.size())
+                        missmatchedNodes.push_back(recvNodeBuffer[e]);
+                    }
+
+                    treeNodesTovtk(allocatedGNodes,rank,"allGNode");
+                    treeNodesTovtk(recvNodeBuffer,rank,"recvNodeBuffer");
+
+
+                    treeNodesTovtk(missmatchedNodes,rank,"missmatchedNodes");
+
+                }
 
 
 
 
-        delete [] sendNodeCount;
-        delete [] recvNodeCount;
-        delete [] sendNodeOffset;
-        delete [] recvNodeOffset;
+
+
+
+                delete [] sendNodeCount;
+                delete [] recvNodeCount;
+                delete [] sendNodeOffset;
+                delete [] recvNodeOffset;
 
 
 
 
-        for(unsigned int p=0;p<npes;p++) {
-            char filename[256];
-            sprintf(filename,"sendNode_R2%d",p);
-            treeNodesTovtk(sendNodes[p],rank, filename);
-            sendNodes[p].clear();
-        }
-#endif
+                for(unsigned int p=0;p<npes;p++) {
+                    char filename[256];
+                    sprintf(filename,"sendNode_R2%d",p);
+                    treeNodesTovtk(sendNodes[p],rank, filename);
+                    sendNodes[p].clear();
+                }
+        #endif
 
 
 
@@ -4698,14 +5566,14 @@ namespace ot {
 
 
 
-#ifdef DEBUG_E2N_MAPPING
-        treeNodesTovtk(neighbourElement,m_uiActiveRank,"neighBourElement");
-        std::cout<<"======== m_uiActiveRank: "<<m_uiActiveRank<<" : "<<allocatedGNodes.size()<<std::endl;
-        treeNodesTovtk(ownerElement1,rank,"owner1Elements");
-        treeNodesTovtk(ownerElement2,rank,"owner2Elements");
-        treeNodesTovtk(nonLocalNodes,rank,"nonLocal");
-        treeNodesTovtk(LocalNodes,rank,"Local");
-#endif
+        #ifdef DEBUG_E2N_MAPPING
+                treeNodesTovtk(neighbourElement,m_uiActiveRank,"neighBourElement");
+                std::cout<<"======== m_uiActiveRank: "<<m_uiActiveRank<<" : "<<allocatedGNodes.size()<<std::endl;
+                treeNodesTovtk(ownerElement1,rank,"owner1Elements");
+                treeNodesTovtk(ownerElement2,rank,"owner2Elements");
+                treeNodesTovtk(nonLocalNodes,rank,"nonLocal");
+                treeNodesTovtk(LocalNodes,rank,"Local");
+        #endif
 
         //prepare send recv scatter maps.
         m_uiScatterMapActualNodeSend.clear();
@@ -4757,10 +5625,10 @@ namespace ot {
             recvNodeKeys[k]=tmpKey;
         }
 
-#ifdef DEBUG_MESH_GENERATION
-        treeNodesTovtk(allocatedGhostNodes,m_uiActiveRank,"allocatedNodes");
-        treeNodesTovtk(recvNodeBuffer,m_uiActiveRank,"recvNodes");
-#endif
+        #ifdef DEBUG_MESH_GENERATION
+                treeNodesTovtk(allocatedGhostNodes,m_uiActiveRank,"allocatedNodes");
+                treeNodesTovtk(recvNodeBuffer,m_uiActiveRank,"recvNodes");
+        #endif
         if((m_uiRecvNodeOffset[npes-1]+m_uiRecvNodeCount[npes-1])!=allocatedGhostNodes.size())
         {
             std::cout<<RED<<"[Error]"<<" m_uiActiveRank: "<<m_uiActiveRank<<" Total Ghost Elements allocated: "<<allocatedGhostNodes.size()<<" Number of elements will get recieved: "<<(m_uiRecvNodeOffset[npes-1]+m_uiRecvNodeCount[npes-1])<<NRM<<std::endl;
@@ -4797,21 +5665,21 @@ namespace ot {
 
 
 
-#ifdef DEBUG_E2N_MAPPING
-        MPI_Barrier(comm);
-        if(!rank)
-            for(unsigned int p=0;p<npes;p++)
-                std::cout<<"rank: "<<rank<<" recv nodes from : ["<<p<<"]: begin:  "<<m_uiRecvNodeOffset[p]<<" end: "<<(m_uiRecvNodeOffset[p]+m_uiRecvNodeCount[p])<<std::endl;
+        #ifdef DEBUG_E2N_MAPPING
+                MPI_Barrier(comm);
+                if(!rank)
+                    for(unsigned int p=0;p<npes;p++)
+                        std::cout<<"rank: "<<rank<<" recv nodes from : ["<<p<<"]: begin:  "<<m_uiRecvNodeOffset[p]<<" end: "<<(m_uiRecvNodeOffset[p]+m_uiRecvNodeCount[p])<<std::endl;
 
 
-        MPI_Barrier(comm);
-        if(rank==1)
-            for(unsigned int p=0;p<npes;p++)
-                std::cout<<"rank: "<<rank<<" recv nodes from : ["<<p<<"]: begin:  "<<m_uiRecvNodeOffset[p]<<" end: "<<(m_uiRecvNodeOffset[p]+m_uiRecvNodeCount[p])<<std::endl;
+                MPI_Barrier(comm);
+                if(rank==1)
+                    for(unsigned int p=0;p<npes;p++)
+                        std::cout<<"rank: "<<rank<<" recv nodes from : ["<<p<<"]: begin:  "<<m_uiRecvNodeOffset[p]<<" end: "<<(m_uiRecvNodeOffset[p]+m_uiRecvNodeCount[p])<<std::endl;
 
 
-        MPI_Barrier(comm);
-#endif
+                MPI_Barrier(comm);
+        #endif
 
 
 
@@ -6955,11 +7823,11 @@ namespace ot {
 
         if(npes<=1) return; // nothing to do in the sequential case. (No scatter map required.)
 
-#ifdef PROFILE_SM
-        double t1,t2,t_stat,t_stat_g;
-        DendroIntL localSz;
-        DendroIntL stat_sz[3];
-#endif
+        #ifdef PROFILE_SM
+                double t1,t2,t_stat,t_stat_g;
+                DendroIntL localSz;
+                DendroIntL stat_sz[3];
+        #endif
 
         unsigned int x,y,z,sz; // x y z and size of an octant.
         unsigned int ownerID,ii_x,jj_y,kk_z; // DG index to ownerID and ijk decomposition variable.
@@ -6994,9 +7862,10 @@ namespace ot {
 
 
         //1. compute the ownership (which processor it belongs to) all the ghost elements.
-#ifdef PROFILE_SM
-        t1=MPI_Wtime();
-#endif
+        #ifdef PROFILE_SM
+                t1=MPI_Wtime();
+        #endif
+
         std::vector<unsigned int> elementOwner;
         elementOwner.resize(m_uiAllElements.size(),rank);
 
@@ -7064,12 +7933,12 @@ namespace ot {
 
         }
 
-#ifdef PROFILE_SM
-        t2=MPI_Wtime();
-        t_stat=t2-t1;
-        par::Mpi_Reduce(&t_stat,&t_stat_g,1,MPI_MAX,0,comm);
-        if(!rank) std::cout<<" ghost element ownership build time (max) (s): "<<t_stat_g<<std::endl;
-#endif
+        #ifdef PROFILE_SM
+                t2=MPI_Wtime();
+                t_stat=t2-t1;
+                par::Mpi_Reduce(&t_stat,&t_stat_g,1,MPI_MAX,0,comm);
+                if(!rank) std::cout<<" ghost element ownership build time (max) (s): "<<t_stat_g<<std::endl;
+        #endif
 
         std::vector<unsigned int>* sendIDs=new std::vector<unsigned int >[npes];
 
@@ -7149,25 +8018,27 @@ namespace ot {
         SFC::seqSort::SFC_treeSort(&(*(localBdy1.begin())),localBdy1.size(),tmpSkeys,tmpSkeys,tmpSkeys,m_uiMaxDepth+1,m_uiMaxDepth+1,rootSKey,ROOT_ROTATION,1,TS_SORT_ONLY);
 
         //3.a par sort of local bdy nodes.
-#ifdef PROFILE_SM
-        t1=MPI_Wtime();
-#endif
+        #ifdef PROFILE_SM
+                t1=MPI_Wtime();
+        #endif
+
         SFC::parSort::SFC_treeSort(localBdy,tmpNN,tmpNN,tmpNN,0.1,m_uiMaxDepth+1,rootNN,ROOT_ROTATION,1,TS_SORT_ONLY,2,comm);
 
-#ifdef DEBUG_SM
-        m_uiMaxDepth++;
-        treeNodesTovtk(localBdy,rank,"localBdy");
-        m_uiMaxDepth--;
-#endif
+        #ifdef DEBUG_SM
+                m_uiMaxDepth++;
+                treeNodesTovtk(localBdy,rank,"localBdy");
+                m_uiMaxDepth--;
+        #endif
 
 
 
-#ifdef PROFILE_SM
-        t2=MPI_Wtime();
-        t_stat=t2-t1;
-        par::Mpi_Reduce(&t_stat,&t_stat_g,1,MPI_MAX,0,comm);
-        if(!rank) std::cout<<" par::sort local_bdy nodes (max) (s): "<<t_stat_g<<std::endl;
-#endif
+        #ifdef PROFILE_SM
+                t2=MPI_Wtime();
+                t_stat=t2-t1;
+                par::Mpi_Reduce(&t_stat,&t_stat_g,1,MPI_MAX,0,comm);
+                if(!rank) std::cout<<" par::sort local_bdy nodes (max) (s): "<<t_stat_g<<std::endl;
+        #endif
+
         m_uiMaxDepth++;
         assert(par::test::isUniqueAndSorted(localBdy,comm));
         m_uiMaxDepth--;
@@ -7188,9 +8059,11 @@ namespace ot {
 
         std::vector<ot::Node> allocatedBdy; // allocated nodes where the owner of the nodes are undecided.
         std::vector<SearchKey> allocatedNodes; // actual allocated nodes.
-#ifdef PROFILE_SM
-        t1=MPI_Wtime();
-#endif
+
+        #ifdef PROFILE_SM
+                t1=MPI_Wtime();
+        #endif
+
         for(unsigned int ele=0;ele<m_uiGhostElementRound1Index.size();ele++) {
             for (unsigned int node = 0; node < m_uiNpE; node++) {
                 nodeIndex = m_uiE2NMapping_CG[m_uiGhostElementRound1Index[ele] * m_uiNpE + node];
@@ -7218,23 +8091,25 @@ namespace ot {
         const unsigned int totAllocated=allocatedNodes.size();
         SFC::seqSort::SFC_treeSort(&(*(allocatedNodes.begin())),allocatedNodes.size(),tmpSkeys,tmpSkeys,tmpSkeys,m_uiMaxDepth+1,m_uiMaxDepth+1,rootSKey,ROOT_ROTATION,1,TS_SORT_ONLY);
 
-#ifdef DEBUG_SM
-        m_uiMaxDepth++;
-        treeNodesTovtk(allocatedBdy,rank,"allocatedBdy");
-        m_uiMaxDepth--;
-#endif
+        #ifdef DEBUG_SM
+                m_uiMaxDepth++;
+                treeNodesTovtk(allocatedBdy,rank,"allocatedBdy");
+                m_uiMaxDepth--;
+        #endif
+
         for(unsigned int p=0;p<2*npes;p++)
             allocatedBdy.emplace(allocatedBdy.end(),m_uiSplitterNodes[p]);
 
 
         SFC::seqSort::SFC_treeSort(&(*(allocatedBdy.begin())),allocatedBdy.size(),tmpNN,tmpNN,tmpNN,m_uiMaxDepth+1,m_uiMaxDepth+1,rootNN,ROOT_ROTATION,1,TS_SORT_ONLY);
 
-#ifdef PROFILE_SM
-        t2=MPI_Wtime();
-        t_stat=t2-t1;
-        par::Mpi_Reduce(&t_stat,&t_stat_g,1,MPI_MAX,0,comm);
-        if(!rank) std::cout<<" allocated node generation + sort time (max) (s): "<<t_stat_g<<std::endl;
-#endif
+        #ifdef PROFILE_SM
+                t2=MPI_Wtime();
+                t_stat=t2-t1;
+                par::Mpi_Reduce(&t_stat,&t_stat_g,1,MPI_MAX,0,comm);
+                if(!rank) std::cout<<" allocated node generation + sort time (max) (s): "<<t_stat_g<<std::endl;
+        #endif
+
         // remove duplicates for allocated bdy octants.
         tmpNN.clear();
         for(unsigned int e=0;e<(allocatedBdy.size());e++)
@@ -7315,17 +8190,19 @@ namespace ot {
         omp_par::scan(&(*(m_uiRecvNodeCount.begin())),&(*(m_uiRecvNodeOffset.begin())),npes);
 
         recvNNodal.resize(m_uiRecvNodeOffset[npes-1]+m_uiRecvNodeCount[npes-1]);
-#ifdef PROFILE_SM
-        t1=MPI_Wtime();
-#endif
+
+        #ifdef PROFILE_SM
+                t1=MPI_Wtime();
+        #endif
+
         par::Mpi_Alltoallv(&(*(sendNNodal.begin())),(int *)(&(*(m_uiSendNodeCount.begin()))),(int *)(&(*(m_uiSendNodeOffset.begin()))),&(*(recvNNodal.begin())),(int *)(&(*(m_uiRecvNodeCount.begin()))),(int *)(&(*(m_uiRecvNodeOffset.begin()))),comm);
 
-#ifdef PROFILE_SM
-        t2=MPI_Wtime();
-        t_stat=t2-t1;
-        par::Mpi_Reduce(&t_stat,&t_stat_g,1,MPI_MAX,0,comm);
-        if(!rank) std::cout<<" R1 all2all (max) (s): "<<t_stat_g<<std::endl;
-#endif
+        #ifdef PROFILE_SM
+                t2=MPI_Wtime();
+                t_stat=t2-t1;
+                par::Mpi_Reduce(&t_stat,&t_stat_g,1,MPI_MAX,0,comm);
+                if(!rank) std::cout<<" R1 all2all (max) (s): "<<t_stat_g<<std::endl;
+        #endif
 
         std::vector<ot::Key> recvNodal_keys;
         recvNodal_keys.resize(recvNNodal.size());
@@ -7335,24 +8212,24 @@ namespace ot {
             recvNodal_keys[e].addOwner(e);
         }
 
-#ifdef DEBUG_SM
-        m_uiMaxDepth++;
-        treeNodesTovtk(recvNodal_keys,rank,"recvNNodal");
-        m_uiMaxDepth--;
-#endif
+        #ifdef DEBUG_SM
+                m_uiMaxDepth++;
+                treeNodesTovtk(recvNodal_keys,rank,"recvNNodal");
+                m_uiMaxDepth--;
+        #endif
 
 
-#ifdef PROFILE_SM
-        t1=MPI_Wtime();
-#endif
-        SFC::seqSearch::SFC_treeSearch(&(*(recvNodal_keys.begin())), &(*(localBdy.begin())), 0, recvNodal_keys.size(),0, localBdy.size(), m_uiMaxDepth + 1, m_uiMaxDepth + 1, ROOT_ROTATION);
+        #ifdef PROFILE_SM
+                t1=MPI_Wtime();
+        #endif
+                SFC::seqSearch::SFC_treeSearch(&(*(recvNodal_keys.begin())), &(*(localBdy.begin())), 0, recvNodal_keys.size(),0, localBdy.size(), m_uiMaxDepth + 1, m_uiMaxDepth + 1, ROOT_ROTATION);
 
-#ifdef PROFILE_SM
-        t2=MPI_Wtime();
-        t_stat=t2-t1;
-        par::Mpi_Reduce(&t_stat,&t_stat_g,1,MPI_MAX,0,comm);
-        if(!rank) std::cout<<" R1 seq::search max (s): "<<t_stat_g<<std::endl;
-#endif
+        #ifdef PROFILE_SM
+                t2=MPI_Wtime();
+                t_stat=t2-t1;
+                par::Mpi_Reduce(&t_stat,&t_stat_g,1,MPI_MAX,0,comm);
+                if(!rank) std::cout<<" R1 seq::search max (s): "<<t_stat_g<<std::endl;
+        #endif
 
         sendNNodal.clear();
         unsigned int result;
@@ -7361,24 +8238,25 @@ namespace ot {
             sendIDs[p].clear();
 
         // all the recv nodes should be found in localBdy
-#ifdef DEBUG_SM
-        std::vector<ot::TreeNode> missingKeys;
-#endif
+        #ifdef DEBUG_SM
+            std::vector<ot::TreeNode> missingKeys;
+        #endif
 
         for(unsigned int e=0;e<recvNodal_keys.size();e++)
         {
             if(!(recvNodal_keys[e].getFlag() & OCT_FOUND))
             {
 
-#ifdef DEBUG_SM
-                unsigned int  found=std::find(localBdy.begin(),localBdy.end(),recvNodal_keys[e])-localBdy.begin();
-                missingKeys.push_back(recvNodal_keys[e]);
-                m_uiMaxDepth++;
-                std::cout<<"rank: "<<rank<<" recvNodalKey : "<<recvNodal_keys[e]<<" not found: status: "<<(recvNodal_keys[e]>=m_uiSplitterNodes[32] && recvNodal_keys[e]<=m_uiSplitterNodes[33])<<"found: "<<found<<" of "<<localBdy.size()<<std::endl;
-                m_uiMaxDepth--;
-                continue;
-#endif
-                std::cout<<"rank: "<<m_uiActiveRank<<"SM4 Error: Allocated key<"<<recvNodal_keys[e]<<" not found. "<<std::endl;
+                #ifdef DEBUG_SM
+                    unsigned int  found=std::find(localBdy.begin(),localBdy.end(),recvNodal_keys[e])-localBdy.begin();
+                    missingKeys.push_back(recvNodal_keys[e]);
+                    m_uiMaxDepth++;
+                    std::cout<<"rank: "<<rank<<" recvNodalKey : "<<recvNodal_keys[e]<<" not found: status: "<<(recvNodal_keys[e]>=m_uiSplitterNodes[32] && recvNodal_keys[e]<=m_uiSplitterNodes[33])<<"found: "<<found<<" of "<<localBdy.size()<<std::endl;
+                    m_uiMaxDepth--;
+                    continue;
+                #endif
+
+                std::cout<<"rank: "<<m_uiActiveRank<<" SM4 Error: Allocated key<"<<recvNodal_keys[e]<<" not found. "<<std::endl;
                 exit(0);
 
 
@@ -7390,11 +8268,11 @@ namespace ot {
             sendIDs[localBdy[result].getOwner()].push_back(ownerID);
         }
 
-#ifdef DEBUG_SM
-        m_uiMaxDepth++;
-        if(missingKeys.size()) treeNodesTovtk(missingKeys,rank,"missingKeys");
-        m_uiMaxDepth--;
-#endif
+        #ifdef DEBUG_SM
+                m_uiMaxDepth++;
+                if(missingKeys.size()) treeNodesTovtk(missingKeys,rank,"missingKeys");
+                m_uiMaxDepth--;
+        #endif
 
         sendNNodal.clear();
         // now send the recv nodes to actual correct proceesor (based on localBdy1)
@@ -7417,17 +8295,19 @@ namespace ot {
         omp_par::scan(&(*(m_uiRecvNodeCount.begin())),&(*(m_uiRecvNodeOffset.begin())),npes);
 
         recvNNodal.resize(m_uiRecvNodeOffset[npes-1]+m_uiRecvNodeCount[npes-1]);
-#ifdef PROFILE_SM
-        t1=MPI_Wtime();
-#endif
+        #ifdef PROFILE_SM
+                t1=MPI_Wtime();
+        #endif
+        
         par::Mpi_Alltoallv(&(*(sendNNodal.begin())),(int *)(&(*(m_uiSendNodeCount.begin()))),(int *)(&(*(m_uiSendNodeOffset.begin()))),&(*(recvNNodal.begin())),(int *)(&(*(m_uiRecvNodeCount.begin()))),(int *)(&(*(m_uiRecvNodeOffset.begin()))),comm);
 
-#ifdef PROFILE_SM
-        t2=MPI_Wtime();
-        t_stat=t2-t1;
-        par::Mpi_Reduce(&t_stat,&t_stat_g,1,MPI_MAX,0,comm);
-        if(!rank) std::cout<<" R2 all2all max (s): "<<t_stat_g<<std::endl;
-#endif
+        #ifdef PROFILE_SM
+                t2=MPI_Wtime();
+                t_stat=t2-t1;
+                par::Mpi_Reduce(&t_stat,&t_stat_g,1,MPI_MAX,0,comm);
+                if(!rank) std::cout<<" R2 all2all max (s): "<<t_stat_g<<std::endl;
+        #endif
+
         recvNodal_keys.resize(recvNNodal.size());
         for(unsigned int e=0;e<recvNNodal.size();e++)
         {
@@ -7435,17 +8315,18 @@ namespace ot {
             recvNodal_keys[e].addOwner(e);
         }
 
-#ifdef PROFILE_SM
-        t1=MPI_Wtime();
-#endif
+        #ifdef PROFILE_SM
+                t1=MPI_Wtime();
+        #endif
+
         SFC::seqSearch::SFC_treeSearch(&(*(recvNodal_keys.begin())), &(*(localBdy1.begin())), 0, recvNodal_keys.size(),0, localBdy1.size(), m_uiMaxDepth + 1, m_uiMaxDepth + 1, ROOT_ROTATION);
 
-#ifdef PROFILE_SM
-        t2=MPI_Wtime();
-        t_stat=t2-t1;
-        par::Mpi_Reduce(&t_stat,&t_stat_g,1,MPI_MAX,0,comm);
-        if(!rank) std::cout<<" R2 seq::search max (s): "<<t_stat_g<<std::endl;
-#endif
+        #ifdef PROFILE_SM
+                t2=MPI_Wtime();
+                t_stat=t2-t1;
+                par::Mpi_Reduce(&t_stat,&t_stat_g,1,MPI_MAX,0,comm);
+                if(!rank) std::cout<<" R2 seq::search max (s): "<<t_stat_g<<std::endl;
+        #endif
 
         sendNNodal.clear();
 
@@ -7457,9 +8338,9 @@ namespace ot {
         for(unsigned int p=0;p<npes;p++)
             sendIDs[p].clear();
 
-#ifdef PROFILE_SM
-        t1=MPI_Wtime();
-#endif
+        #ifdef PROFILE_SM
+                t1=MPI_Wtime();
+        #endif
         // put internal nodes to the scattermap.
         for(unsigned int e=0;e<recvTNElem_keys.size();e++)
         {
@@ -7515,12 +8396,12 @@ namespace ot {
 
         }
 
-#ifdef PROFILE_SM
-        t2=MPI_Wtime();
-        t_stat=t2-t1;
-        par::Mpi_Reduce(&t_stat,&t_stat_g,1,MPI_MAX,0,comm);
-        if(!rank) std::cout<<" send sm setup max (s): "<<t_stat_g<<std::endl;
-#endif
+        #ifdef PROFILE_SM
+                t2=MPI_Wtime();
+                t_stat=t2-t1;
+                par::Mpi_Reduce(&t_stat,&t_stat_g,1,MPI_MAX,0,comm);
+                if(!rank) std::cout<<" send sm setup max (s): "<<t_stat_g<<std::endl;
+        #endif
 
         par::Mpi_Alltoall(&(*(m_uiSendNodeCount.begin())),&(*(m_uiRecvNodeCount.begin())),1,comm);
 
@@ -7532,17 +8413,20 @@ namespace ot {
 
         recvTNElements.resize(m_uiRecvNodeOffset[npes-1]+m_uiRecvNodeCount[npes-1]);
 
-#ifdef PROFILE_SM
-        t1=MPI_Wtime();
-#endif
+        #ifdef PROFILE_SM
+                t1=MPI_Wtime();
+        #endif
+
         par::Mpi_Alltoallv(&(*(sendTNElements.begin())),(int *)(&(*(m_uiSendNodeCount.begin()))),(int *)(&(*(m_uiSendNodeOffset.begin()))),&(*(recvTNElements.begin())),(int *)(&(*(m_uiRecvNodeCount.begin()))),(int *)(&(*(m_uiRecvNodeOffset.begin()))),comm);
 
-#ifdef PROFILE_SM
-        t2=MPI_Wtime();
-        t_stat=t2-t1;
-        par::Mpi_Reduce(&t_stat,&t_stat_g,1,MPI_MAX,0,comm);
-        if(!rank) std::cout<<" final all2all max (s): "<<t_stat_g<<std::endl;
-#endif
+        #ifdef PROFILE_SM
+                t2=MPI_Wtime();
+                t_stat=t2-t1;
+                par::Mpi_Reduce(&t_stat,&t_stat_g,1,MPI_MAX,0,comm);
+                if(!rank) std::cout<<" final all2all max (s): "<<t_stat_g<<std::endl;
+        #endif
+
+
         if(totAllocated!=recvTNElements.size())
         {
             std::cout<<"rank: "<<rank<<"[SM Error]: allocated nodes: "<<totAllocated<<" received nodes: "<<(m_uiRecvNodeOffset[npes-1]+m_uiRecvNodeCount[npes-1])<<std::endl;
@@ -7557,25 +8441,28 @@ namespace ot {
             recvNodeSKeys[e].addOwner(e);
         }
 
-#ifdef PROFILE_SM
-        t1=MPI_Wtime();
-#endif
+        #ifdef PROFILE_SM
+                t1=MPI_Wtime();
+        #endif
+
         SFC::seqSort::SFC_treeSort(&(*(recvNodeSKeys.begin())),recvNodeSKeys.size(),tmpSkeys,tmpSkeys,tmpSkeys,m_uiMaxDepth+1,m_uiMaxDepth+1,rootSKey,ROOT_ROTATION,1,TS_SORT_ONLY);
 
 
-#ifdef PROFILE_SM
-        t2=MPI_Wtime();
-        t_stat=t2-t1;
-        par::Mpi_Reduce(&t_stat,&t_stat_g,1,MPI_MAX,0,comm);
-        if(!rank) std::cout<<" recv node seq::sort max (s): "<<t_stat_g<<std::endl;
-#endif
+        #ifdef PROFILE_SM
+                t2=MPI_Wtime();
+                t_stat=t2-t1;
+                par::Mpi_Reduce(&t_stat,&t_stat_g,1,MPI_MAX,0,comm);
+                if(!rank) std::cout<<" recv node seq::sort max (s): "<<t_stat_g<<std::endl;
+        #endif
+
+
         m_uiMaxDepth++;
         assert(seq::test::isUniqueAndSorted(recvNodeSKeys));
         m_uiMaxDepth--;
 
-#ifdef PROFILE_SM
-        t1=MPI_Wtime();
-#endif
+        #ifdef PROFILE_SM
+                t1=MPI_Wtime();
+        #endif
 
         m_uiScatterMapActualNodeRecv.resize(recvTNElements.size());
         unsigned int alCount=0;
@@ -7599,12 +8486,12 @@ namespace ot {
         }
 
 
-#ifdef PROFILE_SM
-        t2=MPI_Wtime();
-        t_stat=t2-t1;
-        par::Mpi_Reduce(&t_stat,&t_stat_g,1,MPI_MAX,0,comm);
-        if(!rank) std::cout<<"recv sm time  max (s): "<<t_stat_g<<std::endl;
-#endif
+        #ifdef PROFILE_SM
+                t2=MPI_Wtime();
+                t_stat=t2-t1;
+                par::Mpi_Reduce(&t_stat,&t_stat_g,1,MPI_MAX,0,comm);
+                if(!rank) std::cout<<"recv sm time  max (s): "<<t_stat_g<<std::endl;
+        #endif
 
         delete [] sendIDs;
 
@@ -7613,26 +8500,200 @@ namespace ot {
 
     }
 
-
-    void Mesh::performBlocksSetup()
+    void Mesh::flagBlockGhostDependancies()
     {
+        if(m_uiIsActive)
+        {
+
+            const ot::TreeNode* const pNodes = m_uiAllElements.data();
+
+            for(unsigned int blk=0; blk<m_uiLocalBlockList.size(); blk++)
+            {
+                const ot::TreeNode blkNode = m_uiLocalBlockList[blk].getBlockNode();
+                const unsigned int regLev = m_uiLocalBlockList[blk].getRegularGridLev();
+                BlockType btype;
+                bool is_blk_internal_independent = true;
+                for(unsigned int elem=m_uiLocalBlockList[blk].getLocalElementBegin();elem<m_uiLocalBlockList[blk].getLocalElementEnd();elem++)
+                {
+                    const unsigned int ei=(pNodes[elem].getX()-blkNode.getX())>>(m_uiMaxDepth-regLev);
+                    const unsigned int ej=(pNodes[elem].getY()-blkNode.getY())>>(m_uiMaxDepth-regLev);
+                    const unsigned int ek=(pNodes[elem].getZ()-blkNode.getZ())>>(m_uiMaxDepth-regLev);
+
+                    const unsigned int emin = 0;
+                    const unsigned int emax = (1u<<(regLev-blkNode.getLevel()))-1;
+
+                    if( !((ei == emin) || (ej == emin) || (ek== emin) || (ei==emax) || (ej==emax) || (ek==emax)) )
+                    {
+                        // this should be true since internal elements should be independent. 
+                        assert(this->getElementType(elem) == EType::INDEPENDENT); 
+                        continue;
+                    }
+                    
+                    if(this->getElementType(elem) == EType::W_DEPENDENT)
+                    {
+                        is_blk_internal_independent = false;
+                        break;
+                    }
+
+                }
+
+                bool is_blk_independent;
+                unsigned int lookup;
+                if( is_blk_internal_independent )
+                {
+                    is_blk_independent = true;
+                    for(unsigned int elem=m_uiLocalBlockList[blk].getLocalElementBegin();elem<m_uiLocalBlockList[blk].getLocalElementEnd();elem++)
+                    {
+                        const unsigned int ei=(pNodes[elem].getX()-blkNode.getX())>>(m_uiMaxDepth-regLev);
+                        const unsigned int ej=(pNodes[elem].getY()-blkNode.getY())>>(m_uiMaxDepth-regLev);
+                        const unsigned int ek=(pNodes[elem].getZ()-blkNode.getZ())>>(m_uiMaxDepth-regLev);
+
+                        const unsigned int emin = 0;
+                        const unsigned int emax = (1u<<(regLev-blkNode.getLevel()))-1;
+
+                        if(ei==emin)
+                        { 
+                            // OCT_DIR_LEFT
+                            lookup = m_uiE2EMapping[elem*NUM_FACES + OCT_DIR_LEFT];
+                            if(lookup!=LOOK_UP_TABLE_DEFAULT && (this->getElementType(lookup) == EType::W_DEPENDENT))
+                                is_blk_independent = false;
+                        }
+
+                        if(ei==emax)
+                        { // OCT_DIR_RIGHT
+
+                            lookup = m_uiE2EMapping[elem*NUM_FACES + OCT_DIR_RIGHT];
+                            if(lookup!=LOOK_UP_TABLE_DEFAULT && (this->getElementType(lookup) == EType::W_DEPENDENT))
+                                is_blk_independent = false;
+                        }
+
+                        if(ej==emin)
+                        {   // OCT_DIR_DOWN
+                            lookup = m_uiE2EMapping[elem*NUM_FACES + OCT_DIR_DOWN];
+                            if(lookup!=LOOK_UP_TABLE_DEFAULT && (this->getElementType(lookup) == EType::W_DEPENDENT))
+                                is_blk_independent = false;
+                        }
+
+                        if(ej==emax)
+                        {   // OCT_DIR_UP
+                            lookup = m_uiE2EMapping[elem*NUM_FACES + OCT_DIR_UP];
+                            if(lookup!=LOOK_UP_TABLE_DEFAULT && (this->getElementType(lookup) == EType::W_DEPENDENT))
+                                is_blk_independent = false;
+                        }
+
+
+                        if(ek==emin)
+                        {   // OCT_DIR_BACK
+                            lookup = m_uiE2EMapping[elem*NUM_FACES + OCT_DIR_BACK];
+                            if(lookup!=LOOK_UP_TABLE_DEFAULT && (this->getElementType(lookup) == EType::W_DEPENDENT))
+                                is_blk_independent = false;
+                        }
+
+                        if(ek==emax)
+                        {  // OCT_DIR_FRONT
+                            lookup = m_uiE2EMapping[elem*NUM_FACES + OCT_DIR_FRONT];
+                            if(lookup!=LOOK_UP_TABLE_DEFAULT && (this->getElementType(lookup) == EType::W_DEPENDENT))
+                                is_blk_independent = false;
+                        }
+
+                        if(!is_blk_independent)
+                            break;
+
+
+                    }
+
+                    if(is_blk_independent)
+                    {
+                        // check diagonal edges. 
+                        const std::vector<unsigned int> blkDiagMap = m_uiLocalBlockList[blk].getBlk2DiagMap_vec();
+                        const std::vector<unsigned int> blkVertMap = m_uiLocalBlockList[blk].getBlk2VertexMap_vec();
+                        const unsigned int blk_ele_1d = m_uiLocalBlockList[blk].getElemSz1D();
+
+                        for(unsigned int dir =0; dir < NUM_EDGES; dir++)
+                        {
+                            for(unsigned int k=0; k< blk_ele_1d ; k++)
+                            {
+                                if(blkDiagMap[ dir*(2*blk_ele_1d) +  2*k + 0 ] != blkDiagMap[ dir*(2*blk_ele_1d) + 2*k + 1 ])
+                                {
+                                    if( (this->getElementType(blkDiagMap[ 2*k + 0 ]) == EType::W_DEPENDENT) || (this->getElementType(blkDiagMap[ 2*k + 1 ]) == EType::W_DEPENDENT) )
+                                        is_blk_independent = false;
+                                    
+                                }
+                                else if(blkDiagMap[ dir*(2*blk_ele_1d) +  2*k + 0 ] !=LOOK_UP_TABLE_DEFAULT )
+                                {
+                                    if( (this->getElementType(blkDiagMap[ 2*k + 0 ]) == EType::W_DEPENDENT))
+                                        is_blk_independent =false;
+
+                                }
+
+                            }
+
+                            if(!is_blk_independent)
+                                break;
+
+                        }
+
+                        if(is_blk_independent)
+                        {
+                            // check vertices. 
+                            for(unsigned int k = 0; k < blkVertMap.size() ; k++)
+                            {
+                                if( (blkVertMap[k]!=LOOK_UP_TABLE_DEFAULT)  && (this->getElementType(blkVertMap[k]) == EType::W_DEPENDENT))
+                                {
+                                    is_blk_independent = false;
+                                    break;
+                                }
+                            }
+
+                        }
+
+
+
+                    }
+
+
+                }else
+                    is_blk_independent =false;   
+
+                if(is_blk_independent)
+                    m_uiLocalBlockList[blk].setBlkType(BlockType::UNZIP_INDEPENDENT);
+                else
+                    m_uiLocalBlockList[blk].setBlkType(BlockType::UNZIP_DEPENDENT);
+
+
+                //std::cout<<" blk: "<<blk<<" node : "<<m_uiLocalBlockList[blk].getBlockNode()<<" independent : "<<is_blk_independent<<std::endl;
+
+            }
+        }
+
+    }
+
+
+    void Mesh::performBlocksSetup(unsigned int cLev, unsigned int* tag, unsigned int tsz)
+    {
+        m_uiIsBlockSetup=true;
+        m_uiCoarsetBlkLev=cLev;
+        m_uiLocalBlockList.clear();
 
         // should not be called if the mesh is not active
         if(!m_uiIsActive) return;
 
         // assumes that E2E and E2N mapping is done and m_uiAllElements should be sorted otherwise this will chnage the order of elements in m_uiAllElements.
         assert(seq::test::isUniqueAndSorted(m_uiAllElements));
-        octree2BlockDecomposition(m_uiAllElements,m_uiLocalBlockList,m_uiMaxDepth,m_uiDmin,m_uiDmax,m_uiElementLocalBegin,m_uiElementLocalEnd,m_uiElementOrder);
+        octree2BlockDecomposition(m_uiAllElements,m_uiLocalBlockList,m_uiMaxDepth,m_uiDmin,m_uiDmax,m_uiElementLocalBegin,m_uiElementLocalEnd,m_uiElementOrder, m_uiCoarsetBlkLev, tag, tsz);
         assert(ot::test::isBlockListValid(m_uiAllElements,m_uiLocalBlockList,m_uiDmin,m_uiDmax,m_uiElementLocalBegin,m_uiElementLocalEnd));
 
         std::vector<DendroIntL> blkSz;
         std::vector<DendroIntL> blkSzOffset;
 
+        // construct element to block map. 
+        m_uiE2BlkMap.resize(m_uiNumLocalElements,LOOK_UP_TABLE_DEFAULT);
+
         blkSz.resize(m_uiLocalBlockList.size());
         blkSzOffset.resize(m_uiLocalBlockList.size());
 
         for(unsigned int k=0;k<m_uiLocalBlockList.size();k++)
-            blkSz[k]=m_uiLocalBlockList[k].get1DArraySize()*m_uiLocalBlockList[k].get1DArraySize()*m_uiLocalBlockList[k].get1DArraySize();
+            blkSz[k]=m_uiLocalBlockList[k].getAlignedBlockSz();//m_uiLocalBlockList[k].get1DArraySize()*m_uiLocalBlockList[k].get1DArraySize()*m_uiLocalBlockList[k].get1DArraySize();
 
         blkSzOffset[0]=0;
         omp_par::scan(&(*(blkSz.begin())),&(*(blkSzOffset.begin())),m_uiLocalBlockList.size());
@@ -7663,6 +8724,11 @@ namespace ot {
 
 
             blkNode=m_uiLocalBlockList[e].getBlockNode();
+
+            // update the element to block map. 
+            for(unsigned int m = m_uiLocalBlockList[e].getLocalElementBegin(); m < m_uiLocalBlockList[e].getLocalElementEnd(); m++)
+                m_uiE2BlkMap[(m - m_uiElementLocalBegin)] = e;
+            
 
             if(blkNode.minX()==dmin)
             {
@@ -7747,427 +8813,11 @@ namespace ot {
 
             }
 
-
-
         }
 
+        this->flagBlockGhostDependancies();
 
 
-
-
-        double * zippVec=createVector<double>(NAN);
-        for(unsigned int node=m_uiNodeLocalBegin;node<m_uiNodeLocalEnd;node++)
-            zippVec[node]=0;
-
-        double * unzipVec=createUnZippedVector<double>(NAN);
-
-        // need to do this without performing the ghost exchange.
-        unzip(zippVec,unzipVec);
-
-        unsigned int offset;
-        unsigned int lx,ly,lz;
-        unsigned int pW;
-        bool haveanyGhost=false;
-        unsigned int ib,ie,jb,je,kb,ke;
-        unsigned int bflag;
-
-        for(unsigned int e=0;e<m_uiLocalBlockList.size();e++)
-        {
-
-            haveanyGhost=false;
-
-            offset=m_uiLocalBlockList[e].getOffset();
-            lx=m_uiLocalBlockList[e].getAllocationSzX();
-            ly=m_uiLocalBlockList[e].getAllocationSzY();
-            lz=m_uiLocalBlockList[e].getAllocationSzZ();
-
-            pW=m_uiLocalBlockList[e].get1DPadWidth();
-            bflag=m_uiLocalBlockList[e].getBlkNodeFlag();
-
-            /*for(unsigned int k=3;k<(nz-3);k++)
-                for(unsigned int j=3;j<(ny-3);j++)
-                    for(unsigned int i=3;i<(nx-3);i++)
-                        std::cout<<m_uiActiveRank<<": unzip value: "<<unzipVec[offset+k*(nz*ny)+j*(ny)+i]<<std::endl;*/
-
-            //internal
-            ib=pW;
-            ie=lx-pW;
-
-            jb=pW;
-            je=ly-pW;
-
-            kb=pW;
-            ke=lz-pW;
-
-            for(unsigned int k=kb; k < ke; k++)
-                for(unsigned int j=jb;j < je; j++)
-                    for(unsigned int i=ib;i < ie; i++)
-                        if(std::isnan(unzipVec[offset+k*(ly*lx)+j*(lx)+i]))
-                            haveanyGhost=true;
-
-
-            if(!(bflag & (1u<<OCT_DIR_LEFT)))
-            {
-                ib=0;
-                ie=pW;
-                jb=pW;
-                je=ly-pW;
-                kb=pW;
-                ke=lz-pW;
-
-                for(unsigned int k=kb; k < ke; k++)
-                    for(unsigned int j=jb;j < je; j++)
-                        for(unsigned int i=ib;i < ie; i++)
-                            if(std::isnan(unzipVec[offset+k*(ly*lx)+j*(lx)+i]))
-                                haveanyGhost=true;
-
-
-                if(!(bflag & (1u<<OCT_DIR_DOWN)))
-                {
-                    ib=1;
-                    ie=pW;
-                    jb=1;
-                    je=pW;
-                    kb=pW;
-                    ke=lz-pW;
-
-                    for(unsigned int k=kb; k < ke; k++)
-                        for(unsigned int j=jb;j < je; j++)
-                            for(unsigned int i=ib;i < ie; i++)
-                                if(std::isnan(unzipVec[offset+k*(ly*lx)+j*(lx)+i]))
-                                    haveanyGhost=true;
-
-                }
-
-                if(!(bflag & (1u<<OCT_DIR_UP)))
-                {
-                    ib=1;
-                    ie=pW;
-                    jb=ly-pW;
-                    je=ly-1;
-                    kb=pW;
-                    ke=lz-pW;
-
-                    for(unsigned int k=kb; k < ke; k++)
-                        for(unsigned int j=jb;j < je; j++)
-                            for(unsigned int i=ib;i < ie; i++)
-                                if(std::isnan(unzipVec[offset+k*(ly*lx)+j*(lx)+i]))
-                                    haveanyGhost=true;
-
-                }
-
-
-                if(!(bflag & (1u<<OCT_DIR_BACK)))
-                {
-                    ib=1;
-                    ie=pW;
-                    jb=pW;
-                    je=ly-pW;
-                    kb=1;
-                    ke=pW;
-
-                    for(unsigned int k=kb; k < ke; k++)
-                        for(unsigned int j=jb;j < je; j++)
-                            for(unsigned int i=ib;i < ie; i++)
-                                if(std::isnan(unzipVec[offset+k*(ly*lx)+j*(lx)+i]))
-                                    haveanyGhost=true;
-
-                }
-
-
-                if(!(bflag & (1u<<OCT_DIR_FRONT)))
-                {
-                    ib=1;
-                    ie=pW;
-                    jb=pW;
-                    je=ly-pW;
-
-                    kb=lz-pW;
-                    ke=lz-1;
-
-                    for(unsigned int k=kb; k < ke; k++)
-                        for(unsigned int j=jb;j < je; j++)
-                            for(unsigned int i=ib;i < ie; i++)
-                                if(std::isnan(unzipVec[offset+k*(ly*lx)+j*(lx)+i]))
-                                    haveanyGhost=true;
-
-                }
-
-
-
-
-            }
-
-
-            if(!(bflag & (1u<<OCT_DIR_RIGHT)))
-            {
-
-
-                ib=lx-pW;
-                ie=lx;
-                jb=pW;
-                je=ly-pW;
-                kb=pW;
-                ke=lz-pW;
-
-                for(unsigned int k=kb; k < ke; k++)
-                    for(unsigned int j=jb;j < je; j++)
-                        for(unsigned int i=ib;i < ie; i++)
-                            if(std::isnan(unzipVec[offset+k*(ly*lx)+j*(lx)+i]))
-                                haveanyGhost=true;
-
-
-
-                if(!(bflag & (1u<<OCT_DIR_DOWN)))
-                {
-                    ib=lx-pW;
-                    ie=lx-1;
-                    jb=1;
-                    je=pW;
-                    kb=pW;
-                    ke=lz-pW;
-
-                    for(unsigned int k=kb; k < ke; k++)
-                        for(unsigned int j=jb;j < je; j++)
-                            for(unsigned int i=ib;i < ie; i++)
-                                if(std::isnan(unzipVec[offset+k*(ly*lx)+j*(lx)+i]))
-                                    haveanyGhost=true;
-
-                }
-
-                if(!(bflag & (1u<<OCT_DIR_UP)))
-                {
-                    ib=lx-pW;
-                    ie=lx-1;
-                    jb=ly-pW;
-                    je=ly-1;
-                    kb=pW;
-                    ke=lz-pW;
-
-                    for(unsigned int k=kb; k < ke; k++)
-                        for(unsigned int j=jb;j < je; j++)
-                            for(unsigned int i=ib;i < ie; i++)
-                                if(std::isnan(unzipVec[offset+k*(ly*lx)+j*(lx)+i]))
-                                    haveanyGhost=true;
-
-                }
-
-
-                if(!(bflag & (1u<<OCT_DIR_BACK)))
-                {
-                    ib=lx-pW;
-                    ie=lx-1;
-                    jb=pW;
-                    je=ly-pW;
-                    kb=1;
-                    ke=pW;
-
-                    for(unsigned int k=kb; k < ke; k++)
-                        for(unsigned int j=jb;j < je; j++)
-                            for(unsigned int i=ib;i < ie; i++)
-                                if(std::isnan(unzipVec[offset+k*(ly*lx)+j*(lx)+i]))
-                                    haveanyGhost=true;
-
-                }
-
-
-                if(!(bflag & (1u<<OCT_DIR_FRONT)))
-                {
-                    ib=lx-pW;
-                    ie=lx-1;
-                    jb=pW;
-                    je=ly-pW;
-
-                    kb=lz-pW;
-                    ke=lz-1;
-
-                    for(unsigned int k=kb; k < ke; k++)
-                        for(unsigned int j=jb;j < je; j++)
-                            for(unsigned int i=ib;i < ie; i++)
-                                if(std::isnan(unzipVec[offset+k*(ly*lx)+j*(lx)+i]))
-                                    haveanyGhost=true;
-
-                }
-
-
-            }
-
-
-
-            if(!(bflag & (1u<<OCT_DIR_DOWN)))
-            {
-
-
-                ib=pW;
-                ie=lx-pW;
-                jb=0;
-                je=pW;
-                kb=pW;
-                ke=lz-pW;
-
-                for(unsigned int k=kb; k < ke; k++)
-                    for(unsigned int j=jb;j < je; j++)
-                        for(unsigned int i=ib;i < ie; i++)
-                            if(std::isnan(unzipVec[offset+k*(ly*lx)+j*(lx)+i]))
-                                haveanyGhost=true;
-
-
-
-                if(!(bflag & (1u<<OCT_DIR_BACK)))
-                {
-                    ib=pW;
-                    ie=lx-pW;
-                    jb=1;
-                    je=pW;
-                    kb=1;
-                    ke=pW;
-
-                    for(unsigned int k=kb; k < ke; k++)
-                        for(unsigned int j=jb;j < je; j++)
-                            for(unsigned int i=ib;i < ie; i++)
-                                if(std::isnan(unzipVec[offset+k*(ly*lx)+j*(lx)+i]))
-                                    haveanyGhost=true;
-
-                }
-
-
-                if(!(bflag & (1u<<OCT_DIR_FRONT)))
-                {
-                    ib=pW;
-                    ie=lx-pW;
-                    jb=1;
-                    je=pW;
-
-                    kb=lz-pW;
-                    ke=lz-1;
-
-                    for(unsigned int k=kb; k < ke; k++)
-                        for(unsigned int j=jb;j < je; j++)
-                            for(unsigned int i=ib;i < ie; i++)
-                                if(std::isnan(unzipVec[offset+k*(ly*lx)+j*(lx)+i]))
-                                    haveanyGhost=true;
-
-                }
-
-
-
-            }
-
-
-            if(!(bflag & (1u<<OCT_DIR_UP)))
-            {
-
-
-                ib=pW;
-                ie=lx-pW;
-                jb=ly-pW;
-                je=ly;
-                kb=pW;
-                ke=lz-pW;
-
-                for(unsigned int k=kb; k < ke; k++)
-                    for(unsigned int j=jb;j < je; j++)
-                        for(unsigned int i=ib;i < ie; i++)
-                            if(std::isnan(unzipVec[offset+k*(ly*lx)+j*(lx)+i]))
-                                haveanyGhost=true;
-
-
-
-                if(!(bflag & (1u<<OCT_DIR_BACK)))
-                {
-                    ib=pW;
-                    ie=lx-pW;
-                    jb=ly-pW;
-                    je=ly-1;
-                    kb=1;
-                    ke=pW;
-
-                    for(unsigned int k=kb; k < ke; k++)
-                        for(unsigned int j=jb;j < je; j++)
-                            for(unsigned int i=ib;i < ie; i++)
-                                if(std::isnan(unzipVec[offset+k*(ly*lx)+j*(lx)+i]))
-                                    haveanyGhost=true;
-
-                }
-
-
-                if(!(bflag & (1u<<OCT_DIR_FRONT)))
-                {
-                    ib=pW;
-                    ie=lx-pW;
-                    jb=ly-pW;
-                    je=ly-1;
-
-                    kb=lz-pW;
-                    ke=lz-1;
-
-                    for(unsigned int k=kb; k < ke; k++)
-                        for(unsigned int j=jb;j < je; j++)
-                            for(unsigned int i=ib;i < ie; i++)
-                                if(std::isnan(unzipVec[offset+k*(ly*lx)+j*(lx)+i]))
-                                    haveanyGhost=true;
-
-                }
-
-
-
-            }
-
-
-            if(!(bflag & (1u<<OCT_DIR_BACK)))
-            {
-
-
-                ib=pW;
-                ie=lx-pW;
-                jb=pW;
-                je=ly-pW;
-                kb=0;
-                ke=pW;
-
-                for(unsigned int k=kb; k < ke; k++)
-                    for(unsigned int j=jb;j < je; j++)
-                        for(unsigned int i=ib;i < ie; i++)
-                            if(std::isnan(unzipVec[offset+k*(ly*lx)+j*(lx)+i]))
-                                haveanyGhost=true;
-
-            }
-
-
-            if(!(bflag & (1u<<OCT_DIR_FRONT)))
-            {
-
-
-                ib=pW;
-                ie=lx-pW;
-                jb=pW;
-                je=ly-pW;
-                kb=lz-pW;
-                ke=lz;
-
-                for(unsigned int k=kb; k < ke; k++)
-                    for(unsigned int j=jb;j < je; j++)
-                        for(unsigned int i=ib;i < ie; i++)
-                            if(std::isnan(unzipVec[offset+k*(ly*lx)+j*(lx)+i]))
-                                haveanyGhost=true;
-
-            }
-
-
-           // note: add the vertex corner paddings when you have done them.
-
-           m_uiLocalBlockList[e].setIsInternal(!haveanyGhost);
-
-           /*if(!haveanyGhost)
-              std::cout<<"rank: "<<m_uiActiveRank<<" internal block: "<<m_uiLocalBlockList[e].getBlockNode()<<std::endl;*/
-
-
-        }
-
-
-
-        delete [] zippVec;
-        delete [] unzipVec;
 
 
     }
@@ -8181,148 +8831,562 @@ namespace ot {
 
         unsigned int nodeLookUp_DG;
         bool isHanging=false;
+        cnum=0;
         assert(elementId>=0 && elementId<m_uiAllElements.size());
+        
+        bool isVertexHanging[2]={false,false};
+        unsigned int owner[2];
+        unsigned int ii_x[2],jj_y[2],kk_z[2];
+        unsigned int mid_bit;
+        unsigned int lenSz;
 
         switch (edgeId)
         {
 
             case OCT_DIR_LEFT_DOWN:
-                nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(0)*(m_uiElementOrder+1)+(0)];
-                if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minZ()==m_uiAllElements[elementId].minZ())
-                    cnum=0;
-                else
+
+                isVertexHanging[0] =  this->isNodeHanging(elementId,0,0,0);
+                isVertexHanging[1] =  this->isNodeHanging(elementId,0,0,m_uiElementOrder);
+
+                isHanging = (isVertexHanging[0] && isVertexHanging[1]);
+                if(!isHanging)
+                    return false;
+
+                if(m_uiElementOrder==1)
+                {   
+                    // special case to linear order, 
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE + (0)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(0)*(m_uiElementOrder+1)+ 0];
+                    this->dg2eijk(nodeLookUp_DG,owner[0],ii_x[0],jj_y[0],kk_z[0]);
+
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE + (m_uiElementOrder)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(0)*(m_uiElementOrder+1)+ 0];
+                    this->dg2eijk(nodeLookUp_DG,owner[1],ii_x[1],jj_y[1],kk_z[1]);
+
+                    assert(m_uiAllElements[owner[0]].getLevel() == m_uiAllElements[owner[1]].getLevel());
+                    lenSz = 1u<<(m_uiMaxDepth - m_uiAllElements[owner[0]].getLevel() );
+
+                    if(m_uiAllElements[elementId].minZ() == m_uiAllElements[owner[0]].minZ() + lenSz*kk_z[0] )
+                        cnum=0;
+                    else
+                    {
+                        assert(m_uiAllElements[elementId].maxZ() == m_uiAllElements[owner[1]].minZ() + lenSz*kk_z[1]);
+                        cnum=1;
+                    }
+
+                }else
                 {
-                   assert(m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxZ()==m_uiAllElements[elementId].maxZ());
-                   cnum=1;
+                    nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(0)*(m_uiElementOrder+1)+(0)];
+                    if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minZ()==m_uiAllElements[elementId].minZ())
+                        cnum=0;
+                    else
+                    {
+                        assert( (m_uiElementOrder==1) || (m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxZ()==m_uiAllElements[elementId].maxZ()));
+                        cnum=1;
+                    }
+
                 }
+
+                
                 break;
 
             case OCT_DIR_LEFT_UP:
-                nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(m_uiElementOrder)*(m_uiElementOrder+1)+(0)];
-                if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minZ()==m_uiAllElements[elementId].minZ())
-                    cnum=0;
-                else
+
+                isVertexHanging[0] =  this->isNodeHanging(elementId,0,m_uiElementOrder,0);
+                isVertexHanging[1] =  this->isNodeHanging(elementId,0,m_uiElementOrder,m_uiElementOrder);
+
+                isHanging = (isVertexHanging[0] && isVertexHanging[1]);
+                if(!isHanging)
+                    return false;
+
+                if(m_uiElementOrder==1)
+                {   
+                    // special case to linear order, 
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE+(0)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(m_uiElementOrder)*(m_uiElementOrder+1)+ 0];
+                    this->dg2eijk(nodeLookUp_DG,owner[0],ii_x[0],jj_y[0],kk_z[0]);
+
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE+(m_uiElementOrder)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(m_uiElementOrder)*(m_uiElementOrder+1)+ 0];
+                    this->dg2eijk(nodeLookUp_DG,owner[1],ii_x[1],jj_y[1],kk_z[1]);
+
+                    assert(m_uiAllElements[owner[0]].getLevel() == m_uiAllElements[owner[1]].getLevel());
+                    lenSz = 1u<<(m_uiMaxDepth - m_uiAllElements[owner[0]].getLevel() );
+
+                    if(m_uiAllElements[elementId].minZ() == m_uiAllElements[owner[0]].minZ() + lenSz*kk_z[0] )
+                        cnum=0;
+                    else
+                    {
+                        assert(m_uiAllElements[elementId].maxZ() == m_uiAllElements[owner[1]].minZ() + lenSz*kk_z[1]);
+                        cnum=1;
+                    }
+                        
+
+                }else
                 {
-                    assert(m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxZ()==m_uiAllElements[elementId].maxZ());
-                    cnum=1;
+                    nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(m_uiElementOrder)*(m_uiElementOrder+1)+(0)];
+                    if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minZ()==m_uiAllElements[elementId].minZ())
+                        cnum=0;
+                    else
+                    {
+                        assert((m_uiElementOrder==1) || (m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxZ()==m_uiAllElements[elementId].maxZ()));
+                        cnum=1;
+                    }
+
                 }
+
+                
                 break;
 
             case OCT_DIR_LEFT_BACK:
-                nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+(0)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)+(0)];
-                if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minY()==m_uiAllElements[elementId].minY())
-                    cnum=0;
-                else
+                
+                isVertexHanging[0] =  this->isNodeHanging(elementId,0,0,0);
+                isVertexHanging[1] =  this->isNodeHanging(elementId,0,m_uiElementOrder,0);
+
+                isHanging = (isVertexHanging[0] && isVertexHanging[1]);
+                if(!isHanging)
+                    return false;
+                
+
+                if(m_uiElementOrder==1)
+                {   
+                    // special case to linear order, 
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE+(0)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(0)*(m_uiElementOrder+1)+ 0];
+                    this->dg2eijk(nodeLookUp_DG,owner[0],ii_x[0],jj_y[0],kk_z[0]);
+
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE+(0)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(m_uiElementOrder)*(m_uiElementOrder+1)+ 0];
+                    this->dg2eijk(nodeLookUp_DG,owner[1],ii_x[1],jj_y[1],kk_z[1]);
+
+                    assert(m_uiAllElements[owner[0]].getLevel() == m_uiAllElements[owner[1]].getLevel());
+                    lenSz = 1u<<(m_uiMaxDepth - m_uiAllElements[owner[0]].getLevel() );
+
+                    if( m_uiAllElements[elementId].minY() == ( m_uiAllElements[owner[0]].minY() + jj_y[0]*lenSz) )
+                      cnum=0;
+                    else
+                    {
+                      assert(m_uiAllElements[elementId].maxY() == ( m_uiAllElements[owner[1]].minY() + jj_y[1]*lenSz)); 
+                      cnum=1;
+                    }
+
+                }else
                 {
-                    assert(m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxY()==m_uiAllElements[elementId].maxY());
-                    cnum=1;
+                    nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+(0)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)+(0)];
+                    if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minY()==m_uiAllElements[elementId].minY())
+                        cnum=0;
+                    else
+                    {
+                        assert((m_uiElementOrder==1) || (m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxY()==m_uiAllElements[elementId].maxY()));
+                        cnum=1;
+                    }
+
                 }
+                
+                
                 break;
 
             case OCT_DIR_LEFT_FRONT:
-                nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+(m_uiElementOrder)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)+(0)];
-                if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minY()==m_uiAllElements[elementId].minY())
-                    cnum=0;
-                else
+                
+
+                isVertexHanging[0] =  this->isNodeHanging(elementId,0,0,m_uiElementOrder);
+                isVertexHanging[1] =  this->isNodeHanging(elementId,0,m_uiElementOrder,m_uiElementOrder);
+
+                isHanging = (isVertexHanging[0] && isVertexHanging[1]);
+                if(!isHanging)
+                    return false;
+
+                if(m_uiElementOrder==1)
+                {   
+                    // special case to linear order, 
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE+(m_uiElementOrder)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(0)*(m_uiElementOrder+1)+ 0];
+                    this->dg2eijk(nodeLookUp_DG,owner[0],ii_x[0],jj_y[0],kk_z[0]);
+
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE+(m_uiElementOrder)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(m_uiElementOrder)*(m_uiElementOrder+1)+ 0];
+                    this->dg2eijk(nodeLookUp_DG,owner[1],ii_x[1],jj_y[1],kk_z[1]);
+
+                    assert(m_uiAllElements[owner[0]].getLevel() == m_uiAllElements[owner[1]].getLevel());
+                    lenSz = 1u<<(m_uiMaxDepth - m_uiAllElements[owner[0]].getLevel() );
+
+                    if( m_uiAllElements[elementId].minY() == ( m_uiAllElements[owner[0]].minY() + jj_y[0]*lenSz) )
+                      cnum=0;
+                    else
+                    {
+                      assert(m_uiAllElements[elementId].maxY() == ( m_uiAllElements[owner[1]].minY() + jj_y[1]*lenSz)); 
+                      cnum=1;
+                    }
+
+                }else
                 {
-                    assert(m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxY()==m_uiAllElements[elementId].maxY());
-                    cnum=1;
+                    nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+(m_uiElementOrder)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)+(0)];
+                    if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minY()==m_uiAllElements[elementId].minY())
+                        cnum=0;
+                    else
+                    {
+                        assert((m_uiElementOrder==1) || (m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxY()==m_uiAllElements[elementId].maxY()));
+                        cnum=1;
+                    }
+
                 }
-                break;
+
                 break;
 
             case OCT_DIR_RIGHT_DOWN:
-                nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(0)*(m_uiElementOrder+1)+(m_uiElementOrder)];
-                if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minZ()==m_uiAllElements[elementId].minZ())
-                    cnum=0;
-                else
+               
+                isVertexHanging[0] =  this->isNodeHanging(elementId,m_uiElementOrder,0,0);
+                isVertexHanging[1] =  this->isNodeHanging(elementId,m_uiElementOrder,0,m_uiElementOrder);
+
+                isHanging = (isVertexHanging[0] && isVertexHanging[1]);
+                if(!isHanging)
+                    return false;
+
+                if(m_uiElementOrder==1)
+                {   
+                    // special case to linear order, 
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE+(0)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(0)*(m_uiElementOrder+1)+ m_uiElementOrder];
+                    this->dg2eijk(nodeLookUp_DG,owner[0],ii_x[0],jj_y[0],kk_z[0]);
+
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE+(m_uiElementOrder)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(0)*(m_uiElementOrder+1)+ m_uiElementOrder];
+                    this->dg2eijk(nodeLookUp_DG,owner[1],ii_x[1],jj_y[1],kk_z[1]);
+
+                    assert(m_uiAllElements[owner[0]].getLevel() == m_uiAllElements[owner[1]].getLevel());
+                    lenSz = 1u<<(m_uiMaxDepth - m_uiAllElements[owner[0]].getLevel() );
+
+                    if(m_uiAllElements[elementId].minZ() == m_uiAllElements[owner[0]].minZ() + lenSz*kk_z[0] )
+                        cnum=0;
+                    else
+                    {
+                        assert(m_uiAllElements[elementId].maxZ() == m_uiAllElements[owner[1]].minZ() + lenSz*kk_z[1]);
+                        cnum=1;
+                    }
+
+                }else
                 {
-                    assert(m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxZ()==m_uiAllElements[elementId].maxZ());
-                    cnum=1;
+                    nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(0)*(m_uiElementOrder+1)+(m_uiElementOrder)];
+                    if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minZ()==m_uiAllElements[elementId].minZ())
+                        cnum=0;
+                    else
+                    {
+                        assert((m_uiElementOrder==1) || (m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxZ()==m_uiAllElements[elementId].maxZ()));
+                        cnum=1;
+                    }
+
                 }
+
                 break;
 
             case OCT_DIR_RIGHT_UP:
-                nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(m_uiElementOrder)*(m_uiElementOrder+1)+(m_uiElementOrder)];
-                if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minZ()==m_uiAllElements[elementId].minZ())
-                    cnum=0;
-                else
+               
+                isVertexHanging[0] =  this->isNodeHanging(elementId,m_uiElementOrder,m_uiElementOrder,0);
+                isVertexHanging[1] =  this->isNodeHanging(elementId,m_uiElementOrder,m_uiElementOrder,m_uiElementOrder);
+
+                isHanging = (isVertexHanging[0] && isVertexHanging[1]);
+                if(!isHanging)
+                    return false;
+
+                if(m_uiElementOrder==1)
+                {   
+                    // special case to linear order, 
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE+(0)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(m_uiElementOrder)*(m_uiElementOrder+1)+ m_uiElementOrder];
+                    this->dg2eijk(nodeLookUp_DG,owner[0],ii_x[0],jj_y[0],kk_z[0]);
+
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE+(m_uiElementOrder)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(m_uiElementOrder)*(m_uiElementOrder+1)+ m_uiElementOrder];
+                    this->dg2eijk(nodeLookUp_DG,owner[1],ii_x[1],jj_y[1],kk_z[1]);
+
+                    assert(m_uiAllElements[owner[0]].getLevel() == m_uiAllElements[owner[1]].getLevel());
+                    lenSz = 1u<<(m_uiMaxDepth - m_uiAllElements[owner[0]].getLevel() );
+
+                    if(m_uiAllElements[elementId].minZ() == m_uiAllElements[owner[0]].minZ() + lenSz*kk_z[0] )
+                        cnum=0;
+                    else
+                    {
+                        assert(m_uiAllElements[elementId].maxZ() == m_uiAllElements[owner[1]].minZ() + lenSz*kk_z[1]);
+                        cnum=1;
+                    }
+
+                }else
                 {
-                    assert(m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxZ()==m_uiAllElements[elementId].maxZ());
-                    cnum=1;
+                    nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(m_uiElementOrder)*(m_uiElementOrder+1)+(m_uiElementOrder)];
+                    if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minZ()==m_uiAllElements[elementId].minZ())
+                        cnum=0;
+                    else
+                    {
+                        assert((m_uiElementOrder==1) || (m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxZ()==m_uiAllElements[elementId].maxZ()));
+                        cnum=1;
+                    }
+
                 }
+
+                
                 break;
 
             case OCT_DIR_RIGHT_BACK:
-                nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+(0)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)+(m_uiElementOrder)];
-                if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minY()==m_uiAllElements[elementId].minY())
-                    cnum=0;
-                else
+                
+                isVertexHanging[0] =  this->isNodeHanging(elementId,m_uiElementOrder,0,0);
+                isVertexHanging[1] =  this->isNodeHanging(elementId,m_uiElementOrder,m_uiElementOrder,0);
+
+                isHanging = (isVertexHanging[0] && isVertexHanging[1]);
+                if(!isHanging)
+                    return false;
+
+                if(m_uiElementOrder==1)
+                {   
+                    // special case to linear order, 
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE+(0)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(0)*(m_uiElementOrder+1)+ m_uiElementOrder];
+                    this->dg2eijk(nodeLookUp_DG,owner[0],ii_x[0],jj_y[0],kk_z[0]);
+
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE+(0)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(m_uiElementOrder)*(m_uiElementOrder+1)+ m_uiElementOrder];
+                    this->dg2eijk(nodeLookUp_DG,owner[1],ii_x[1],jj_y[1],kk_z[1]);
+
+                    assert(m_uiAllElements[owner[0]].getLevel() == m_uiAllElements[owner[1]].getLevel());
+                    lenSz = 1u<<(m_uiMaxDepth - m_uiAllElements[owner[0]].getLevel() );
+
+                    if( m_uiAllElements[elementId].minY() == ( m_uiAllElements[owner[0]].minY() + jj_y[0]*lenSz) )
+                      cnum=0;
+                    else
+                    {
+                      assert(m_uiAllElements[elementId].maxY() == ( m_uiAllElements[owner[1]].minY() + jj_y[1]*lenSz)); 
+                      cnum=1;
+                    }
+
+                }else
                 {
-                    assert(m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxY()==m_uiAllElements[elementId].maxY());
-                    cnum=1;
+                    nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+(0)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)+(m_uiElementOrder)];
+                    if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minY()==m_uiAllElements[elementId].minY())
+                        cnum=0;
+                    else
+                    {
+                        assert((m_uiElementOrder==1) || (m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxY()==m_uiAllElements[elementId].maxY()));
+                        cnum=1;
+                    }
                 }
+
+                
                 break;
 
             case OCT_DIR_RIGHT_FRONT:
-                nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+(m_uiElementOrder)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)+(m_uiElementOrder)];
-                if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minY()==m_uiAllElements[elementId].minY())
-                    cnum=0;
-                else
+                
+                isVertexHanging[0] =  this->isNodeHanging(elementId,m_uiElementOrder,0,m_uiElementOrder);
+                isVertexHanging[1] =  this->isNodeHanging(elementId,m_uiElementOrder,m_uiElementOrder,m_uiElementOrder);
+
+                isHanging = (isVertexHanging[0] && isVertexHanging[1]);
+                if(!isHanging)
+                    return false;
+
+                if(m_uiElementOrder==1)
+                {   
+                    // special case to linear order, 
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE+(m_uiElementOrder)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(0)*(m_uiElementOrder+1)+ m_uiElementOrder];
+                    this->dg2eijk(nodeLookUp_DG,owner[0],ii_x[0],jj_y[0],kk_z[0]);
+
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE+(m_uiElementOrder)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(m_uiElementOrder)*(m_uiElementOrder+1)+ m_uiElementOrder];
+                    this->dg2eijk(nodeLookUp_DG,owner[1],ii_x[1],jj_y[1],kk_z[1]);
+
+                    assert(m_uiAllElements[owner[0]].getLevel() == m_uiAllElements[owner[1]].getLevel());
+                    lenSz = 1u<<(m_uiMaxDepth - m_uiAllElements[owner[0]].getLevel() );
+
+                    if( m_uiAllElements[elementId].minY() == ( m_uiAllElements[owner[0]].minY() + jj_y[0]*lenSz) )
+                      cnum=0;
+                    else
+                    {
+                      assert(m_uiAllElements[elementId].maxY() == ( m_uiAllElements[owner[1]].minY() + jj_y[1]*lenSz)); 
+                      cnum=1;
+                    }
+
+                }else
                 {
-                    assert(m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxY()==m_uiAllElements[elementId].maxY());
-                    cnum=1;
+                    nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+(m_uiElementOrder)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)+(m_uiElementOrder)];
+                    if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minY()==m_uiAllElements[elementId].minY())
+                        cnum=0;
+                    else
+                    {
+                        assert((m_uiElementOrder==1) || (m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxY()==m_uiAllElements[elementId].maxY()));
+                        cnum=1;
+                    }
+
                 }
+
+                
                 break;
 
             case OCT_DIR_DOWN_BACK:
-                 nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+(0)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(0)*(m_uiElementOrder+1)+(m_uiElementOrder>>1u)];
-                if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minX()==m_uiAllElements[elementId].minX())
-                    cnum=0;
-                else
+                
+                isVertexHanging[0] =  this->isNodeHanging(elementId,0,0,0);
+                isVertexHanging[1] =  this->isNodeHanging(elementId,m_uiElementOrder,0,0);
+
+                isHanging = (isVertexHanging[0] && isVertexHanging[1]);
+                if(!isHanging)
+                    return false;
+
+                if(m_uiElementOrder==1)
+                {   
+                    // special case to linear order, 
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE+(0)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(0)*(m_uiElementOrder+1)+ 0];
+                    this->dg2eijk(nodeLookUp_DG,owner[0],ii_x[0],jj_y[0],kk_z[0]);
+
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE+(0)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(0)*(m_uiElementOrder+1)+ m_uiElementOrder];
+                    this->dg2eijk(nodeLookUp_DG,owner[1],ii_x[1],jj_y[1],kk_z[1]);
+
+                    assert(m_uiAllElements[owner[0]].getLevel() == m_uiAllElements[owner[1]].getLevel());
+                    lenSz = 1u<<(m_uiMaxDepth - m_uiAllElements[owner[0]].getLevel() );
+
+                    if(m_uiAllElements[elementId].minX() == m_uiAllElements[owner[0]].minX() + ii_x[0]*lenSz)
+                        cnum=0;
+                    else 
+                    {
+                        assert(m_uiAllElements[elementId].maxX() == m_uiAllElements[owner[1]].minX() + ii_x[1]*lenSz);
+                        cnum=1;
+                    }
+
+
+                }else
                 {
-                    assert(m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxX()==m_uiAllElements[elementId].maxX());
-                    cnum=1;
+                    nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+(0)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(0)*(m_uiElementOrder+1)+(m_uiElementOrder>>1u)];
+                    if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minX()==m_uiAllElements[elementId].minX())
+                        cnum=0;
+                    else
+                    {
+                        assert((m_uiElementOrder==1) || (m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxX()==m_uiAllElements[elementId].maxX()));
+                        cnum=1;
+                    }
+
                 }
-                 break;
+                break;
 
             case OCT_DIR_DOWN_FRONT:
-                nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+(m_uiElementOrder)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(0)*(m_uiElementOrder+1)+(m_uiElementOrder>>1u)];
-                if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minX()==m_uiAllElements[elementId].minX())
-                    cnum=0;
-                else
+                
+                isVertexHanging[0] =  this->isNodeHanging(elementId,0,0,m_uiElementOrder);
+                isVertexHanging[1] =  this->isNodeHanging(elementId,m_uiElementOrder,0,m_uiElementOrder);
+
+                isHanging = (isVertexHanging[0] && isVertexHanging[1]);
+                if(!isHanging)
+                    return false;
+                
+                if(m_uiElementOrder==1)
+                {   
+                    // special case to linear order, 
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE+(m_uiElementOrder)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(0)*(m_uiElementOrder+1)+ 0];
+                    this->dg2eijk(nodeLookUp_DG,owner[0],ii_x[0],jj_y[0],kk_z[0]);
+
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE+(m_uiElementOrder)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(0)*(m_uiElementOrder+1)+ m_uiElementOrder];
+                    this->dg2eijk(nodeLookUp_DG,owner[1],ii_x[1],jj_y[1],kk_z[1]);
+
+                    assert(m_uiAllElements[owner[0]].getLevel() == m_uiAllElements[owner[1]].getLevel());
+                    lenSz = 1u<<(m_uiMaxDepth - m_uiAllElements[owner[0]].getLevel() );
+
+                    if(m_uiAllElements[elementId].minX() == m_uiAllElements[owner[0]].minX() + ii_x[0]*lenSz)
+                        cnum=0;
+                    else 
+                    {
+                        assert(m_uiAllElements[elementId].maxX() == m_uiAllElements[owner[1]].minX() + ii_x[1]*lenSz);
+                        cnum=1;
+                    }
+
+                }else
                 {
-                    assert(m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxX()==m_uiAllElements[elementId].maxX());
-                    cnum=1;
+                    nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+(m_uiElementOrder)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(0)*(m_uiElementOrder+1)+(m_uiElementOrder>>1u)];
+                    if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minX()==m_uiAllElements[elementId].minX())
+                        cnum=0;
+                    else if ((m_uiElementOrder==1) || (m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxX()==m_uiAllElements[elementId].maxX()))
+                    {
+                        cnum=1;
+                    }else
+                    {
+                        return false;
+                    }
+
                 }
+
+                
                 break;
 
 
             case OCT_DIR_UP_BACK:
-                nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+(0)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(m_uiElementOrder)*(m_uiElementOrder+1)+(m_uiElementOrder>>1u)];
-                if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minX()==m_uiAllElements[elementId].minX())
-                    cnum=0;
-                else
+               
+                isVertexHanging[0] =  this->isNodeHanging(elementId,0,m_uiElementOrder,0);
+                isVertexHanging[1] =  this->isNodeHanging(elementId,m_uiElementOrder,m_uiElementOrder,0);
+
+                isHanging = (isVertexHanging[0] && isVertexHanging[1]);
+                if(!isHanging)
+                    return false;
+                
+                if(m_uiElementOrder==1)
+                {   
+                    // special case to linear order, 
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE+(0)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(m_uiElementOrder)*(m_uiElementOrder+1)+ 0];
+                    this->dg2eijk(nodeLookUp_DG,owner[0],ii_x[0],jj_y[0],kk_z[0]);
+
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE+(0)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(m_uiElementOrder)*(m_uiElementOrder+1)+ m_uiElementOrder];
+                    this->dg2eijk(nodeLookUp_DG,owner[1],ii_x[1],jj_y[1],kk_z[1]);
+
+                    assert(m_uiAllElements[owner[0]].getLevel() == m_uiAllElements[owner[1]].getLevel());
+                    lenSz = 1u<<(m_uiMaxDepth - m_uiAllElements[owner[0]].getLevel() );
+
+                    if(m_uiAllElements[elementId].minX() == m_uiAllElements[owner[0]].minX() + ii_x[0]*lenSz)
+                        cnum=0;
+                    else 
+                    {
+                        assert(m_uiAllElements[elementId].maxX() == m_uiAllElements[owner[1]].minX() + ii_x[1]*lenSz);
+                        cnum=1;
+                    }
+
+                }else
                 {
-                    assert(m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxX()==m_uiAllElements[elementId].maxX());
-                    cnum=1;
+                    nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+(0)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(m_uiElementOrder)*(m_uiElementOrder+1)+(m_uiElementOrder>>1u)];
+                    if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minX()==m_uiAllElements[elementId].minX())
+                        cnum=0;
+                    else
+                    {
+                        assert((m_uiElementOrder==1) || (m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxX()==m_uiAllElements[elementId].maxX()));
+                        cnum=1;
+                    }
+
                 }
+
                 break;
+
             case OCT_DIR_UP_FRONT:
-                nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+(m_uiElementOrder)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(m_uiElementOrder)*(m_uiElementOrder+1)+(m_uiElementOrder>>1u)];
-                if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minX()==m_uiAllElements[elementId].minX())
-                    cnum=0;
-                else
+                
+                isVertexHanging[0] =  this->isNodeHanging(elementId,0,m_uiElementOrder,m_uiElementOrder);
+                isVertexHanging[1] =  this->isNodeHanging(elementId,m_uiElementOrder,m_uiElementOrder,m_uiElementOrder);
+
+                isHanging = (isVertexHanging[0] && isVertexHanging[1]);
+                if(!isHanging)
+                    return false;
+
+                if(m_uiElementOrder==1)
+                {   
+                    // special case to linear order, 
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE+(m_uiElementOrder)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(m_uiElementOrder)*(m_uiElementOrder+1)+ 0];
+                    this->dg2eijk(nodeLookUp_DG,owner[0],ii_x[0],jj_y[0],kk_z[0]);
+
+                    nodeLookUp_DG = m_uiE2NMapping_DG[elementId*m_uiNpE+(m_uiElementOrder)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(m_uiElementOrder)*(m_uiElementOrder+1)+ m_uiElementOrder];
+                    this->dg2eijk(nodeLookUp_DG,owner[1],ii_x[1],jj_y[1],kk_z[1]);
+
+                    assert(m_uiAllElements[owner[0]].getLevel() == m_uiAllElements[owner[1]].getLevel());
+                    lenSz = 1u<<(m_uiMaxDepth - m_uiAllElements[owner[0]].getLevel() );
+
+                    if(m_uiAllElements[elementId].minX() == m_uiAllElements[owner[0]].minX() + ii_x[0]*lenSz)
+                        cnum=0;
+                    else 
+                    {
+                        assert(m_uiAllElements[elementId].maxX() == m_uiAllElements[owner[1]].minX() + ii_x[1]*lenSz);
+                        cnum=1;
+                    }
+
+                }else
                 {
-                    assert(m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxX()==m_uiAllElements[elementId].maxX());
-                    cnum=1;
+                    nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+(m_uiElementOrder)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(m_uiElementOrder)*(m_uiElementOrder+1)+(m_uiElementOrder>>1u)];
+                    if(m_uiAllElements[nodeLookUp_DG/m_uiNpE].minX()==m_uiAllElements[elementId].minX())
+                        cnum=0;
+                    else
+                    {
+                        assert((m_uiElementOrder==1) || (m_uiAllElements[nodeLookUp_DG/m_uiNpE].maxX()==m_uiAllElements[elementId].maxX()));
+                        cnum=1;
+                    }
+
                 }
+
+                
                 break;
 
 
         }
-
-        isHanging=m_uiAllElements[nodeLookUp_DG/m_uiNpE].getLevel()<m_uiAllElements[elementId].getLevel();
+        
         return isHanging;
 
 
@@ -8341,56 +9405,76 @@ namespace ot {
         unsigned int mid_bit;
         assert(elementId>=0 && elementId<m_uiAllElements.size());
         unsigned int pSz,cSz;
+        cnum=0;
+        const unsigned int lookup=m_uiE2EMapping[elementId*m_uiNumDirections+faceId];
+        if(lookup==LOOK_UP_TABLE_DEFAULT)
+            isHanging=false;
+        else
+            isHanging = m_uiAllElements[lookup].getLevel()<m_uiAllElements[elementId].getLevel();
+        
+        // Note: if the face is Hanging it is reliable to use the element to element map. 
 
-        switch (faceId)
+        if(isHanging)
         {
+            switch (faceId)
+            {
 
             case OCT_DIR_LEFT:
-                nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)+(0)];
-                ownerID=nodeLookUp_DG/m_uiNpE;
+                //nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)+(0)];
+                //ownerID=nodeLookUp_DG/m_uiNpE;
+                ownerID=lookup;
                 mid_bit=m_uiMaxDepth - m_uiAllElements[ownerID].getLevel()-1;
                 cnum=( (((((m_uiAllElements[elementId].getZ())-(m_uiAllElements[ownerID].getZ())) >> mid_bit) & 1u) << 1u) | ((((m_uiAllElements[elementId].getY())-(m_uiAllElements[ownerID].getY())) >>mid_bit) & 1u));
                 break;
 
             case OCT_DIR_RIGHT:
-                nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)+(m_uiElementOrder)];
-                ownerID=nodeLookUp_DG/m_uiNpE;
+                //nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)+(m_uiElementOrder)];
+                //ownerID=nodeLookUp_DG/m_uiNpE;
+                ownerID=lookup;
                 mid_bit=m_uiMaxDepth - m_uiAllElements[ownerID].getLevel()-1;
                 cnum=( (((((m_uiAllElements[elementId].getZ())-(m_uiAllElements[ownerID].getZ())) >> mid_bit) & 1u) << 1u) | ((((m_uiAllElements[elementId].getY())-(m_uiAllElements[ownerID].getY())) >>mid_bit) & 1u));
 
                 break;
 
             case OCT_DIR_DOWN:
-                nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(0)*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))];
-                ownerID=nodeLookUp_DG/m_uiNpE;
+                //nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(0)*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))];
+                //ownerID=nodeLookUp_DG/m_uiNpE;
+                ownerID=lookup;
                 mid_bit=m_uiMaxDepth - m_uiAllElements[ownerID].getLevel()-1;
                 cnum=( (((((m_uiAllElements[elementId].getZ())-(m_uiAllElements[ownerID].getZ())) >> mid_bit) & 1u) << 1u) | ((((m_uiAllElements[elementId].getX())-(m_uiAllElements[ownerID].getX())) >>mid_bit) & 1u));
                 break;
 
             case OCT_DIR_UP:
-                nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(m_uiElementOrder)*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))];
-                ownerID=nodeLookUp_DG/m_uiNpE;
+                //nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)*(m_uiElementOrder+1)+(m_uiElementOrder)*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))];
+                //ownerID=nodeLookUp_DG/m_uiNpE;
+                ownerID=lookup;
                 mid_bit=m_uiMaxDepth - m_uiAllElements[ownerID].getLevel()-1;
                 cnum=( (((((m_uiAllElements[elementId].getZ())-(m_uiAllElements[ownerID].getZ())) >> mid_bit) & 1u) << 1u) | ((((m_uiAllElements[elementId].getX())-(m_uiAllElements[ownerID].getX())) >>mid_bit) & 1u));
                 break;
 
             case OCT_DIR_BACK:
-                nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+(0)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))];
-                ownerID=nodeLookUp_DG/m_uiNpE;
+                //nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+(0)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))];
+                //ownerID=nodeLookUp_DG/m_uiNpE;
+                ownerID=lookup;
+                
                 mid_bit=m_uiMaxDepth - m_uiAllElements[ownerID].getLevel()-1;
                 cnum=( (((((m_uiAllElements[elementId].getY())-(m_uiAllElements[ownerID].getY())) >> mid_bit) & 1u) << 1u) | ((((m_uiAllElements[elementId].getX())-(m_uiAllElements[ownerID].getX())) >>mid_bit) & 1u));
+                //if(m_uiAllElements[lookup] != m_uiAllElements[nodeLookUp_DG/m_uiNpE])
+                //std::cout<<"owner : "<<m_uiAllElements[lookup]<<" dg: "<<m_uiAllElements[nodeLookUp_DG/m_uiNpE]<<" current "<<m_uiAllElements[elementId]<<" cnum: "<<cnum<<std::endl;
                 break;
 
             case OCT_DIR_FRONT:
-                nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+(m_uiElementOrder)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))];
-                ownerID=nodeLookUp_DG/m_uiNpE;
+                //nodeLookUp_DG=m_uiE2NMapping_DG[elementId*m_uiNpE+(m_uiElementOrder)*(m_uiElementOrder+1)*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))*(m_uiElementOrder+1)+((m_uiElementOrder>>1u))];
+                //ownerID=nodeLookUp_DG/m_uiNpE;
+                ownerID=lookup;
                 mid_bit=m_uiMaxDepth - m_uiAllElements[ownerID].getLevel()-1;
                 cnum=( (((((m_uiAllElements[elementId].getY())-(m_uiAllElements[ownerID].getY())) >> mid_bit) & 1u) << 1u) | ((((m_uiAllElements[elementId].getX())-(m_uiAllElements[ownerID].getX())) >>mid_bit) & 1u));
                 break;
 
+            }
+
         }
 
-        isHanging=m_uiAllElements[nodeLookUp_DG/m_uiNpE].getLevel()<m_uiAllElements[elementId].getLevel();
         return isHanging;
 
     }
@@ -8404,7 +9488,7 @@ namespace ot {
     }
 
 
-    ot::Mesh* Mesh::ReMesh(unsigned int grainSz,double ld_tol,unsigned int sfK)
+    ot::Mesh* Mesh::ReMesh(unsigned int grainSz,double ld_tol,unsigned int sfK, unsigned int (*getWeight)(const ot::TreeNode *), unsigned int* blk_tags, unsigned int blk_tag_sz)
     {
 
         std::vector<ot::TreeNode> balOct1; //new balanced octree.
@@ -8454,6 +9538,7 @@ namespace ot {
 
             ot::TreeNode rootNode(m_uiDim,m_uiMaxDepth);
             SFC::parSort::SFC_treeSort(unBalancedOctree,balOct1,balOct1,balOct1,ld_tol,m_uiMaxDepth,rootNode,ROOT_ROTATION,1,TS_BALANCE_OCTREE,sfK,m_uiCommActive);
+            par::partitionW(balOct1,getWeight,m_uiCommActive);
             assert(par::test::isUniqueAndSorted(balOct1,m_uiCommActive));
             unBalancedOctree.clear();
 
@@ -8674,7 +9759,8 @@ namespace ot {
 
         }
 
-        ot::Mesh * pMesh = new ot::Mesh(balOct1,1,m_uiElementOrder,m_uiCommGlobal,grainSz,ld_tol,sfK);
+        ot::Mesh * pMesh = new ot::Mesh(balOct1,1,m_uiElementOrder,m_uiCommGlobal,m_uiIsBlockSetup,m_uiScatterMapType,grainSz,ld_tol,sfK,getWeight,blk_tags,blk_tag_sz);
+        pMesh->setDomainBounds(m_uiDMinPt, m_uiDMaxPt);
         return pMesh;
 
 
@@ -8887,6 +9973,777 @@ namespace ot {
 
     }
 
+    void ot::Mesh::getElementQMat(unsigned int currentId, double*& qMat, bool isAllocated) const 
+    {
+        if(!m_uiIsActive)
+            return ;
+        
+        if(!isAllocated)
+            qMat = new double [m_uiNpE];
+        
+        assert(qMat!=NULL);
+
+        const unsigned int eleOrder = m_uiElementOrder;
+        const unsigned int npe_1d = eleOrder + 1;
+        const unsigned int npe_2d = (eleOrder + 1) * (eleOrder + 1);
+        const unsigned int nPe = (eleOrder + 1) * (eleOrder + 1) * (eleOrder + 1);
+
+        // note that this is because in the reference element interpolation operators are transposed to support on the fly interpolations. 
+        const DendroScalar *I0 = m_uiRefEl.getIMTChild0();
+        const DendroScalar *I1 = m_uiRefEl.getIMTChild1();
+
+        // set qMat to be identity. 
+        for(unsigned int i=0;i< m_uiNpE; i++)
+         for(unsigned int j=0; j< m_uiNpE; j++)
+             qMat[i*m_uiNpE + j ] =0.0;
+         
+        for(unsigned int i=0;i< m_uiNpE; i++)
+            qMat[i*m_uiNpE + i ] =1.0;
+
+        bool faceHang[NUM_FACES];
+        bool edgeHang[NUM_EDGES];
+        unsigned int cnumFace[NUM_FACES];
+        unsigned int cnumEdge[NUM_EDGES];
+
+        double * im2D_00 = new double[npe_2d*npe_2d];
+        double * im2D_01 = new double[npe_2d*npe_2d];
+        double * im2D_10 = new double[npe_2d*npe_2d];
+        double * im2D_11 = new double[npe_2d*npe_2d];
+
+        faceHang[0]  = this->isFaceHanging(currentId,OCT_DIR_LEFT,cnumFace[0]);    
+        faceHang[1]  = this->isFaceHanging(currentId,OCT_DIR_RIGHT,cnumFace[1]);
+        faceHang[2]  = this->isFaceHanging(currentId,OCT_DIR_DOWN,cnumFace[2]);
+        faceHang[3]  = this->isFaceHanging(currentId,OCT_DIR_UP,cnumFace[3]);
+        faceHang[4]  = this->isFaceHanging(currentId,OCT_DIR_BACK,cnumFace[4]);
+        faceHang[5]  = this->isFaceHanging(currentId,OCT_DIR_FRONT,cnumFace[5]);
+        
+        edgeHang[0]  = this->isEdgeHanging(currentId,OCT_DIR_LEFT_DOWN,cnumEdge[0]);
+        edgeHang[1]  = this->isEdgeHanging(currentId,OCT_DIR_LEFT_UP,cnumEdge[1]);
+        edgeHang[2]  = this->isEdgeHanging(currentId,OCT_DIR_LEFT_BACK,cnumEdge[2]);
+        edgeHang[3]  = this->isEdgeHanging(currentId,OCT_DIR_LEFT_FRONT,cnumEdge[3]);
+      
+        edgeHang[4]  = this->isEdgeHanging(currentId,OCT_DIR_RIGHT_DOWN,cnumEdge[4]);
+        edgeHang[5]  = this->isEdgeHanging(currentId,OCT_DIR_RIGHT_UP,cnumEdge[5]);
+        edgeHang[6]  = this->isEdgeHanging(currentId,OCT_DIR_RIGHT_BACK,cnumEdge[6]);
+        edgeHang[7]  = this->isEdgeHanging(currentId,OCT_DIR_RIGHT_FRONT,cnumEdge[7]);
+        
+        edgeHang[8]  = this->isEdgeHanging(currentId,OCT_DIR_DOWN_BACK,cnumEdge[8]);
+        edgeHang[9]  = this->isEdgeHanging(currentId,OCT_DIR_DOWN_FRONT,cnumEdge[9]);
+        edgeHang[10] = this->isEdgeHanging(currentId,OCT_DIR_UP_BACK,cnumEdge[10]);
+        edgeHang[11] = this->isEdgeHanging(currentId,OCT_DIR_UP_FRONT,cnumEdge[11]);
+
+            const ot::TreeNode* allElements = &(*(m_uiAllElements.begin()));
+
+            // compute the 2d operators. 
+            kron(I0, I0, im2D_00, npe_1d, npe_1d, npe_1d, npe_1d);
+            kron(I0, I1, im2D_01, npe_1d, npe_1d, npe_1d, npe_1d);
+            kron(I1, I0, im2D_10, npe_1d, npe_1d, npe_1d, npe_1d);
+            kron(I1, I1, im2D_11, npe_1d, npe_1d, npe_1d, npe_1d);
+
+            double * im2D;
+
+            // left
+            if(faceHang[0])
+            {
+
+                std::vector<unsigned int> entry;
+                for (unsigned int k = 0; k < npe_1d; k++)
+                  for (unsigned int j = 0; j < npe_1d; j++)
+                  {
+                       const unsigned int rowId = k * npe_1d * npe_1d + j * npe_1d + 0;
+                       entry.push_back(rowId);
+                  }
+
+
+                if(cnumFace[0]==0)
+                    im2D = im2D_00;
+                else if(cnumFace[0]==1)
+                    im2D = im2D_01;
+                else if(cnumFace[0]==2)
+                    im2D = im2D_10;
+                else
+                {
+                    assert(cnumFace[0]==3);
+                    im2D=im2D_11;
+                }
+                
+
+                for(unsigned int i=0;i<entry.size();i++)
+                for(unsigned int j=0;j<entry.size();j++)
+                {
+                    const unsigned int rid = entry[i];
+                    const unsigned int cid = entry[j];
+                    
+                    qMat[rid*nPe + cid] = im2D[i*npe_2d +j];
+                    
+                }  
+
+            }
+
+            // right
+            if(faceHang[1])
+            {
+                std::vector<unsigned int> entry;
+                for (unsigned int k = 0; k < npe_1d; k++)
+                  for (unsigned int j = 0; j < npe_1d; j++)
+                  {
+                       const unsigned int rowId = k * npe_1d * npe_1d + j * npe_1d + eleOrder;
+                       entry.push_back(rowId);
+                  }
+
+                    if(cnumFace[1]==0)
+                        im2D = im2D_00;
+                    else if(cnumFace[1]==1)
+                        im2D = im2D_01;
+                    else if(cnumFace[1]==2)
+                        im2D = im2D_10;
+                    else
+                    {
+                        assert(cnumFace[1]==3);
+                        im2D=im2D_11;
+                    }
+
+
+                for(unsigned int i=0;i<entry.size();i++)
+                for(unsigned int j=0;j<entry.size();j++)
+                {
+                    const unsigned int rid = entry[i];
+                    const unsigned int cid = entry[j];
+                    qMat[rid*nPe + cid] = im2D[i*npe_2d +j];
+                }
+
+            }
+
+            // down
+            if(faceHang[2])
+            {
+                std::vector<unsigned int> entry;
+                for (unsigned int k = 0; k < npe_1d; k++)
+                  for (unsigned int i = 0; i < npe_1d; i++)
+                  {
+                       const unsigned int rowId = k * npe_1d * npe_1d + 0 * npe_1d + i;
+                       entry.push_back(rowId);
+                  }
+                
+                    if(cnumFace[2]==0)
+                        im2D = im2D_00;
+                    else if(cnumFace[2]==1)
+                        im2D = im2D_01;
+                    else if(cnumFace[2]==2)
+                        im2D = im2D_10;
+                    else
+                    {
+                        assert(cnumFace[2]==3);
+                        im2D=im2D_11;
+                    }
+
+                for(unsigned int i=0;i<entry.size();i++)
+                for(unsigned int j=0;j<entry.size();j++)
+                {
+                    const unsigned int rid = entry[i];
+                    const unsigned int cid = entry[j];
+                    qMat[rid*nPe + cid] = im2D[i*npe_2d +j];
+                }
+            }
+
+            // up
+            if(faceHang[3])
+            {
+                std::vector<unsigned int> entry;
+                for (unsigned int k = 0; k < npe_1d; k++)
+                  for (unsigned int i = 0; i < npe_1d; i++)
+                  {
+                       const unsigned int rowId = k * npe_1d * npe_1d + (eleOrder) * npe_1d + i;
+                       entry.push_back(rowId);
+                  }
+
+                    if(cnumFace[3]==0)
+                        im2D = im2D_00;
+                    else if(cnumFace[3]==1)
+                        im2D = im2D_01;
+                    else if(cnumFace[3]==2)
+                        im2D = im2D_10;
+                    else
+                    {
+                        assert(cnumFace[3]==3);
+                        im2D=im2D_11;
+                    }
+
+
+                for(unsigned int i=0;i<entry.size();i++)
+                for(unsigned int j=0;j<entry.size();j++)
+                {
+                    const unsigned int rid = entry[i];
+                    const unsigned int cid = entry[j];
+                    qMat[rid*nPe + cid] = im2D[i*npe_2d +j];
+                }
+
+            }
+
+            // back
+            if(faceHang[4])
+            {
+                //std::cout<<" current: "<<allElements[currentId]<<" back face hanging: "<<cnumFace[4]<<std::endl;
+                std::vector<unsigned int> entry;
+                for (unsigned int j = 0; j < npe_1d; j++)
+                  for (unsigned int i = 0; i < npe_1d; i++)
+                  {
+                       const unsigned int rowId = 0 * npe_1d * npe_1d + j * npe_1d + i;
+                       entry.push_back(rowId);
+                  }
+                
+                    if(cnumFace[4]==0)
+                        im2D = im2D_00;
+                    else if(cnumFace[4]==1)
+                        im2D = im2D_01;
+                    else if(cnumFace[4]==2)
+                        im2D = im2D_10;
+                    else
+                    {
+                        assert(cnumFace[4]==3);
+                        im2D=im2D_11;
+                    }
+
+
+                for(unsigned int i=0;i<entry.size();i++)
+                for(unsigned int j=0;j<entry.size();j++)
+                {
+                    const unsigned int rid = entry[i];
+                    const unsigned int cid = entry[j];
+                    qMat[rid*nPe + cid] = im2D[i*npe_2d +j];
+                }
+            }
+
+            // front
+            if(faceHang[5])
+            {
+                std::vector<unsigned int> entry;
+                for (unsigned int j = 0; j < npe_1d; j++)
+                  for (unsigned int i = 0; i < npe_1d; i++)
+                  {
+                       const unsigned int rowId = (eleOrder) * npe_1d * npe_1d + j * npe_1d + i;
+                       entry.push_back(rowId);
+                  }
+
+                    if(cnumFace[5]==0)
+                        im2D = im2D_00;
+                    else if(cnumFace[5]==1)
+                        im2D = im2D_01;
+                    else if(cnumFace[5]==2)
+                        im2D = im2D_10;
+                    else
+                    {
+                        assert(cnumFace[5]==3);
+                        im2D=im2D_11;
+                    }
+
+
+                for(unsigned int i=0;i<entry.size();i++)
+                for(unsigned int j=0;j<entry.size();j++)
+                {
+                    const unsigned int rid = entry[i];
+                    const unsigned int cid = entry[j];
+                    qMat[rid*nPe + cid] = im2D[i*npe_2d +j];
+                }
+
+            }
+
+            //OCT_DIR_LEFT_DOWN
+            if(edgeHang[0] && (!faceHang[0] && !faceHang[2]))
+            {
+                std::vector<unsigned int> entry;
+                for (unsigned int k = 0; k < npe_1d; k++)
+                {
+                    const unsigned int rowId = k * npe_1d * npe_1d + 0 * npe_1d + 0;
+                    entry.push_back(rowId);
+                }
+
+                if(cnumEdge[0]==0)
+                {
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I0[ i*npe_1d + j];
+
+                    }
+
+                }else
+                {
+                    assert(cnumEdge[0]==1);
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I1[ i*npe_1d + j];
+
+                    }
+                    
+                }
+                
+
+            }
+
+            //OCT_DIR_LEFT_UP
+            if(edgeHang[1] && (!faceHang[0] && !faceHang[3]))
+            {
+                std::vector<unsigned int> entry;
+                for (unsigned int k = 0; k < npe_1d; k++)
+                {
+                    const unsigned int rowId = k * npe_1d * npe_1d + eleOrder * npe_1d + 0;
+                    entry.push_back(rowId);
+                }
+
+                if(cnumEdge[1]==0)
+                {
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I0[ i*npe_1d + j];
+
+                    }
+
+                }else
+                {
+                    assert(cnumEdge[1]==1);
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I1[ i*npe_1d + j];
+
+                    }
+                    
+                }
+
+
+            }
+
+            //OCT_DIR_LEFT_BACK
+            if(edgeHang[2]  && (!faceHang[0] && !faceHang[4]))
+            {
+                std::vector<unsigned int> entry;
+                for (unsigned int j = 0; j < npe_1d; j++)
+                {
+                    const unsigned int rowId = 0 * npe_1d * npe_1d + j * npe_1d + 0;
+                    entry.push_back(rowId);
+                }
+                if(cnumEdge[2]==0)
+                {
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I0[ i*npe_1d + j];
+
+                    }
+
+                }else
+                {
+                    assert(cnumEdge[2]==1);
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I1[ i*npe_1d + j];
+
+                    }
+                    
+                }
+            }
+
+            //OCT_DIR_LEFT_FRONT
+            if(edgeHang[3] && (!faceHang[0] && !faceHang[5]))
+            {
+                std::vector<unsigned int> entry;
+                for (unsigned int j = 0; j < npe_1d; j++)
+                {
+                    const unsigned int rowId = eleOrder * npe_1d * npe_1d + j * npe_1d + 0;
+                    entry.push_back(rowId);
+                }
+
+                if(cnumEdge[3]==0)
+                {
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I0[ i*npe_1d + j];
+
+                    }
+
+                }else
+                {
+                    assert(cnumEdge[3]==1);
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I1[ i*npe_1d + j];
+
+                    }
+                    
+                }
+            }
+
+            //OCT_DIR_RIGHT_DOWN
+            if(edgeHang[4] && (!faceHang[1] && !faceHang[2]))
+            {
+                
+                std::vector<unsigned int> entry;
+                for (unsigned int k = 0; k < npe_1d; k++)
+                {
+                    const unsigned int rowId = k * npe_1d * npe_1d + 0 * npe_1d + eleOrder;
+                    entry.push_back(rowId);
+                }
+
+                if(cnumEdge[4]==0)
+                {
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I0[ i*npe_1d + j];
+
+                    }
+
+                }else
+                {
+                    assert(cnumEdge[4]==1);
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I1[ i*npe_1d + j];
+
+                    }
+                    
+                }
+
+                
+            }
+
+            //OCT_DIR_RIGHT_UP
+            if(edgeHang[5] && (!faceHang[1] && !faceHang[3]))
+            {
+                std::vector<unsigned int> entry;
+                for (unsigned int k = 0; k < npe_1d; k++)
+                {
+                    const unsigned int rowId = k * npe_1d * npe_1d + eleOrder * npe_1d + eleOrder;
+                    entry.push_back(rowId);
+                }
+
+                if(cnumEdge[5]==0)
+                {
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I0[ i*npe_1d + j];
+
+                    }
+
+                }else
+                {
+                    assert(cnumEdge[5]==1);
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I1[ i*npe_1d + j];
+
+                    }
+                    
+                }
+            }
+
+            //OCT_DIR_RIGHT_BACK
+            if(edgeHang[6] && (!faceHang[1] && !faceHang[4]))
+            {
+                std::vector<unsigned int> entry;
+                for (unsigned int j = 0; j < npe_1d; j++)
+                {
+                    const unsigned int rowId = 0 * npe_1d * npe_1d + j * npe_1d + eleOrder;
+                    entry.push_back(rowId);
+                }
+
+                if(cnumEdge[6]==0)
+                {
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I0[ i*npe_1d + j];
+
+                    }
+
+                }else
+                {
+                    assert(cnumEdge[6]==1);
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I1[ i*npe_1d + j];
+
+                    }
+                    
+                }
+            }
+
+            //OCT_DIR_RIGHT_FRONT
+            if(edgeHang[7] && (!faceHang[1] && !faceHang[5]))
+            {
+                std::vector<unsigned int> entry;
+                for (unsigned int j = 0; j < npe_1d; j++)
+                {
+                    const unsigned int rowId = eleOrder * npe_1d * npe_1d + j * npe_1d + eleOrder;
+                    entry.push_back(rowId);
+                }
+
+                if(cnumEdge[7]==0)
+                {
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I0[ i*npe_1d + j];
+
+                    }
+
+                }else
+                {
+                    assert(cnumEdge[7]==1);
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I1[ i*npe_1d + j];
+
+                    }
+                    
+                }
+            }
+
+            //OCT_DIR_DOWN_BACK
+            if(edgeHang[8] && (!faceHang[2] && !faceHang[4]))
+            {
+                std::vector<unsigned int> entry;
+                for (unsigned int i = 0; i < npe_1d; i++)
+                {
+                    const unsigned int rowId = 0 * npe_1d * npe_1d + 0 * npe_1d + i;
+                    entry.push_back(rowId);
+                }
+
+                if(cnumEdge[8]==0)
+                {
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I0[ i*npe_1d + j];
+
+                    }
+
+                }else
+                {
+                    assert(cnumEdge[8]==1);
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I1[ i*npe_1d + j];
+
+                    }
+                    
+                }
+            }
+
+            //OCT_DIR_DOWN_FRONT
+            if(edgeHang[9] && (!faceHang[2] && !faceHang[5]))
+            {
+
+                std::vector<unsigned int> entry;
+                for (unsigned int i = 0; i < npe_1d; i++)
+                {
+                    const unsigned int rowId = eleOrder * npe_1d * npe_1d + 0 * npe_1d + i;
+                    entry.push_back(rowId);
+                }
+
+                if(cnumEdge[9]==0)
+                {
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I0[ i*npe_1d + j];
+
+                    }
+
+                }else
+                {
+                    assert(cnumEdge[9]==1);
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I1[ i*npe_1d + j];
+
+                    }
+                    
+                }
+            }
+
+            //OCT_DIR_UP_BACK
+            if(edgeHang[10] && (!faceHang[3] && !faceHang[4]))
+            {
+                
+                std::vector<unsigned int> entry;
+                for (unsigned int i = 0; i < npe_1d; i++)
+                {
+                    const unsigned int rowId = 0 * npe_1d * npe_1d + eleOrder * npe_1d + i;
+                    entry.push_back(rowId);
+                }
+
+                if(cnumEdge[10]==0)
+                {
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I0[ i*npe_1d + j];
+
+                    }
+
+                }else
+                {
+                    assert(cnumEdge[10]==1);
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I1[ i*npe_1d + j];
+
+                    }
+                    
+                }
+            }
+
+            //OCT_DIR_UP_FRONT
+            if(edgeHang[11] && (!faceHang[3] && !faceHang[5]))
+            {
+                std::vector<unsigned int> entry;
+                for (unsigned int i = 0; i < npe_1d; i++)
+                {
+                    const unsigned int rowId = eleOrder * npe_1d * npe_1d + eleOrder * npe_1d + i;
+                    entry.push_back(rowId);
+                }
+
+                if(cnumEdge[11]==0)
+                {
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I0[ i*npe_1d + j];
+
+                    }
+
+                }else
+                {
+                    assert(cnumEdge[11]==1);
+                    for(unsigned int i=0;i<entry.size();i++)
+                    for(unsigned int j=0;j<entry.size();j++)
+                    {
+                        const unsigned int rid = entry[i];
+                        const unsigned int cid = entry[j];
+
+                        qMat[rid * nPe + cid] = I1[ i*npe_1d + j];
+
+                    }
+                    
+                }
+
+            }
+
+
+            // if(allElements[currentId].getLevel()>3)
+            // {
+            //     const char* face_dir[] ={"OCT_DIR_LEFT","OCT_DIR_RIGHT","OCT_DIR_DOWN","OCT_DIR_UP","OCT_DIR_BACK","OCT_DIR_FRONT"};
+            //     const char* edge_dir[] ={"OCT_DIR_LEFT_DOWN","OCT_DIR_LEFT_UP","OCT_DIR_LEFT_BACK","OCT_DIR_LEFT_FRONT","OCT_DIR_RIGHT_DOWN","OCT_DIR_RIGHT_UP","OCT_DIR_RIGHT_BACK","OCT_DIR_RIGHT_FRONT","OCT_DIR_DOWN_BACK","OCT_DIR_DOWN_FRONT","OCT_DIR_UP_BACK","OCT_DIR_UP_FRONT"};
+                
+            //     for(unsigned int dir = 0; dir<NUM_FACES; dir++)
+            //     {
+            //         if(faceHang[dir])
+            //         std::cout<<" current : "<<allElements[currentId]<<"face "<<face_dir[dir]<<" is hanging: "<<faceHang[dir]<<" cnum: "<<cnumFace[dir]<<" owner : "<<allElements[m_uiE2EMapping[currentId*NUM_FACES+dir]]<<std::endl;
+            //     }
+            //     std::cout<<"RD Mat\n";
+            //     for(unsigned int i=0;i<nPe;i++)
+            //     {
+            //         for(unsigned int j=0;j<nPe;j++)
+            //         {
+            //             std::cout<<" "<<qMat[i*nPe+j];
+            //         }
+            //         std::cout<<"\n";
+            //     }
+                
+            // }
+
+        
+        delete [] im2D_00;
+        delete [] im2D_01;
+        delete [] im2D_10;
+        delete [] im2D_11;
+
+        
+    }
 
     void ot::Mesh::computeElementOwnerRanks(std::vector<unsigned int > & elementOwner)
     {
@@ -8963,6 +10820,2297 @@ namespace ot {
 
 
         }
+    }
+
+
+    void ot::Mesh::getElementCoordinates(unsigned int eleID,double* coords) const
+    {
+
+        ot::TreeNode tmpNode=m_uiAllElements[eleID];
+        double x,y,z,dx,dy,dz,sz;
+
+        sz=(double)(tmpNode.maxX()-tmpNode.minX());
+
+        x=tmpNode.minX();
+        y=tmpNode.minY();
+        z=tmpNode.minZ();
+
+        dx=sz/(m_uiElementOrder);
+        dy=sz/(m_uiElementOrder);
+        dz=sz/(m_uiElementOrder);
+
+        for(unsigned int k=0;k<(m_uiElementOrder+1);k++)
+            for(unsigned int j=0;j<(m_uiElementOrder+1);j++)
+                for(unsigned int i=0;i<(m_uiElementOrder+1);i++)
+                {
+                    coords[(k*(m_uiElementOrder+1)*(m_uiElementOrder+1)+j*(m_uiElementOrder+1)+i)*m_uiDim+0]=x+i*dx;
+                    coords[(k*(m_uiElementOrder+1)*(m_uiElementOrder+1)+j*(m_uiElementOrder+1)+i)*m_uiDim+1]=y+j*dy;
+                    coords[(k*(m_uiElementOrder+1)*(m_uiElementOrder+1)+j*(m_uiElementOrder+1)+i)*m_uiDim+2]=z+k*dz;
+                }
+
+
+
+    }
+
+
+    void ot::Mesh::setOctreeRefineFlags(unsigned int * flags, unsigned int sz)
+    {
+        if(!m_uiIsActive) return;
+
+        assert(sz==(m_uiElementLocalEnd-m_uiElementLocalBegin));
+        for(unsigned int ele=m_uiElementLocalBegin;ele<m_uiElementLocalEnd;ele++)
+        {
+            m_uiAllElements[ele].setFlag(((flags[(ele-m_uiElementLocalBegin)]<<NUM_LEVEL_BITS)|m_uiAllElements[ele].getLevel()));
+            assert((m_uiAllElements[ele].getFlag()>>NUM_LEVEL_BITS)==flags[(ele-m_uiElementLocalBegin)]);
+        }
+
+
+    }
+
+
+    void ot::Mesh::SET_FACE_TO_ELEMENT_MAP(unsigned int ele,unsigned int dir,unsigned int dirOp,unsigned int dir1,unsigned int dir2)
+    {
+        const unsigned int l1=m_uiAllElements[ele].getLevel();
+        const unsigned int lookup=m_uiE2EMapping[ele*NUM_FACES+dir];
+        if(lookup!=LOOK_UP_TABLE_DEFAULT){
+
+            const unsigned int l2=m_uiAllElements[lookup].getLevel();
+            if(l1==l2)
+            {
+                if(ele<lookup)
+                {
+                    m_uiF2EMap[(ele*NUM_FACES+dir) + 0 ]=(dir<<ODA_FLAGS_TOTAL);
+                    m_uiF2EMap[(ele*NUM_FACES+dir) + 1 ]=ele;
+                    m_uiF2EMap[(ele*NUM_FACES+dir) + 2 ]=lookup;
+                    //unique_faces.push_back((ele*NUM_FACES+dir));
+
+                }else{
+                    m_uiF2EMap[(ele*NUM_FACES+dir) + 0 ]=(dirOp<<ODA_FLAGS_TOTAL);
+                    m_uiF2EMap[(lookup*NUM_FACES+dirOp) + 1]=lookup;
+                    m_uiF2EMap[(lookup*NUM_FACES+dirOp) + 2]=ele;
+                    //unique_faces.push_back((lookup*NUM_FACES+dirOp));
+
+                }
+
+            }else if(l1>l2)
+            {
+                // winner, is lookup octant.
+                m_uiF2EMap[(ele*NUM_FACES+dir) + 0 ]= (dirOp<<ODA_FLAGS_TOTAL) ;
+                m_uiF2EMap[(lookup*NUM_FACES+dirOp) + 1]=lookup;
+                //unique_faces.push_back((lookup*NUM_FACES+dirOp));
+
+                // in the morton ordering.
+                const unsigned int lookup0=m_uiE2EMapping[lookup*NUM_FACES+dirOp];
+                const unsigned int lookup1=m_uiE2EMapping[lookup0*NUM_FACES+dir2];
+                const unsigned int lookup2=m_uiE2EMapping[lookup0*NUM_FACES+dir1];
+                const unsigned int lookup3=m_uiE2EMapping[lookup2*NUM_FACES+dir2];
+
+                assert(lookup0!=LOOK_UP_TABLE_DEFAULT);
+                assert(lookup1!=LOOK_UP_TABLE_DEFAULT);
+                assert(lookup2!=LOOK_UP_TABLE_DEFAULT);
+                assert(lookup3!=LOOK_UP_TABLE_DEFAULT);
+
+                m_uiF2EMap[(lookup*NUM_FACES+dirOp) + 2]=lookup0;
+                m_uiF2EMap[(lookup*NUM_FACES+dirOp) + 3]=lookup1;
+                m_uiF2EMap[(lookup*NUM_FACES+dirOp) + 4]=lookup2;
+                m_uiF2EMap[(lookup*NUM_FACES+dirOp) + 5]=lookup3;
+
+
+
+            }else{
+                assert(l1<l2);
+
+                // winner, is ele octant.
+                m_uiF2EMap[(ele*NUM_FACES+dir) + 0 ]= (dir<<ODA_FLAGS_TOTAL) ;
+                m_uiF2EMap[(ele*NUM_FACES+dir) + 1]=ele;
+                //unique_faces.push_back((ele*NUM_FACES+dir));
+
+                // in the morton ordering.
+                const unsigned int lookup0=lookup;
+                const unsigned int lookup1=m_uiE2EMapping[lookup0*NUM_FACES+dir2];
+                const unsigned int lookup2=m_uiE2EMapping[lookup0*NUM_FACES+dir1];
+                const unsigned int lookup3=m_uiE2EMapping[lookup2*NUM_FACES+dir2];
+
+                assert(lookup0!=LOOK_UP_TABLE_DEFAULT);
+                assert(lookup1!=LOOK_UP_TABLE_DEFAULT);
+                assert(lookup2!=LOOK_UP_TABLE_DEFAULT);
+                assert(lookup3!=LOOK_UP_TABLE_DEFAULT);
+
+                m_uiF2EMap[(ele*NUM_FACES+dir) + 2]=lookup0;
+                m_uiF2EMap[(ele*NUM_FACES+dir) + 3]=lookup1;
+                m_uiF2EMap[(ele*NUM_FACES+dir) + 4]=lookup2;
+                m_uiF2EMap[(ele*NUM_FACES+dir) + 5]=lookup3;
+
+            }
+
+
+
+        }else{
+            m_uiF2EMap[(ele*NUM_FACES+dir) + 0 ]=(dir<<ODA_FLAGS_TOTAL);
+            m_uiF2EMap[(ele*NUM_FACES+dir) + 1 ]=ele;
+            //unique_faces.push_back((ele*NUM_FACES+dir));
+        }
+    }
+
+    void ot::Mesh::buildF2EMap()
+    {
+
+        // assumes we have build the e2e and e2n mapping.
+        m_uiF2EMap.clear();
+        //
+        // m_uiF2EMap structure.
+        // m_uiF2EMap[fid][0] face dir relative to the owner element.
+        // m_uiF2EMap[fid][1] face owner element.
+        // m_uiF2EMap[fid][2] and beyond shared elements [2,5] is the elements are face hanging.
+        //
+        //
+
+        m_uiF2EMap.resize( (m_uiNumTotalElements*NUM_FACES) * F2E_MAP_OFFSET ,LOOK_UP_TABLE_DEFAULT);
+
+        std::vector<unsigned int> unique_faces;
+        unsigned int dir,dirOp,dir1,dir2,lookup;
+
+        unsigned int g1Count=0;
+        for(unsigned int ele=m_uiElementPreGhostBegin;ele<m_uiElementPostGhostEnd;ele++)
+        {
+
+            if( (ele<m_uiElementLocalBegin || ele>=m_uiElementLocalEnd) && (ele!=m_uiGhostElementRound1Index[g1Count]))
+                continue;
+            else
+                g1Count++;
+
+            // 1. OCT_DIR_LEFT
+
+            dir=OCT_DIR_LEFT;
+            dirOp=OCT_DIR_RIGHT;
+            dir1=OCT_DIR_FRONT;
+            dir2=OCT_DIR_UP;
+
+            SET_FACE_TO_ELEMENT_MAP(ele,dir,dirOp,dir1,dir2);
+
+
+
+            // 2. OCT_DIR_RIGHT
+            dir=OCT_DIR_RIGHT;
+            dirOp=OCT_DIR_LEFT;
+
+            dir1=OCT_DIR_FRONT;
+            dir2=OCT_DIR_UP;
+
+            SET_FACE_TO_ELEMENT_MAP(ele,dir,dirOp,dir1,dir2);
+
+            //3. OCT_DIR_DOWN
+            dir=OCT_DIR_DOWN;
+            dirOp=OCT_DIR_UP;
+
+            dir1=OCT_DIR_FRONT;
+            dir2=OCT_DIR_RIGHT;
+
+            SET_FACE_TO_ELEMENT_MAP(ele,dir,dirOp,dir1,dir2);
+
+
+            //4. OCT_DIR_UP
+            dir=OCT_DIR_UP;
+            dirOp=OCT_DIR_DOWN;
+
+            dir1=OCT_DIR_FRONT;
+            dir2=OCT_DIR_RIGHT;
+
+            SET_FACE_TO_ELEMENT_MAP(ele,dir,dirOp,dir1,dir2);
+
+
+
+            //5. OCT_DIR_BACK
+            dir=OCT_DIR_BACK;
+            dirOp=OCT_DIR_FRONT;
+
+            dir1=OCT_DIR_UP;
+            dir2=OCT_DIR_RIGHT;
+
+            SET_FACE_TO_ELEMENT_MAP(ele,dir,dirOp,dir1,dir2);
+
+
+            //6. OCT_DIR_FRONT
+            dir=OCT_DIR_FRONT;
+            dirOp=OCT_DIR_BACK;
+
+            dir1=OCT_DIR_UP;
+            dir2=OCT_DIR_RIGHT;
+
+            SET_FACE_TO_ELEMENT_MAP(ele,dir,dirOp,dir1,dir2);
+
+        }
+
+
+        DendroIntL uniqueFaceCount=0;
+        for(unsigned int ele=m_uiElementPreGhostBegin;ele<m_uiElementPostGhostEnd;ele++)
+        {
+            if(m_uiF2EMap[ele*NUM_FACES + 0]!=LOOK_UP_TABLE_DEFAULT)
+                uniqueFaceCount++;
+        }
+
+        std::vector<unsigned int> tmpMap;
+        std::swap(tmpMap,m_uiF2EMap);
+
+        m_uiF2EMap.clear();
+        m_uiF2EMap.resize(uniqueFaceCount,LOOK_UP_TABLE_DEFAULT);
+
+
+        uniqueFaceCount=0;
+        unsigned int owner=0;
+        bool isIndependent=true;
+        bool isWdependent=true;
+        bool isBoundary=false;
+        for(unsigned int ele=m_uiElementPreGhostBegin;ele<m_uiElementPostGhostEnd;ele++)
+        {
+            if(tmpMap[ele*NUM_FACES + 0]!=LOOK_UP_TABLE_DEFAULT)
+            {
+                m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0]= tmpMap[ele*NUM_FACES + 0];
+                m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+1]= tmpMap[ele*NUM_FACES + 1];
+                m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+2]= tmpMap[ele*NUM_FACES + 2];
+                m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+3]= tmpMap[ele*NUM_FACES + 3];
+                m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+4]= tmpMap[ele*NUM_FACES + 4];
+                m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+5]= tmpMap[ele*NUM_FACES + 5];
+
+
+                dir= (m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0] >> ODA_FLAGS_TOTAL);
+
+                switch(dir){
+
+                    case OCT_DIR_LEFT:
+
+                        owner=m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+1];
+                        isBoundary=false;
+                        isIndependent=true;
+                        isWdependent=false;
+
+                        if( (m_uiAllElements[owner].minX() ==0) )
+                        {
+                            isBoundary=true;
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+2]==LOOK_UP_TABLE_DEFAULT);
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+3]==LOOK_UP_TABLE_DEFAULT);
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+4]==LOOK_UP_TABLE_DEFAULT);
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+5]==LOOK_UP_TABLE_DEFAULT);
+                        }
+
+                        if((owner>=m_uiElementLocalBegin && owner<m_uiElementLocalEnd))
+                        {
+
+                            for(unsigned int k=0;k<(m_uiElementOrder+1);k++)
+                                for(unsigned int j=0;j<(m_uiElementOrder+1);j++)
+                                {
+                                    if(!isNodeLocal(owner,0,j,k))
+                                    {
+                                        isIndependent=false;
+                                        break;
+                                    }
+                                }
+
+                            if(isIndependent)
+                                binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_INDEPENDENT_FLAG_BIT);
+                            else
+                                binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_W_DEPENDENT_FLAG_BIT);
+                        }else{
+
+                            for(unsigned int k=0;k<(m_uiElementOrder+1);k++)
+                                for(unsigned int j=0;j<(m_uiElementOrder+1);j++)
+                                {
+                                    if(isNodeLocal(owner,0,j,k))
+                                    {
+                                        isWdependent=true;
+                                        break;
+                                    }
+                                }
+                            if(isWdependent)
+                                binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_W_DEPENDENT_FLAG_BIT);
+
+                        }
+
+                        if( (isIndependent || isWdependent) && (isBoundary) )
+                            binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_W_BOUNDARY_FLAG_BIT);
+
+
+                        break;
+
+                    case OCT_DIR_RIGHT:
+
+                        owner=m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+1];
+                        isBoundary=false;
+                        isIndependent=true;
+                        isWdependent=false;
+
+                        if( (m_uiAllElements[owner].maxX() == (1u<<m_uiMaxDepth) ) )
+                        {
+                            isBoundary=true;
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+2]==LOOK_UP_TABLE_DEFAULT);
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+3]==LOOK_UP_TABLE_DEFAULT);
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+4]==LOOK_UP_TABLE_DEFAULT);
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+5]==LOOK_UP_TABLE_DEFAULT);
+                        }
+
+                        if((owner>=m_uiElementLocalBegin && owner<m_uiElementLocalEnd))
+                        {
+
+                            for(unsigned int k=0;k<(m_uiElementOrder+1);k++)
+                                for(unsigned int j=0;j<(m_uiElementOrder+1);j++)
+                                {
+                                    if(!isNodeLocal(owner,m_uiElementOrder,j,k))
+                                    {
+                                        isIndependent=false;
+                                        break;
+                                    }
+                                }
+
+                            if(isIndependent)
+                                binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_INDEPENDENT_FLAG_BIT);
+                            else
+                                binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_W_DEPENDENT_FLAG_BIT);
+                        }else{
+
+                            for(unsigned int k=0;k<(m_uiElementOrder+1);k++)
+                                for(unsigned int j=0;j<(m_uiElementOrder+1);j++)
+                                {
+                                    if(isNodeLocal(owner,m_uiElementOrder,j,k))
+                                    {
+                                        isWdependent=true;
+                                        break;
+                                    }
+                                }
+                            if(isWdependent)
+                                binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_W_DEPENDENT_FLAG_BIT);
+
+                        }
+
+                        if( (isIndependent || isWdependent) && (isBoundary) )
+                            binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_W_BOUNDARY_FLAG_BIT);
+
+                        break;
+
+                    case OCT_DIR_DOWN:
+
+
+                        owner=m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+1];
+                        isBoundary=false;
+                        isIndependent=true;
+                        isWdependent=false;
+
+                        if(  (m_uiAllElements[owner].minY() == 0 ) )
+                        {
+                            isBoundary=true;
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+2]==LOOK_UP_TABLE_DEFAULT);
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+3]==LOOK_UP_TABLE_DEFAULT);
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+4]==LOOK_UP_TABLE_DEFAULT);
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+5]==LOOK_UP_TABLE_DEFAULT);
+                        }
+
+                        if((owner>=m_uiElementLocalBegin && owner<m_uiElementLocalEnd))
+                        {
+
+                            for(unsigned int k=0;k<(m_uiElementOrder+1);k++)
+                                for(unsigned int i=0;i<(m_uiElementOrder+1);i++)
+                                {
+                                    if(!isNodeLocal(owner,i,0,k))
+                                    {
+                                        isIndependent=false;
+                                        break;
+                                    }
+                                }
+
+                            if(isIndependent)
+                                binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_INDEPENDENT_FLAG_BIT);
+                            else
+                                binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_W_DEPENDENT_FLAG_BIT);
+                        }else{
+
+                            for(unsigned int k=0;k<(m_uiElementOrder+1);k++)
+                                for(unsigned int i=0;i<(m_uiElementOrder+1);i++)
+                                {
+                                    if(isNodeLocal(owner,i,0,k))
+                                    {
+                                        isWdependent=true;
+                                        break;
+                                    }
+                                }
+                            if(isWdependent)
+                                binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_W_DEPENDENT_FLAG_BIT);
+
+                        }
+
+                        if( (isIndependent || isWdependent) && (isBoundary) )
+                            binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_W_BOUNDARY_FLAG_BIT);
+
+                                     break;
+
+                    case OCT_DIR_UP:
+
+                        owner=m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+1];
+                        isBoundary=false;
+                        isIndependent=true;
+                        isWdependent=false;
+
+                        if(  (m_uiAllElements[owner].maxY() == (1u<<m_uiMaxDepth) ) )
+                        {
+                            isBoundary=true;
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+2]==LOOK_UP_TABLE_DEFAULT);
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+3]==LOOK_UP_TABLE_DEFAULT);
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+4]==LOOK_UP_TABLE_DEFAULT);
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+5]==LOOK_UP_TABLE_DEFAULT);
+                        }
+
+                        if((owner>=m_uiElementLocalBegin && owner<m_uiElementLocalEnd))
+                        {
+
+                            for(unsigned int k=0;k<(m_uiElementOrder+1);k++)
+                                for(unsigned int i=0;i<(m_uiElementOrder+1);i++)
+                                {
+                                    if(!isNodeLocal(owner,i,m_uiElementOrder,k))
+                                    {
+                                        isIndependent=false;
+                                        break;
+                                    }
+                                }
+
+                            if(isIndependent)
+                                binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_INDEPENDENT_FLAG_BIT);
+                            else
+                                binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_W_DEPENDENT_FLAG_BIT);
+                        }else{
+
+                            for(unsigned int k=0;k<(m_uiElementOrder+1);k++)
+                                for(unsigned int i=0;i<(m_uiElementOrder+1);i++)
+                                {
+                                    if(isNodeLocal(owner,i,m_uiElementOrder,k))
+                                    {
+                                        isWdependent=true;
+                                        break;
+                                    }
+                                }
+                            if(isWdependent)
+                                binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_W_DEPENDENT_FLAG_BIT);
+
+                        }
+
+                        if( (isIndependent || isWdependent) && (isBoundary) )
+                            binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_W_BOUNDARY_FLAG_BIT);
+
+                        break;
+
+                    case OCT_DIR_BACK:
+
+                        owner=m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+1];
+                        isBoundary=false;
+                        isIndependent=true;
+                        isWdependent=false;
+
+                        if(  (m_uiAllElements[owner].minZ() == 0 ) )
+                        {
+                            isBoundary=true;
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+2]==LOOK_UP_TABLE_DEFAULT);
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+3]==LOOK_UP_TABLE_DEFAULT);
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+4]==LOOK_UP_TABLE_DEFAULT);
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+5]==LOOK_UP_TABLE_DEFAULT);
+                        }
+
+                        if((owner>=m_uiElementLocalBegin && owner<m_uiElementLocalEnd))
+                        {
+
+                            for(unsigned int j=0;j<(m_uiElementOrder+1);j++)
+                                for(unsigned int i=0;i<(m_uiElementOrder+1);i++)
+                                {
+                                    if(!isNodeLocal(owner,i,j,0))
+                                    {
+                                        isIndependent=false;
+                                        break;
+                                    }
+                                }
+
+                            if(isIndependent)
+                                binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_INDEPENDENT_FLAG_BIT);
+                            else
+                                binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_W_DEPENDENT_FLAG_BIT);
+                        }else{
+
+                            for(unsigned int j=0;j<(m_uiElementOrder+1);j++)
+                                for(unsigned int i=0;i<(m_uiElementOrder+1);i++)
+                                {
+                                    if(isNodeLocal(owner,i,j,0))
+                                    {
+                                        isWdependent=true;
+                                        break;
+                                    }
+                                }
+                            if(isWdependent)
+                                binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_W_DEPENDENT_FLAG_BIT);
+
+                        }
+
+                        if( (isIndependent || isWdependent) && (isBoundary) )
+                            binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_W_BOUNDARY_FLAG_BIT);
+
+                        break;
+
+                    case OCT_DIR_FRONT:
+
+                        owner=m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+1];
+                        isBoundary=false;
+                        isIndependent=true;
+                        isWdependent=false;
+
+                        if(  (m_uiAllElements[owner].maxZ() == 0 ) )
+                        {
+                            isBoundary=true;
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+2]==LOOK_UP_TABLE_DEFAULT);
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+3]==LOOK_UP_TABLE_DEFAULT);
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+4]==LOOK_UP_TABLE_DEFAULT);
+                            assert(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+5]==LOOK_UP_TABLE_DEFAULT);
+                        }
+
+                        if((owner>=m_uiElementLocalBegin && owner<m_uiElementLocalEnd))
+                        {
+
+                            for(unsigned int j=0;j<(m_uiElementOrder+1);j++)
+                                for(unsigned int i=0;i<(m_uiElementOrder+1);i++)
+                                {
+                                    if(!isNodeLocal(owner,i,j,m_uiElementOrder))
+                                    {
+                                        isIndependent=false;
+                                        break;
+                                    }
+                                }
+
+                            if(isIndependent)
+                                binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_INDEPENDENT_FLAG_BIT);
+                            else
+                                binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_W_DEPENDENT_FLAG_BIT);
+                        }else{
+
+                            for(unsigned int j=0;j<(m_uiElementOrder+1);j++)
+                                for(unsigned int i=0;i<(m_uiElementOrder+1);i++)
+                                {
+                                    if(isNodeLocal(owner,i,j,m_uiElementOrder))
+                                    {
+                                        isWdependent=true;
+                                        break;
+                                    }
+                                }
+                            if(isWdependent)
+                                binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_W_DEPENDENT_FLAG_BIT);
+
+                        }
+
+                        if( (isIndependent || isWdependent) && (isBoundary) )
+                            binOp::setBit(m_uiF2EMap[uniqueFaceCount*(F2E_MAP_OFFSET)+0],ODA_W_BOUNDARY_FLAG_BIT);
+
+                        break;
+
+                    default:
+                        std::cout<<"m_uiRank: "<<m_uiGlobalRank<<" f2e map falg set error in "<<__func__<<std::endl;
+                        break;
+
+                }
+
+
+
+
+                uniqueFaceCount++;
+            }
+
+        }
+
+
+        m_uiIsF2ESetup=true;
+
+        if(!m_uiActiveRank)
+            std::cout<<"F2E Ended "<<std::endl;
+
+    }
+
+    EType ot::Mesh::getElementType(unsigned int eleID)
+    {
+
+        const unsigned int nx = m_uiElementOrder+1;
+        const unsigned int ny = m_uiElementOrder+1;
+        const unsigned int nz = m_uiElementOrder+1;
+        const unsigned int nPe = nx*ny*nz;
+
+        bool isIndependent =true;
+        bool isWritable = false;
+        
+        if( eleID < m_uiAllElements.size() )
+        {
+            for(unsigned int node =0; node < nPe ; node ++)
+            {
+                if( (m_uiE2NMapping_CG[eleID*nPe + node] >= m_uiNodeLocalBegin) &&  (m_uiE2NMapping_CG[eleID*nPe + node] < m_uiNodeLocalEnd) )
+                {
+                    isWritable = true;
+                    break;
+                }   
+            }
+
+            for(unsigned int node =0; node < nPe ; node ++)
+            {
+                if( (m_uiE2NMapping_CG[eleID*nPe + node] < m_uiNodeLocalBegin) ||  (m_uiE2NMapping_CG[eleID*nPe + node] >= m_uiNodeLocalEnd) )
+                {
+                    isIndependent = false;
+                    break;
+                }   
+            }
+
+            if(isIndependent) 
+                return EType::INDEPENDENT;
+            else if(!isIndependent && isWritable)
+                return EType::W_DEPENDENT;
+            else
+                return EType::UNKWON;
+
+        }
+
+        return EType::UNKWON;
+        
+
+    }
+
+    #if 0
+    void Mesh::computeSMSpecialPts()
+    {
+         // Note: this function is specifically written to find the last point for 4th order elements in finite differencing. 
+         if(!m_uiIsActive || m_uiElementOrder!=4 ) return;
+        
+         ot::TreeNode blkNode;
+         unsigned int sz,lx,ly,lz,regLev,ei,ej,ek,eleIndexMax,eleIndexMin,offset,paddWidth,lookUp,uzip_1d,lookup1,bflag;
+         const ot::TreeNode * pNodes = &(*(m_uiAllElements.begin()));
+         std::vector<ot::SearchKey> m_uiUnzip_3pt;
+         ot::SearchKey tmpSKey;   
+
+         unsigned int child[NUM_CHILDREN];
+
+         std::vector<ot::TreeNode> localPart;
+         for(unsigned int i=m_uiElementLocalBegin;i<m_uiElementLocalEnd;i++)
+            localPart.push_back(m_uiAllElements[i]);
+
+         //treeNodesTovtk(localPart,m_uiActiveRank,"LocalPart",false);   
+         //MPI_Barrier(m_uiCommActive); if(!m_uiActiveRank) std::cout<<"3pt SM begin"<<std::endl;
+
+         for(unsigned int blk=0;blk<m_uiLocalBlockList.size();blk++)
+         {
+            blkNode = m_uiLocalBlockList[blk].getBlockNode();
+            assert(blkNode.maxX()<=m_uiMeshDomain_max && blkNode.minX()>=m_uiMeshDomain_min);
+            const unsigned regLev = m_uiLocalBlockList[blk].getRegularGridLev();
+            //blkNpe_1D=m_uiElementOrder*(1u<<(regLev-blkNode.getLevel()))+1+2*GHOST_WIDTH;
+            //std::cout<<"rank: "<<m_uiActiveRank<<" -- blkNpw_1D: "<<blkNpe_1D<<" blkNode: "<<blkNode<<" regLev: "<<regLev<<std::endl;
+
+            sz=1u<<(m_uiMaxDepth-regLev);
+            eleIndexMax=(1u<<(regLev-blkNode.getLevel()))-1;
+            eleIndexMin=0;
+            assert(eleIndexMax>=eleIndexMin);
+
+            lx=m_uiLocalBlockList[blk].getAllocationSzX();
+            ly=m_uiLocalBlockList[blk].getAllocationSzY();
+            lz=m_uiLocalBlockList[blk].getAllocationSzZ();
+            offset=m_uiLocalBlockList[blk].getOffset();
+            paddWidth=m_uiLocalBlockList[blk].get1DPadWidth();
+            uzip_1d = m_uiLocalBlockList[blk].get1DArraySize();
+
+            const unsigned int nx = m_uiElementOrder+1;
+            const unsigned int ny = m_uiElementOrder+1;
+            const unsigned int nz = m_uiElementOrder+1;
+            const unsigned int N = nx;
+
+            unsigned int x,y,z,hx;
+            bflag = m_uiLocalBlockList[blk].getBlkNodeFlag();
+
+            // visit each block and compute the missing 3rd point if it is actually missing. 
+            for(unsigned int elem=m_uiLocalBlockList[blk].getLocalElementBegin();elem<m_uiLocalBlockList[blk].getLocalElementEnd();elem++)
+            {
+                ei=(pNodes[elem].getX()-blkNode.getX())>>(m_uiMaxDepth-regLev);
+                ej=(pNodes[elem].getY()-blkNode.getY())>>(m_uiMaxDepth-regLev);
+                ek=(pNodes[elem].getZ()-blkNode.getZ())>>(m_uiMaxDepth-regLev);
+
+                //std::cout<<"blk: "<<blk<<" : "<<blkNode<<" ek: "<<(ek)<<" ej: "<<(ej)<<" ei: "<<(ei)<<" elem: "<<m_uiAllElements[elem]<<std::endl;
+                assert(pNodes[elem].getLevel()==regLev); // this is enforced by block construction
+            	const unsigned int lsz = 1u << (m_uiMaxDepth -pNodes[elem].getLevel());
+	            const unsigned int lszby2 = lsz>>1u;
+                
+                if((pNodes[elem].minX()==blkNode.minX()))
+                {
+                    const unsigned int dir = OCT_DIR_LEFT;
+                    assert(ei==eleIndexMin);
+                    lookUp=m_uiE2EMapping[elem*m_uiNumDirections+dir];
+                    if(lookUp!=LOOK_UP_TABLE_DEFAULT && pNodes[lookUp].getLevel() > pNodes[elem].getLevel())
+                    {  
+                       
+                        child[1]=lookUp;
+                        child[3]=m_uiE2EMapping[child[1]*m_uiNumDirections+OCT_DIR_UP];
+                        assert(child[3]!=LOOK_UP_TABLE_DEFAULT);
+                        child[5]=m_uiE2EMapping[child[1]*m_uiNumDirections+OCT_DIR_FRONT];
+                        assert(child[5]!=LOOK_UP_TABLE_DEFAULT);
+                        child[7]=m_uiE2EMapping[child[3]*m_uiNumDirections+OCT_DIR_FRONT];
+                        assert(child[7]!=LOOK_UP_TABLE_DEFAULT);
+
+                        child[0]=m_uiE2EMapping[child[1]*m_uiNumDirections+OCT_DIR_LEFT];
+                        child[2]=m_uiE2EMapping[child[3]*m_uiNumDirections+OCT_DIR_LEFT];
+                        child[4]=m_uiE2EMapping[child[5]*m_uiNumDirections+OCT_DIR_LEFT];
+                        child[6]=m_uiE2EMapping[child[7]*m_uiNumDirections+OCT_DIR_LEFT];
+
+                        
+                        
+                        bool missed_child =false;
+                        for(unsigned int c=0; c<NUM_CHILDREN;c++)
+                        {
+                            if(child[c] == LOOK_UP_TABLE_DEFAULT || pNodes[child[c]].getLevel()!=pNodes[lookUp].getLevel() ||  !m_uiIsNodalMapValid[child[c]])
+                            {
+                                missed_child = true;
+                                break;
+                            }
+                        }
+
+                        if(missed_child)
+                        {
+                            x = pNodes[elem].minX()-((3*lsz)>>2u);  
+                            for(unsigned int d2=0; d2 < N; d2+=1)
+                            {
+                                z= pNodes[elem].minZ() + d2*(lsz/m_uiElementOrder);
+                                for(unsigned int d1=0; d1 < N; d1+=1)
+                                {
+                                    y= pNodes[elem].minY() + d1*(lsz/m_uiElementOrder);
+                                    tmpSKey = ot::SearchKey(x , y , z , m_uiMaxDepth +1 ,m_uiDim, m_uiMaxDepth +1  );
+                                    tmpSKey.addOwner(offset + ( ek*m_uiElementOrder + d2 +paddWidth )*ly*lx + (ej*m_uiElementOrder + paddWidth + d1) *lx + 0);
+                                    //std::cout<<"ele: "<<pNodes[elem]<<" gen : "<<tmpSKey<<" with owner : "<<tmpSKey.getOwner()<<std::endl;
+                                    m_uiUnzip_3pt.push_back(tmpSKey);
+                                }
+                            }
+                        }
+                        
+
+                        
+                    }
+                    
+
+                }
+
+                if((pNodes[elem].minY()==blkNode.minY()))
+                {
+                    const unsigned int dir = OCT_DIR_DOWN;
+                    assert(ej==eleIndexMin);
+                    lookUp=m_uiE2EMapping[elem*m_uiNumDirections+dir];
+                    if(lookUp!=LOOK_UP_TABLE_DEFAULT && pNodes[lookUp].getLevel() > pNodes[elem].getLevel())
+                    { 
+                        child[2]=lookUp;
+                        child[3]=m_uiE2EMapping[child[2]*m_uiNumDirections+OCT_DIR_RIGHT];
+                        assert(child[3]!=LOOK_UP_TABLE_DEFAULT);
+                        child[6]=m_uiE2EMapping[child[2]*m_uiNumDirections+OCT_DIR_FRONT];
+                        assert(child[6]!=LOOK_UP_TABLE_DEFAULT);
+                        child[7]=m_uiE2EMapping[child[3]*m_uiNumDirections+OCT_DIR_FRONT];
+                        assert(child[7]!=LOOK_UP_TABLE_DEFAULT);
+
+                        child[0]=m_uiE2EMapping[child[2]*m_uiNumDirections+OCT_DIR_DOWN];
+                        child[1]=m_uiE2EMapping[child[3]*m_uiNumDirections+OCT_DIR_DOWN];
+                        child[4]=m_uiE2EMapping[child[6]*m_uiNumDirections+OCT_DIR_DOWN];
+                        child[5]=m_uiE2EMapping[child[7]*m_uiNumDirections+OCT_DIR_DOWN];
+
+                        bool missed_child =false;
+                        for(unsigned int c=0; c<NUM_CHILDREN;c++)
+                        {
+                            if(child[c] == LOOK_UP_TABLE_DEFAULT || pNodes[child[c]].getLevel()!=pNodes[lookUp].getLevel() ||  !m_uiIsNodalMapValid[child[c]])
+                            {
+                                missed_child = true;
+                                break;
+                            }
+                        }
+
+                        if(missed_child)
+                        {
+                            y = pNodes[elem].minY()-((3*lsz)>>2u);  
+                            
+                            for(unsigned int d2=0; d2 < N; d2+=1)
+                            {
+                                z= pNodes[elem].minZ() + d2*(lsz/m_uiElementOrder);
+                                for(unsigned int d1=0; d1 < N; d1+=1)
+                                {
+                                    x= pNodes[elem].minX() + d1*(lsz/m_uiElementOrder);
+                                    tmpSKey = ot::SearchKey(x , y , z , m_uiMaxDepth +1 ,m_uiDim, m_uiMaxDepth +1 );
+                                    tmpSKey.addOwner(offset + (ek*m_uiElementOrder + paddWidth + d2)*ly*lx + 0*lx + (ei*m_uiElementOrder + paddWidth + d1));
+                                    //std::cout<<"ele: "<<pNodes[elem]<<" gen : "<<tmpSKey<<" with owner : "<<tmpSKey.getOwner()<<std::endl;
+                                    m_uiUnzip_3pt.push_back(tmpSKey);
+
+                                }
+                            }
+
+                        }
+                        
+                        
+
+                    }
+                    
+
+                }
+
+
+                if((pNodes[elem].minZ()==blkNode.minZ()))
+                {
+                    const unsigned int dir = OCT_DIR_BACK;
+                    assert(ek==eleIndexMin);
+                    lookUp=m_uiE2EMapping[elem*m_uiNumDirections+dir];
+                    if(lookUp!=LOOK_UP_TABLE_DEFAULT && pNodes[lookUp].getLevel() > pNodes[elem].getLevel())
+                    { // this is the case the 3rd point might be missing on local proc. 
+
+
+                        child[4]=lookUp;
+                        child[5]=m_uiE2EMapping[child[4]*m_uiNumDirections+OCT_DIR_RIGHT];
+                        assert(child[5]!=LOOK_UP_TABLE_DEFAULT);
+                        child[6]=m_uiE2EMapping[child[4]*m_uiNumDirections+OCT_DIR_UP];
+                        assert(child[6]!=LOOK_UP_TABLE_DEFAULT);
+                        child[7]=m_uiE2EMapping[child[5]*m_uiNumDirections+OCT_DIR_UP];
+                        assert(child[7]!=LOOK_UP_TABLE_DEFAULT);
+            
+                        child[0]=m_uiE2EMapping[child[4]*m_uiNumDirections+OCT_DIR_BACK];
+                        child[1]=m_uiE2EMapping[child[5]*m_uiNumDirections+OCT_DIR_BACK];
+                        child[2]=m_uiE2EMapping[child[6]*m_uiNumDirections+OCT_DIR_BACK];
+                        child[3]=m_uiE2EMapping[child[7]*m_uiNumDirections+OCT_DIR_BACK];
+
+                        bool missed_child =false;
+                        for(unsigned int c=0; c<NUM_CHILDREN;c++)
+                        {
+                            if(child[c] == LOOK_UP_TABLE_DEFAULT || pNodes[child[c]].getLevel()!=pNodes[lookUp].getLevel() ||  !m_uiIsNodalMapValid[child[c]])
+                            {
+                                missed_child = true;
+                                break;
+                            }
+                        }
+
+                        if(missed_child)
+                        {
+                            z = pNodes[elem].minZ()-((3*lsz)>>2u);  
+                            for(unsigned int d2=0; d2 < N; d2+=1)
+                            {
+                                y= pNodes[elem].minY() + d2*(lsz/m_uiElementOrder);
+                                for(unsigned int d1=0; d1 < N; d1+=1)
+                                {
+                                    x= pNodes[elem].minX() + d1*(lsz/m_uiElementOrder);
+                                    tmpSKey = ot::SearchKey(x , y , z , m_uiMaxDepth +1 ,m_uiDim, m_uiMaxDepth +1  );
+                                    tmpSKey.addOwner(offset + 0*ly*lx + (ej*m_uiElementOrder + paddWidth + d2)*lx + (ei*m_uiElementOrder + paddWidth + d1));
+                                    m_uiUnzip_3pt.push_back(tmpSKey);
+
+                                }
+                            }
+                        }
+
+
+                    }
+                    
+
+                }
+
+
+                if((pNodes[elem].maxX()==blkNode.maxX()))
+                {
+                    const unsigned int dir = OCT_DIR_RIGHT;
+                    assert(ei==eleIndexMax);
+                    lookUp=m_uiE2EMapping[elem*m_uiNumDirections+dir];
+                    if(lookUp!=LOOK_UP_TABLE_DEFAULT && pNodes[lookUp].getLevel() > pNodes[elem].getLevel())
+                    { // this is the case the 3rd point might be missing on local proc. 
+
+                        child[0]=lookUp;
+                        child[2]=m_uiE2EMapping[child[0]*m_uiNumDirections+OCT_DIR_UP];
+                        assert(child[2]!=LOOK_UP_TABLE_DEFAULT);
+                        child[4]=m_uiE2EMapping[child[0]*m_uiNumDirections+OCT_DIR_FRONT];
+                        assert(child[4]!=LOOK_UP_TABLE_DEFAULT);
+                        child[6]=m_uiE2EMapping[child[2]*m_uiNumDirections+OCT_DIR_FRONT];
+                        assert(child[6]!=LOOK_UP_TABLE_DEFAULT);
+
+                        child[1]=m_uiE2EMapping[child[0]*m_uiNumDirections+OCT_DIR_RIGHT];
+                        child[3]=m_uiE2EMapping[child[2]*m_uiNumDirections+OCT_DIR_RIGHT];
+                        child[5]=m_uiE2EMapping[child[4]*m_uiNumDirections+OCT_DIR_RIGHT];
+                        child[7]=m_uiE2EMapping[child[6]*m_uiNumDirections+OCT_DIR_RIGHT];
+
+                        bool missed_child =false;
+                        for(unsigned int c=0; c<NUM_CHILDREN;c++)
+                        {
+                            if(child[c] == LOOK_UP_TABLE_DEFAULT || pNodes[child[c]].getLevel()!=pNodes[lookUp].getLevel() ||  !m_uiIsNodalMapValid[child[c]])
+                            {
+                                missed_child = true;
+                                break;
+                            }
+                        }
+
+                        if(missed_child)
+                        {
+                            x = pNodes[elem].maxX() + ((3*lsz)>>2u);  
+                            for(unsigned int d2=0; d2 < N; d2+=1)
+                            {
+                                z= pNodes[elem].minZ() + d2*(lsz/m_uiElementOrder);
+                                for(unsigned int d1=0; d1 < N; d1+=1)
+                                {
+                                    y= pNodes[elem].minY() + d1*(lsz/m_uiElementOrder);
+                                    tmpSKey = ot::SearchKey(x , y , z , m_uiMaxDepth +1 ,m_uiDim, m_uiMaxDepth +1 );
+                                    tmpSKey.addOwner(offset + (ek*m_uiElementOrder + paddWidth + d2)*ly*lx + (ej*m_uiElementOrder + paddWidth + d1)*lx + (uzip_1d-1));
+                                    m_uiUnzip_3pt.push_back(tmpSKey);
+
+                                }
+                            }
+
+                        }
+                        
+                        
+                    }
+                    
+
+                }
+
+
+                if((pNodes[elem].maxY()==blkNode.maxY()))
+                {
+                    const unsigned int dir = OCT_DIR_UP;
+                    assert(ej==eleIndexMax);
+                    lookUp=m_uiE2EMapping[elem*m_uiNumDirections+dir];
+                    if(lookUp!=LOOK_UP_TABLE_DEFAULT && pNodes[lookUp].getLevel() > pNodes[elem].getLevel())
+                    { // this is the case the 3rd point might be missing on local proc. 
+
+                        child[0]=lookUp;
+                        child[1]=m_uiE2EMapping[child[0]*m_uiNumDirections+OCT_DIR_RIGHT];
+                        assert(child[1]!=LOOK_UP_TABLE_DEFAULT);
+                        child[4]=m_uiE2EMapping[child[0]*m_uiNumDirections+OCT_DIR_FRONT];
+                        assert(child[4]!=LOOK_UP_TABLE_DEFAULT);
+                        child[5]=m_uiE2EMapping[child[1]*m_uiNumDirections+OCT_DIR_FRONT];
+                        assert(child[5]!=LOOK_UP_TABLE_DEFAULT);
+
+                        child[2]=m_uiE2EMapping[child[0]*m_uiNumDirections+OCT_DIR_UP];
+                        child[3]=m_uiE2EMapping[child[1]*m_uiNumDirections+OCT_DIR_UP];
+                        child[6]=m_uiE2EMapping[child[4]*m_uiNumDirections+OCT_DIR_UP];
+                        child[7]=m_uiE2EMapping[child[5]*m_uiNumDirections+OCT_DIR_UP];
+
+                        bool missed_child =false;
+                        for(unsigned int c=0; c<NUM_CHILDREN;c++)
+                        {
+                            if(child[c] == LOOK_UP_TABLE_DEFAULT || pNodes[child[c]].getLevel()!=pNodes[lookUp].getLevel() ||  !m_uiIsNodalMapValid[child[c]])
+                            {
+                                missed_child = true;
+                                break;
+                            }
+                        }
+
+                        if(missed_child)
+                        {
+                            y = pNodes[elem].maxY() + ((3*lsz)>>2u);  
+                            for(unsigned int d2=0; d2 < N; d2+=1)
+                            {
+                                z = pNodes[elem].minZ() + d2*(lsz/m_uiElementOrder);
+                                for(unsigned int d1=0; d1 < N; d1+=1)
+                                {
+                                    x = pNodes[elem].minX() + d1*(lsz/m_uiElementOrder);
+                                    tmpSKey = ot::SearchKey(x , y , z , m_uiMaxDepth +1 ,m_uiDim, m_uiMaxDepth +1 );
+                                    tmpSKey.addOwner(offset + (ek*m_uiElementOrder + paddWidth + d2)*ly*lx + (uzip_1d-1)*lx + (ei*m_uiElementOrder + paddWidth + d1));
+                                    m_uiUnzip_3pt.push_back(tmpSKey);
+
+                                }
+                            }
+
+                        }
+
+                        
+    
+                    }
+                    
+
+                }
+
+
+                if((pNodes[elem].maxZ()==blkNode.maxZ()))
+                {
+                    const unsigned int dir = OCT_DIR_FRONT;
+                    assert(ek==eleIndexMax);
+                    lookUp=m_uiE2EMapping[elem*m_uiNumDirections+dir];
+                    if(lookUp!=LOOK_UP_TABLE_DEFAULT && pNodes[lookUp].getLevel() > pNodes[elem].getLevel())
+                    { // this is the case the 3rd point might be missing on local proc. 
+
+                        child[0]=lookUp;
+                        child[1]=m_uiE2EMapping[child[0]*m_uiNumDirections+OCT_DIR_RIGHT];
+                        assert(child[1]!=LOOK_UP_TABLE_DEFAULT);
+                        child[2]=m_uiE2EMapping[child[0]*m_uiNumDirections+OCT_DIR_UP];
+                        assert(child[2]!=LOOK_UP_TABLE_DEFAULT);
+                        child[3]=m_uiE2EMapping[child[1]*m_uiNumDirections+OCT_DIR_UP];
+                        assert(child[3]!=LOOK_UP_TABLE_DEFAULT);
+
+                        child[4]=m_uiE2EMapping[child[0]*m_uiNumDirections+OCT_DIR_FRONT];
+                        child[5]=m_uiE2EMapping[child[1]*m_uiNumDirections+OCT_DIR_FRONT];
+                        child[6]=m_uiE2EMapping[child[2]*m_uiNumDirections+OCT_DIR_FRONT];
+                        child[7]=m_uiE2EMapping[child[3]*m_uiNumDirections+OCT_DIR_FRONT];
+
+                        bool missed_child =false;
+                        for(unsigned int c=0; c<NUM_CHILDREN;c++)
+                        {
+                            if(child[c] == LOOK_UP_TABLE_DEFAULT || pNodes[child[c]].getLevel()!=pNodes[lookUp].getLevel() ||  !m_uiIsNodalMapValid[child[c]])
+                            {
+                                missed_child = true;
+                                break;
+                            }
+                        }
+
+                        if(missed_child)
+                        {
+                            z = pNodes[elem].maxZ() + ((3*lsz)>>2u);  
+                            for(unsigned int d2=0; d2 < N; d2+=1)
+                            {
+                                y = pNodes[elem].minY() + d2*(lsz/m_uiElementOrder);
+                                for(unsigned int d1=0; d1 < N; d1+=1)
+                                {
+                                    x = pNodes[elem].minX() + d1*(lsz/m_uiElementOrder);
+                                    tmpSKey = ot::SearchKey(x , y , z , m_uiMaxDepth +1 ,m_uiDim, m_uiMaxDepth +1 );
+                                    tmpSKey.addOwner(offset + (uzip_1d-1)*ly*lx + (ej*m_uiElementOrder + paddWidth + d2 )*lx + (ei*m_uiElementOrder + paddWidth +d1));
+                                    m_uiUnzip_3pt.push_back(tmpSKey);
+
+                                }
+                            }
+
+                        }
+                        
+
+                        
+    
+                    }
+                }
+
+
+
+
+            }
+         }
+
+         //std::cout<<" rank: "<<m_uiActiveRank<<"missing pts dup: "<<m_uiUnzip_3pt.size()<<std::endl;
+         m_uiMaxDepth++;
+         mergeKeys(m_uiUnzip_3pt,m_uiUnzip_3pt_keys);
+         assert(seq::test::isUniqueAndSorted(m_uiUnzip_3pt_keys));
+         m_uiMaxDepth--;
+
+         std::vector<ot::Key> dboundary_keys;
+         for(unsigned int i=0; i < m_uiUnzip_3pt_keys.size(); i++ )
+         {
+            unsigned int x =  m_uiUnzip_3pt_keys[i].minX();
+            unsigned int y =  m_uiUnzip_3pt_keys[i].minY();
+            unsigned int z =  m_uiUnzip_3pt_keys[i].minZ();
+
+            if(x == (1u<<m_uiMaxDepth))
+                x=x-1;
+            
+            if(y == (1u<<m_uiMaxDepth))
+                y=y-1;
+            
+            if(z == (1u<<m_uiMaxDepth))
+                z=z-1;
+
+            dboundary_keys.push_back(ot::Key(x,y,z,m_uiMaxDepth,m_uiDim, m_uiMaxDepth));
+            dboundary_keys.back().addOwner(i);
+         }
+
+
+         for(unsigned int p = 0; p < m_uiActiveNpes ;p++)
+         {
+           dboundary_keys.push_back(ot::Key(m_uiLocalSplitterElements[2*p]));
+         }
+         
+         std::vector<ot::Key> sEleKeys;
+         sEleKeys.resize(m_uiActiveNpes);
+         for(unsigned int p = 0; p < m_uiActiveNpes ;p++)
+            sEleKeys[p]=Key(m_uiLocalSplitterElements[2*p]);
+            
+         SFC::seqSearch::SFC_treeSearch(&(*(sEleKeys.begin())),&(*(dboundary_keys.begin())),0,sEleKeys.size(),0,dboundary_keys.size(),m_uiMaxDepth, m_uiMaxDepth,ROOT_ROTATION);
+         
+         // compute the owner rank(process) of the missing points. 
+         std::vector<unsigned int> ownerrank;
+         ownerrank.resize(m_uiUnzip_3pt_keys.size(),LOOK_UP_TABLE_DEFAULT);
+         
+         unsigned int sBegin=0;
+         unsigned int sEnd;
+         for(unsigned int p=0;p<m_uiActiveNpes;p++)
+         {
+            assert((sEleKeys[p].getFlag() & OCT_FOUND));
+            assert(dboundary_keys[sEleKeys[p].getSearchResult()]==sEleKeys[p]);
+            sBegin=sEleKeys[p].getSearchResult();
+            (p<(m_uiActiveNpes-1))? sEnd=sEleKeys[p+1].getSearchResult()+1: sEnd=dboundary_keys.size();
+            
+            for(unsigned int k=sBegin;k<sEnd;k++)
+            {
+                // if true it implies, that this key is a splitter element. 
+                if(dboundary_keys[k].getOwnerListSize()<1)
+                {
+                   assert(sEleKeys[p] ==  dboundary_keys[k] || (p<(m_uiActiveNpes-1) && sEleKeys[p+1] ==  dboundary_keys[k] ));
+                   continue; 
+                } 
+                
+                ownerrank[dboundary_keys[k].getOwnerList()->front()] = p;
+            }
+         }
+
+         dboundary_keys.clear();
+
+        
+ 
+         // 2. Communicate the keys based on the computed owner ranks. 
+         
+         m_uiSendCountRePt.resize(m_uiActiveNpes);
+         m_uiSendOffsetRePt.resize(m_uiActiveNpes);
+         m_uiRecvCountRePt.resize(m_uiActiveNpes);
+         m_uiRecvOffsetRePt.resize(m_uiActiveNpes);
+         
+         for(unsigned int i=0; i< m_uiActiveNpes; i++)
+            m_uiSendCountRePt[i] = 0;    
+
+         for(unsigned int i=0;i<ownerrank.size();i++)
+         {
+            if( (ownerrank[i] == LOOK_UP_TABLE_DEFAULT ))
+            {
+                std::cout<<"error: "<<__func__<<" sending key : "<<m_uiUnzip_3pt_keys[i]<<" to proc: "<<ownerrank[i]<<std::endl;
+                MPI_Abort(m_uiCommActive,0);
+            }
+            
+            m_uiSendCountRePt[ownerrank[i]]++;
+             
+                
+         }            
+ 
+         par::Mpi_Alltoall(&(*(m_uiSendCountRePt.begin())), &(*(m_uiRecvCountRePt.begin())),1,m_uiCommActive);
+ 
+         m_uiSendOffsetRePt[0] = 0;
+         m_uiRecvOffsetRePt[0] = 0;
+ 
+         omp_par::scan(&(*(m_uiSendCountRePt.begin())),&(*(m_uiSendOffsetRePt.begin())),m_uiActiveNpes);
+         omp_par::scan(&(*(m_uiRecvCountRePt.begin())),&(*(m_uiRecvOffsetRePt.begin())),m_uiActiveNpes);
+ 
+ 
+         std::vector<ot::TreeNode> sBuf;
+         std::vector<ot::TreeNode> rBuf;
+         
+         sBuf.resize((m_uiSendOffsetRePt[m_uiActiveNpes-1] + m_uiSendCountRePt[m_uiActiveNpes-1] ));
+         rBuf.resize((m_uiRecvOffsetRePt[m_uiActiveNpes-1] + m_uiRecvCountRePt[m_uiActiveNpes-1] ));
+ 
+         /*if(m_uiActiveRank==0)
+         {
+            for(unsigned int p=0;p<m_uiActiveNpes;p++)
+                std::cout<<"rank:"<<m_uiActiveRank<<" send to "<<p<<" count : "<<m_uiSendCountRePt[p]<<std::endl;
+
+            for(unsigned int p=0;p<m_uiActiveNpes;p++)
+                std::cout<<"rank:"<<m_uiActiveRank<<" recv from "<<p<<" count : "<<m_uiRecvCountRePt[p]<<std::endl;
+         }*/
+ 
+         for(unsigned int i=0; i< m_uiActiveNpes; i++)
+            m_uiSendCountRePt[i] = 0;
+
+         // Note: this is important to do so to match the send node order with recv order. 
+         std::vector<ot::Key> tmpSendKey;
+         tmpSendKey.resize(sBuf.size());
+         
+         for(unsigned int i=0;i<ownerrank.size();i++)
+         {
+            sBuf[m_uiSendOffsetRePt[ownerrank[i]] + m_uiSendCountRePt[ownerrank[i]]] = ot::TreeNode(m_uiUnzip_3pt_keys[i].minX(),m_uiUnzip_3pt_keys[i].minY(),m_uiUnzip_3pt_keys[i].minZ(),m_uiMaxDepth+1,m_uiDim,m_uiMaxDepth+1);
+            tmpSendKey[m_uiSendOffsetRePt[ownerrank[i]] + m_uiSendCountRePt[ownerrank[i]]]=(m_uiUnzip_3pt_keys[i]);
+            m_uiSendCountRePt[ownerrank[i]]++;
+         }
+
+         std::swap(tmpSendKey,m_uiUnzip_3pt_keys);
+         tmpSendKey.clear();
+
+            //  if(m_uiActiveRank==0)
+            //  {
+            //      for(unsigned  int p=1; p<m_uiActiveNpes;p++ )
+            //      {
+            //          for(unsigned int i=m_uiSendOffsetRePt[p]; i< m_uiSendOffsetRePt[p] + m_uiSendCountRePt[p];i++)
+            //          {
+            //              std::cout<<"rnk: "<<m_uiActiveRank<<" sBuf key["<<i<<"] : "<<sBuf[i]<<" key:  "<<m_uiUnzip_3pt_keys[i]<<"to proc: "<<p<<" dist from offset : "<<(i-m_uiSendOffsetRePt[p])<<std::endl;
+            //          }
+
+            //      }
+                
+            //  }
+
+
+         par::Mpi_Alltoallv(&(*(sBuf.begin())), (int *)(&(*(m_uiSendCountRePt.begin()))), (int *) (&(*(m_uiSendOffsetRePt.begin()))), &(*(rBuf.begin())), (int  *) (&(*(m_uiRecvCountRePt.begin()))), (int *) (&(*(m_uiRecvOffsetRePt.begin()))), m_uiCommActive);
+        
+         std::vector<ot::SearchKey> keys;
+         keys.reserve(rBuf.size());
+ 
+         for(unsigned int p=0; p< m_uiActiveNpes; p++)
+         {
+            for(unsigned int i=m_uiRecvOffsetRePt[p]; i< (m_uiRecvOffsetRePt[p] + m_uiRecvCountRePt[p]); i++)
+            {   
+                keys.push_back(ot::SearchKey(rBuf[i].minX(),rBuf[i].minY(),rBuf[i].minZ(), m_uiMaxDepth+1, m_uiDim, m_uiMaxDepth+1));
+                keys.back().addOwner(i);
+            }
+         }
+         
+ 
+         m_uiMaxDepth++;
+         mergeKeys(keys,m_uiUnzip_3pt_recv_keys);
+         m_uiMaxDepth--;
+         keys.clear();
+
+         //std::cout<<"rank : "<<m_uiActiveRank<<" recv keys : "<<m_uiUnzip_3pt_recv_keys.size()<<std::endl;
+
+         std::vector<ot::Key> rkey_merged;
+         for(unsigned int i=0; i < m_uiUnzip_3pt_recv_keys.size(); i++ )
+         {
+            unsigned int x =  m_uiUnzip_3pt_recv_keys[i].minX();
+            unsigned int y =  m_uiUnzip_3pt_recv_keys[i].minY();
+            unsigned int z =  m_uiUnzip_3pt_recv_keys[i].minZ();
+
+            if(x == (1u<<m_uiMaxDepth))
+                x=x-1;
+            
+            if(y == (1u<<m_uiMaxDepth))
+                y=y-1;
+            
+            if(z == (1u<<m_uiMaxDepth))
+                z=z-1;
+            
+            rkey_merged.push_back(ot::Key(x,y,z,m_uiMaxDepth,m_uiDim, m_uiMaxDepth));
+            rkey_merged.back().addOwner(i);
+         }
+
+         
+         SFC::seqSearch::SFC_treeSearch(&(*(rkey_merged.begin())),&(*(m_uiAllElements.begin())),0,rkey_merged.size(),m_uiElementLocalBegin,m_uiElementLocalEnd, m_uiMaxDepth,m_uiMaxDepth,ROOT_ROTATION);
+         //MPI_Barrier(m_uiCommActive); std::cout<<"search 2 pass "<<std::endl;
+         
+         std::vector<SearchKey> eKeys; 
+         for(unsigned int i=0;i<rkey_merged.size();i++)
+         {
+            if( !(rkey_merged[i].getFlag() & OCT_FOUND) )
+            {
+                std::cout<<"Error["<<m_uiActiveRank<<"] : "<<__func__<<" requested key : "<<rkey_merged[i]<<" node is not found at any local partition "<<std::endl;
+                MPI_Abort(m_uiCommActive,0);
+            }
+
+            const unsigned eleID = rkey_merged[i].getSearchResult();
+            eKeys.push_back(ot::SearchKey(m_uiAllElements[eleID]));
+            eKeys.back().addOwner(rkey_merged[i].getOwnerList()->front());
+            
+         }
+ 
+         rkey_merged.clear();
+         mergeKeys(eKeys,m_uiUnzip_3pt_ele);
+
+         //std::cout<<"rank: "<<m_uiActiveRank<<" ele: "<<m_uiUnzip_3pt_ele.size()<<std::endl;
+         SFC::seqSearch::SFC_treeSearch(&(*(m_uiUnzip_3pt_ele.begin())),&(*(m_uiAllElements.begin())),0,m_uiUnzip_3pt_ele.size(),m_uiElementLocalBegin, m_uiElementLocalEnd,m_uiMaxDepth,m_uiMaxDepth,ROOT_ROTATION);
+ 
+         // swap the send nodes counts with recv node counts since the communication needs to be done in the other direction.
+         std::swap(m_uiSendCountRePt,m_uiRecvCountRePt);
+         std::swap(m_uiSendOffsetRePt,m_uiRecvOffsetRePt);
+ 
+         for(unsigned int i=0;i<m_uiActiveNpes;i++)
+         {
+            if(m_uiSendCountRePt[i]>0)
+                m_uiReqSendProcList.push_back(i);
+
+            if(m_uiRecvCountRePt[i]>0)
+                m_uiReqRecvProcList.push_back(i);
+         }
+
+         //MPI_Barrier(m_uiCommActive); if(!m_uiActiveRank) std::cout<<"3rd pt sm build"<<std::endl;
+ 
+ 
+                  
+ 
+                     
+                     
+    } 
+    #endif
+
+    int Mesh::getBlkBdyParentCNums(unsigned int blkId, unsigned int eleId, unsigned int dir, unsigned int* child, unsigned int* fid, unsigned int* cid)
+    {
+
+        // return -1 if the invalid call for the function. 
+        if((!m_uiIsBlockSetup) || (!m_uiIsActive))
+            return -1;
+
+        for(unsigned int i=0; i< NUM_CHILDREN;i++)
+            child[i] =LOOK_UP_TABLE_DEFAULT;
+
+        const unsigned int lookup = m_uiE2EMapping[eleId*m_uiNumDirections  + dir ];
+
+        if(lookup==LOOK_UP_TABLE_DEFAULT)
+            return -1;
+
+        unsigned int cnum;
+        const bool isHanging = this -> isFaceHanging(eleId,dir,cnum);
+        
+        
+        if( (!isHanging))
+            return -1;
+
+        
+        unsigned char bit[3];
+        const unsigned int eorder_by2 = (m_uiElementOrder>>1u);
+
+        
+        
+        
+        if( dir == OCT_DIR_LEFT )
+        {
+            fid[0] = 1; fid[1] = 3; fid[2] = 5; fid[3] = 7;
+            cid[0] = 0; cid[1] = 2; cid[2] = 4; cid[3] = 6;
+            
+            
+            child[fid[0]] = m_uiE2EMapping[lookup * m_uiNumDirections + OCT_DIR_RIGHT];
+            child[fid[1]] = m_uiE2EMapping[child[fid[0]] * m_uiNumDirections  + OCT_DIR_UP];
+
+            child[fid[2]] = m_uiE2EMapping[child[fid[0]] * m_uiNumDirections  + OCT_DIR_FRONT];
+            child[fid[3]] = m_uiE2EMapping[child[fid[1]] * m_uiNumDirections  + OCT_DIR_FRONT];
+
+            assert( (child[fid[0]]!=LOOK_UP_TABLE_DEFAULT) && (child[fid[1]]!=LOOK_UP_TABLE_DEFAULT) && (child[fid[2]]!=LOOK_UP_TABLE_DEFAULT) && (child[fid[3]]!=LOOK_UP_TABLE_DEFAULT));
+
+            
+
+
+        }else if( dir == OCT_DIR_RIGHT )
+        {
+            fid[0] = 0; fid[1] = 2; fid[2] = 4; fid[3] = 6;
+            cid[0] = 1; cid[1] = 3; cid[2] = 5; cid[3] = 7;
+            
+            child[fid[0]] = m_uiE2EMapping[lookup * m_uiNumDirections + OCT_DIR_LEFT];
+            child[fid[1]] = m_uiE2EMapping[child[fid[0]] * m_uiNumDirections  + OCT_DIR_UP];
+
+            child[fid[2]] = m_uiE2EMapping[child[fid[0]] * m_uiNumDirections  + OCT_DIR_FRONT];
+            child[fid[3]] = m_uiE2EMapping[child[fid[1]] * m_uiNumDirections  + OCT_DIR_FRONT];
+
+            assert( (child[fid[0]]!=LOOK_UP_TABLE_DEFAULT) && (child[fid[1]]!=LOOK_UP_TABLE_DEFAULT) && (child[fid[2]]!=LOOK_UP_TABLE_DEFAULT) && (child[fid[3]]!=LOOK_UP_TABLE_DEFAULT));
+
+
+        }else if( dir == OCT_DIR_DOWN )
+        {
+            fid[0] = 2; fid[1] = 3; fid[2] = 6; fid[3] = 7;
+            cid[0] = 0; cid[1] = 1; cid[2] = 4; cid[3] = 5;
+
+            child[fid[0]] = m_uiE2EMapping[lookup * m_uiNumDirections + OCT_DIR_UP];
+            child[fid[1]] = m_uiE2EMapping[child[fid[0]] * m_uiNumDirections  + OCT_DIR_RIGHT];
+
+            child[fid[2]] = m_uiE2EMapping[child[fid[0]] * m_uiNumDirections  + OCT_DIR_FRONT];
+            child[fid[3]] = m_uiE2EMapping[child[fid[1]] * m_uiNumDirections  + OCT_DIR_FRONT];
+
+            assert( (child[fid[0]]!=LOOK_UP_TABLE_DEFAULT) && (child[fid[1]]!=LOOK_UP_TABLE_DEFAULT) && (child[fid[2]]!=LOOK_UP_TABLE_DEFAULT) && (child[fid[3]]!=LOOK_UP_TABLE_DEFAULT));
+
+        }else if( dir == OCT_DIR_UP )
+        {
+
+            fid[0] = 0; fid[1] = 1; fid[2] = 4; fid[3] = 5;
+            cid[0] = 2; cid[1] = 3; cid[2] = 6; cid[3] = 7;
+
+            child[fid[0]] = m_uiE2EMapping[lookup * m_uiNumDirections + OCT_DIR_DOWN];
+            child[fid[1]] = m_uiE2EMapping[child[fid[0]] * m_uiNumDirections  + OCT_DIR_RIGHT];
+
+            child[fid[2]] = m_uiE2EMapping[child[fid[0]] * m_uiNumDirections  + OCT_DIR_FRONT];
+            child[fid[3]] = m_uiE2EMapping[child[fid[1]] * m_uiNumDirections  + OCT_DIR_FRONT];
+
+            assert( (child[fid[0]]!=LOOK_UP_TABLE_DEFAULT) && (child[fid[1]]!=LOOK_UP_TABLE_DEFAULT) && (child[fid[2]]!=LOOK_UP_TABLE_DEFAULT) && (child[fid[3]]!=LOOK_UP_TABLE_DEFAULT));
+
+        }else if( dir == OCT_DIR_BACK )
+        {
+
+            fid[0] = 4; fid[1] = 5; fid[2] = 6; fid[3] = 7;
+            cid[0] = 0; cid[1] = 1; cid[2] = 2; cid[3] = 3;
+
+            child[fid[0]] = m_uiE2EMapping[lookup * m_uiNumDirections + OCT_DIR_FRONT];
+            child[fid[1]] = m_uiE2EMapping[child[fid[0]] * m_uiNumDirections  + OCT_DIR_RIGHT];
+
+            child[fid[2]] = m_uiE2EMapping[child[fid[0]] * m_uiNumDirections  + OCT_DIR_UP];
+            child[fid[3]] = m_uiE2EMapping[child[fid[1]] * m_uiNumDirections  + OCT_DIR_UP];
+            
+            assert( (child[fid[0]]!=LOOK_UP_TABLE_DEFAULT) && (child[fid[1]]!=LOOK_UP_TABLE_DEFAULT) && (child[fid[2]]!=LOOK_UP_TABLE_DEFAULT) && (child[fid[3]]!=LOOK_UP_TABLE_DEFAULT));
+
+        }else if( dir == OCT_DIR_FRONT )
+        {
+            fid[0] = 0; fid[1] = 1; fid[2] = 2; fid[3] = 3;
+            cid[0] = 4; cid[1] = 5; cid[2] = 6; cid[3] = 7;
+
+            child[fid[0]] = m_uiE2EMapping[lookup * m_uiNumDirections + OCT_DIR_BACK];
+            child[fid[1]] = m_uiE2EMapping[child[fid[0]] * m_uiNumDirections  + OCT_DIR_RIGHT];
+
+            child[fid[2]] = m_uiE2EMapping[child[fid[0]] * m_uiNumDirections  + OCT_DIR_UP];
+            child[fid[3]] = m_uiE2EMapping[child[fid[1]] * m_uiNumDirections  + OCT_DIR_UP];
+
+            assert( (child[fid[0]]!=LOOK_UP_TABLE_DEFAULT) && (child[fid[1]]!=LOOK_UP_TABLE_DEFAULT) && (child[fid[2]]!=LOOK_UP_TABLE_DEFAULT) && (child[fid[3]]!=LOOK_UP_TABLE_DEFAULT));
+
+        }else
+        {
+            return -1;
+        }
+
+
+        if(eleId == child[fid[0]])
+            return 1;
+        else if( child[fid[0]] < m_uiElementLocalBegin ||  child[fid[0]] >=m_uiElementLocalEnd ) 
+            return 1;
+        else
+            return -1; // child[fid[0]] is not eleID and it is local, hence we don't need to return 1 to overwirte the same data. 
+        
+        
+
+    }
+
+    void Mesh::computeMinMaxLevel(unsigned int &lmin,unsigned int &lmax) const
+    {
+        if(m_uiIsActive)
+        {
+            unsigned int lmin_l = m_uiAllElements[m_uiElementLocalBegin].getLevel();
+            unsigned int lmax_l = m_uiAllElements[m_uiElementLocalBegin].getLevel();
+            for(unsigned int e = m_uiElementLocalBegin +1; e < m_uiElementLocalEnd; e++ )
+            {
+                if(m_uiAllElements[e].getLevel() < lmin_l)
+                lmin_l = m_uiAllElements[e].getLevel();
+
+                if(m_uiAllElements[e].getLevel() > lmax_l)
+                lmax_l = m_uiAllElements[e].getLevel();
+
+            }
+
+            par::Mpi_Reduce(&lmin_l,&lmin,1,MPI_MIN,0,m_uiCommActive);
+            par::Mpi_Reduce(&lmax_l,&lmax,1,MPI_MAX,0,m_uiCommActive);
+
+        }
+        
+
+        par::Mpi_Bcast(&lmin,1,0,m_uiCommGlobal);
+        par::Mpi_Bcast(&lmax,1,0,m_uiCommGlobal);
+
+        return;
+
+    }
+
+    void Mesh::getFinerFaceNeighbors(unsigned int ele, unsigned int dir, unsigned int* child) const
+    {
+
+        const unsigned int lookup = m_uiE2EMapping[ele* NUM_FACES + dir ];
+        
+        if(lookup == LOOK_UP_TABLE_DEFAULT)
+        {
+            child[0] = LOOK_UP_TABLE_DEFAULT;
+            child[1] = LOOK_UP_TABLE_DEFAULT;
+            child[2] = LOOK_UP_TABLE_DEFAULT;
+            child[3] = LOOK_UP_TABLE_DEFAULT;
+
+            return;
+        }
+
+        if(m_uiAllElements[lookup].getLevel() <= m_uiAllElements[ele].getLevel())
+        {
+            child[0]=lookup;
+            child[1]=lookup;
+            child[2]=lookup;
+            child[3]=lookup;
+            
+            return;
+        }
+
+        const unsigned int* e2e = m_uiE2EMapping.data();
+
+        switch (dir)
+        {
+            case OCT_DIR_LEFT:
+                child[0]=lookup;
+                child[1]=e2e[child[0]*NUM_FACES+OCT_DIR_UP];
+                assert(child[1]!=LOOK_UP_TABLE_DEFAULT);
+                child[2]=e2e[child[0]*NUM_FACES+OCT_DIR_FRONT];
+                assert(child[2]!=LOOK_UP_TABLE_DEFAULT);
+                child[3]=e2e[child[1]*NUM_FACES+OCT_DIR_FRONT];
+                assert(child[3]!=LOOK_UP_TABLE_DEFAULT);
+                
+                assert(ele == e2e[child[0]*NUM_FACES + OCT_DIR_RIGHT]);
+                assert(ele == e2e[child[1]*NUM_FACES + OCT_DIR_RIGHT]);
+                assert(ele == e2e[child[2]*NUM_FACES + OCT_DIR_RIGHT]);
+                assert(ele == e2e[child[3]*NUM_FACES + OCT_DIR_RIGHT]);
+
+                break;
+
+            case OCT_DIR_RIGHT:
+                child[0]=lookup;
+                child[1]=e2e[child[0]*NUM_FACES+OCT_DIR_UP];
+                assert(child[1]!=LOOK_UP_TABLE_DEFAULT);
+                child[2]=e2e[child[0]*NUM_FACES+OCT_DIR_FRONT];
+                assert(child[2]!=LOOK_UP_TABLE_DEFAULT);
+                child[3]=e2e[child[1]*NUM_FACES+OCT_DIR_FRONT];
+                assert(child[3]!=LOOK_UP_TABLE_DEFAULT);
+
+                assert(ele == e2e[child[0]*NUM_FACES + OCT_DIR_LEFT]);
+                assert(ele == e2e[child[1]*NUM_FACES + OCT_DIR_LEFT]);
+                assert(ele == e2e[child[2]*NUM_FACES + OCT_DIR_LEFT]);
+                assert(ele == e2e[child[3]*NUM_FACES + OCT_DIR_LEFT]);
+
+                break;
+
+            case OCT_DIR_DOWN:
+
+                child[0]=lookup;
+                child[1]=e2e[child[0]*NUM_FACES+OCT_DIR_RIGHT];
+                assert(child[1]!=LOOK_UP_TABLE_DEFAULT);
+                child[2]=e2e[child[0]*NUM_FACES+OCT_DIR_FRONT];
+                assert(child[2]!=LOOK_UP_TABLE_DEFAULT);
+                child[3]=e2e[child[1]*NUM_FACES+OCT_DIR_FRONT];
+                assert(child[3]!=LOOK_UP_TABLE_DEFAULT);
+
+                assert(ele == e2e[child[0]*NUM_FACES + OCT_DIR_UP]);
+                assert(ele == e2e[child[1]*NUM_FACES + OCT_DIR_UP]);
+                assert(ele == e2e[child[2]*NUM_FACES + OCT_DIR_UP]);
+                assert(ele == e2e[child[3]*NUM_FACES + OCT_DIR_UP]);
+
+                break;
+
+            case OCT_DIR_UP:
+                child[0]=lookup;
+                child[1]=e2e[child[0]*NUM_FACES+OCT_DIR_RIGHT];
+                assert(child[1]!=LOOK_UP_TABLE_DEFAULT);
+                child[2]=e2e[child[0]*NUM_FACES+OCT_DIR_FRONT];
+                assert(child[2]!=LOOK_UP_TABLE_DEFAULT);
+                child[3]=e2e[child[1]*NUM_FACES+OCT_DIR_FRONT];
+                assert(child[3]!=LOOK_UP_TABLE_DEFAULT);
+
+                assert(ele == e2e[child[0]*NUM_FACES + OCT_DIR_DOWN]);
+                assert(ele == e2e[child[1]*NUM_FACES + OCT_DIR_DOWN]);
+                assert(ele == e2e[child[2]*NUM_FACES + OCT_DIR_DOWN]);
+                assert(ele == e2e[child[3]*NUM_FACES + OCT_DIR_DOWN]);
+
+                break;
+
+            case OCT_DIR_BACK:
+                child[0]=lookup;
+                child[1]=e2e[child[0]*NUM_FACES+OCT_DIR_RIGHT];
+                assert(child[1]!=LOOK_UP_TABLE_DEFAULT);
+                child[2]=e2e[child[0]*NUM_FACES+OCT_DIR_UP];
+                assert(child[2]!=LOOK_UP_TABLE_DEFAULT);
+                child[3]=e2e[child[1]*NUM_FACES+OCT_DIR_UP];
+                assert(child[3]!=LOOK_UP_TABLE_DEFAULT);
+
+                assert(ele == e2e[child[0]*NUM_FACES + OCT_DIR_FRONT]);
+                assert(ele == e2e[child[1]*NUM_FACES + OCT_DIR_FRONT]);
+                assert(ele == e2e[child[2]*NUM_FACES + OCT_DIR_FRONT]);
+                assert(ele == e2e[child[3]*NUM_FACES + OCT_DIR_FRONT]);
+                
+                break;
+
+            case OCT_DIR_FRONT:
+                child[0]=lookup;
+                child[1]=e2e[child[0]*NUM_FACES+OCT_DIR_RIGHT];
+                assert(child[1]!=LOOK_UP_TABLE_DEFAULT);
+                child[2]=e2e[child[0]*NUM_FACES+OCT_DIR_UP];
+                assert(child[2]!=LOOK_UP_TABLE_DEFAULT);
+                child[3]=e2e[child[1]*NUM_FACES+OCT_DIR_UP];
+                assert(child[3]!=LOOK_UP_TABLE_DEFAULT);
+
+                assert(ele == e2e[child[0]*NUM_FACES + OCT_DIR_BACK]);
+                assert(ele == e2e[child[1]*NUM_FACES + OCT_DIR_BACK]);
+                assert(ele == e2e[child[2]*NUM_FACES + OCT_DIR_BACK]);
+                assert(ele == e2e[child[3]*NUM_FACES + OCT_DIR_BACK]);
+
+
+                break;
+        
+            default:
+                break;
+        }
+
+
+            
+
+    }
+
+
+    void Mesh::interGridTransferSendRecvCompute(const ot::Mesh *pMesh)
+    {
+
+        if(m_uiIsIGTSetup)
+            return;
+
+        MPI_Comm comm=m_uiCommGlobal;
+        int rank,npes;
+
+        MPI_Comm_rank(comm,&rank);
+        MPI_Comm_size(comm,&npes);
+
+        m_uiIGTSendC.clear();
+        m_uiIGTRecvC.clear();
+        m_uiIGTSendOfst.clear();
+        m_uiIGTRecvOfst.clear();
+        m_uiM2Prime.clear();
+
+        m_uiIGTSendC.resize(npes,0);
+        m_uiIGTRecvC.resize(npes,0);
+        m_uiIGTSendOfst.resize(npes,0);
+        m_uiIGTRecvOfst.resize(npes,0);
+
+
+        
+
+        if(m_uiIsActive)
+        {
+            MPI_Comm comm1=m_uiCommActive;
+            const int rank1=m_uiActiveRank;
+            const int npes1=m_uiActiveNpes;
+
+            //1. compute the number of m2 octants (based of m1 splitters)
+            unsigned int m2primeCount=0;
+            for(unsigned int ele=m_uiElementLocalBegin;ele<m_uiElementLocalEnd;ele++)
+            {
+                if((m_uiAllElements[ele].getFlag()>>NUM_LEVEL_BITS)==OCT_SPLIT)
+                    m2primeCount+=NUM_CHILDREN;
+                else if((m_uiAllElements[ele].getFlag()>>NUM_LEVEL_BITS)==OCT_COARSE)
+                {
+                    assert(m_uiAllElements[ele].getParent()==m_uiAllElements[ele+NUM_CHILDREN-1].getParent());
+                    m2primeCount+=1;
+                    ele+=(NUM_CHILDREN-1);
+                }else
+                {
+                    assert((m_uiAllElements[ele].getFlag()>>NUM_LEVEL_BITS)==OCT_NO_CHANGE);
+                    m2primeCount+=1;
+                }
+
+            }
+
+            const unsigned int numM2PrimeElems=m2primeCount;
+            m_uiM2Prime.clear();
+            m_uiM2Prime.reserve(numM2PrimeElems);
+
+            m2primeCount=0;
+            for(unsigned int ele=m_uiElementLocalBegin;ele<m_uiElementLocalEnd;ele++)
+            {
+                if((m_uiAllElements[ele].getFlag()>>NUM_LEVEL_BITS)==OCT_SPLIT)
+                {
+                    m_uiAllElements[ele].addChildren(m_uiM2Prime);
+                    m2primeCount+=NUM_CHILDREN;
+
+                }else if((m_uiAllElements[ele].getFlag()>>NUM_LEVEL_BITS)==OCT_COARSE)
+                {
+                    assert(m_uiAllElements[ele].getParent()==m_uiAllElements[ele+NUM_CHILDREN-1].getParent());
+                    m_uiM2Prime.push_back(m_uiAllElements[ele].getParent());
+                    
+                    ele+=(NUM_CHILDREN-1);
+                    m2primeCount+=1;
+                }else
+                {
+                    assert((m_uiAllElements[ele].getFlag()>>NUM_LEVEL_BITS)==OCT_NO_CHANGE);
+                    m_uiM2Prime.push_back(m_uiAllElements[ele]);
+                    m2primeCount+=1;
+
+                }
+            
+            }
+
+            assert(seq::test::isUniqueAndSorted(m_uiM2Prime));
+
+            if(npes==1) // m2_prime is equivalent to m2, hence no need to compute the send/ recv counts. 
+            {   
+                for(unsigned int p=0;p<npes;p++)
+                {
+                    m_uiIGTSendC[p]=0;
+                    m_uiIGTRecvC[p]=0;
+                    m_uiIGTSendOfst[p]=0;
+                    m_uiIGTRecvOfst[p]=0;
+                }
+                m_uiIsIGTSetup = true;
+                return;
+
+            }   
+
+
+            int npes2=0;
+            int rank2=0;
+            std::vector<ot::TreeNode> m2_splitters;
+            //note : assumes that global rank 0 is going to be active always. 
+            if(pMesh->isActive())
+            {
+                npes2=pMesh->getMPICommSize();
+                rank2=pMesh->getMPIRank();
+                const std::vector<ot::TreeNode>& m2_splitters_root=pMesh->getSplitterElements();
+                m2_splitters.resize(2*npes2);
+                for(unsigned int w=0;w<m2_splitters_root.size();w++)
+                    m2_splitters[w]=m2_splitters_root[w];
+            } 
+            
+            par::Mpi_Bcast(&npes2,1,0,comm1);
+            par::Mpi_Bcast(&rank2,1,0,comm1);
+            m2_splitters.resize(2*npes2);
+            par::Mpi_Bcast(&(*(m2_splitters.begin())),2*npes2,0,comm1);
+            assert(seq::test::isUniqueAndSorted(m2_splitters));
+           
+           
+            std::vector<ot::SearchKey> m2primeSK;
+            m2primeSK.resize(m_uiM2Prime.size());
+
+            for(unsigned int e=0;e<m_uiM2Prime.size();e++)
+            {
+                m2primeSK[e]=ot::SearchKey(m_uiM2Prime[e]);
+                m2primeSK[e].addOwner(rank1); // note that this is the rank in comm1. 
+            }
+
+
+            std::vector<ot::Key> m2_splitterKeys;
+            m2_splitterKeys.resize(2*npes2);
+
+            for(unsigned int p=0;p<npes2;p++)
+            {
+                m2_splitterKeys[2*p]=ot::Key(m2_splitters[2*p]);
+                m2_splitterKeys[2*p].addOwner(p);
+
+                m2_splitterKeys[2*p+1]=ot::Key(m2_splitters[2*p+1]);
+                m2_splitterKeys[2*p+1].addOwner(p);
+
+                m2primeSK.push_back(ot::SearchKey(m2_splitters[2*p]));
+                m2primeSK.push_back(ot::SearchKey(m2_splitters[2*p+1]));
+            }
+
+            ot::SearchKey rootSK(m_uiDim,m_uiMaxDepth);
+            std::vector<ot::SearchKey> tmpNodes;
+
+            SFC::seqSort::SFC_treeSort(&(*(m2primeSK.begin())),m2primeSK.size(),tmpNodes,tmpNodes,tmpNodes,m_uiMaxDepth,m_uiMaxDepth,rootSK,ROOT_ROTATION,1,TS_SORT_ONLY);
+
+            unsigned int skip=0;
+            ot::SearchKey tmpSK;
+            std::vector<ot::SearchKey> tmpSKVec;
+
+            for(unsigned int e=0;e<(m2primeSK.size());e++)
+            {
+                tmpSK=m2primeSK[e];
+                skip=1;
+                while(((e+skip)<m2primeSK.size()) && (m2primeSK[e]==m2primeSK[e+skip]))
+                {
+                    if(m2primeSK[e+skip].getOwner()>=0){
+                        tmpSK.addOwner(m2primeSK[e+skip].getOwner());
+                    }
+                    skip++;
+                }
+
+                tmpSKVec.push_back(tmpSK);
+                e+=(skip-1);
+
+            }
+
+            std::swap(m2primeSK,tmpSKVec);
+            tmpSKVec.clear();
+
+            assert(seq::test::isUniqueAndSorted(m2primeSK));
+            assert(seq::test::isUniqueAndSorted(m2_splitterKeys));
+
+            ot::Key rootKey(0,0,0,0,m_uiDim,m_uiMaxDepth);
+            SFC::seqSearch::SFC_treeSearch(&(*(m2_splitterKeys.begin())),&(*(m2primeSK.begin())),0,m2_splitterKeys.size(),0,m2primeSK.size(),m_uiMaxDepth,m_uiMaxDepth,ROOT_ROTATION);
+
+
+
+            unsigned int sBegin,sEnd,selectedRank;
+            for(unsigned int p=0;p<npes2;p++)
+            {
+                assert(m2_splitterKeys[2*p].getFlag() & OCT_FOUND);
+                assert(m2_splitterKeys[2*p+1].getFlag() & OCT_FOUND);
+
+                sBegin=m2_splitterKeys[2*p].getSearchResult();
+                sEnd=m2_splitterKeys[2*p+1].getSearchResult();
+                assert(sBegin<sEnd);
+                selectedRank=rankSelectRule(m_uiGlobalNpes,m_uiGlobalRank,npes2,p);
+                m_uiIGTSendC[selectedRank]=sEnd-sBegin-1;
+
+                if(m2primeSK[sBegin].getOwner()>=0) m_uiIGTSendC[selectedRank]++;
+                if(m2primeSK[sEnd].getOwner()>=0) m_uiIGTSendC[selectedRank]++;
+
+            }
+
+            // we don't need below for intergrid transfer, but these can be help full for debugging.
+            m2primeSK.clear();
+
+            
+        }
+
+
+        par::Mpi_Alltoall(m_uiIGTSendC.data(),m_uiIGTRecvC.data(),1,comm);
+
+        m_uiIGTSendOfst[0]=0;
+        m_uiIGTRecvOfst[0]=0;
+
+        omp_par::scan(m_uiIGTSendC.data(), m_uiIGTSendOfst.data(),npes);
+        omp_par::scan(m_uiIGTRecvC.data(), m_uiIGTRecvOfst.data(),npes);
+
+        const unsigned int total_recv_elements = m_uiIGTRecvOfst[npes-1] + m_uiIGTRecvC[npes-1];
+
+        if(total_recv_elements != pMesh->getNumLocalMeshElements())
+        {
+            std::cout<<"rank: "<<rank<<" [Inter-grid Transfer error ]: Recvn M2' elements: "<<total_recv_elements<<" m2 num local elements "<<pMesh->getNumLocalMeshElements()<<std::endl;
+            MPI_Abort(comm,0);
+        }
+
+
+        m_uiIsIGTSetup = true;
+        return;
+
+    }
+
+    bool Mesh::setMeshRefinementFlags(const std::vector<unsigned int>& refine_flags)
+    {
+
+        // explicitly set the refinement flags, 
+        assert(refine_flags.size() == m_uiNumLocalElements);
+
+        // set all the elements to no change. 
+        for(unsigned int ele=m_uiElementLocalBegin; ele < m_uiElementLocalEnd; ele++)
+            m_uiAllElements[ele].setFlag(((OCT_NO_CHANGE<<NUM_LEVEL_BITS)|m_uiAllElements[ele].getLevel()));
+
+        bool isMeshChangeLocal=false;
+
+
+        for(unsigned int ele = m_uiElementLocalBegin; ele < m_uiElementLocalEnd; ele++)
+        {
+            const unsigned int rid = ele - m_uiElementLocalBegin;
+            
+            if(refine_flags[rid] == OCT_COARSE)
+            {
+                bool isCoarse = true;
+                if( ((ele + NUM_CHILDREN-1) < m_uiElementLocalEnd) && m_uiAllElements[ele+NUM_CHILDREN-1].getParent()==m_uiAllElements[ele].getParent() )
+                { // all the 8 children are in the same level, 
+
+
+                    if(m_uiAllElements[ele].getLevel()==0) // current element is the root cannnot coarsen anymore. 
+                        isCoarse =false;
+
+                    for(unsigned int child=0; child < NUM_CHILDREN; child++)
+                    {   // to check if all the children agrees to coarsen. 
+
+                        if(refine_flags[rid+child] != OCT_COARSE)
+                        {
+                            isCoarse = false;
+                            break;
+                        }
+
+                    }
+
+                }else
+                {   // all the 8 children are not in the same level. 
+                    isCoarse=false;
+                }
+
+                if(isCoarse)
+                {
+                    assert(((ele + NUM_CHILDREN-1) < m_uiElementLocalEnd) && m_uiAllElements[ele+NUM_CHILDREN-1].getParent()==m_uiAllElements[ele].getParent());
+                    
+                    for(unsigned int child=0; child < NUM_CHILDREN; child++)
+                        m_uiAllElements[ele+child].setFlag(((OCT_COARSE<<NUM_LEVEL_BITS)|m_uiAllElements[ele+child].getLevel()));
+
+                    isMeshChangeLocal=true;
+                    ele+= (NUM_CHILDREN-1);
+
+                }else
+                {
+                    m_uiAllElements[ele].setFlag(((OCT_NO_CHANGE<<NUM_LEVEL_BITS)|m_uiAllElements[ele].getLevel()));
+                }
+                
+
+                
+            }else if(refine_flags[rid] ==OCT_SPLIT)
+            {
+
+                if( (m_uiAllElements[ele].getLevel()+MAXDEAPTH_LEVEL_DIFF+1) < m_uiMaxDepth )
+                {
+                    m_uiAllElements[ele].setFlag(((OCT_SPLIT<<NUM_LEVEL_BITS)|m_uiAllElements[ele].getLevel()));
+                    isMeshChangeLocal=true;
+                }
+                else
+                    m_uiAllElements[ele].setFlag(((OCT_NO_CHANGE<<NUM_LEVEL_BITS)|m_uiAllElements[ele].getLevel()));
+                
+
+            }else
+            {
+                assert(refine_flags[rid]==OCT_NO_CHANGE);
+                m_uiAllElements[ele].setFlag(((OCT_NO_CHANGE<<NUM_LEVEL_BITS)|m_uiAllElements[ele].getLevel()));
+
+            }
+
+
+        }
+
+        return isMeshChangeLocal;
+
+
+
+    }
+
+
+    void Mesh::octCoordToDomainCoord(const Point& oct_pt, Point& domain_pt) const 
+    {
+        const double RgX = (m_uiDMaxPt.x() - m_uiDMinPt.x());
+        const double RgY = (m_uiDMaxPt.y() - m_uiDMinPt.y());
+        const double RgZ = (m_uiDMaxPt.z() - m_uiDMinPt.z());
+
+        const double octRg = (1u<<(m_uiMaxDepth));
+        
+        double x = (((oct_pt.x() -0)*RgX)/octRg) + m_uiDMinPt.x();
+        double y = (((oct_pt.y() -0)*RgY)/octRg) + m_uiDMinPt.y();
+        double z = (((oct_pt.z() -0)*RgZ)/octRg) + m_uiDMinPt.z();
+
+        domain_pt = Point(x,y,z);
+        return;
+
+
+        
+    }
+
+    void Mesh::domainCoordToOctCoord(const Point& domain_pt, Point& oct_pt) const
+    {
+
+        const double RgX = (m_uiDMaxPt.x() - m_uiDMinPt.x());
+        const double RgY = (m_uiDMaxPt.y() - m_uiDMinPt.y());
+        const double RgZ = (m_uiDMaxPt.z() - m_uiDMinPt.z());
+
+        const double octRg = (1u<<(m_uiMaxDepth));
+        
+        double x = (((domain_pt.x() -m_uiDMinPt.x())*octRg)/RgX) ;
+        double y = (((domain_pt.y() -m_uiDMinPt.y())*octRg)/RgY) ;
+        double z = (((domain_pt.z() -m_uiDMinPt.z())*octRg)/RgZ) ;
+
+        oct_pt = Point(x,y,z);
+        return;
+
+    }
+
+    void Mesh::computeTreeNodeOwnerProc(const ot::TreeNode * pNodes, unsigned int n, int* ownerranks) const
+    {
+        
+        if(m_uiIsActive)
+        {
+            std::vector<ot::SearchKey> keys;
+            keys.resize(n);
+
+            for(unsigned int i=0;i<n;i++)
+            {
+                keys[i] = ot::SearchKey( pNodes[i] );
+                keys[i].addOwner(i);
+                ownerranks[i]=-1;
+            }
+
+            const unsigned int npes = this->getMPICommSize();
+
+            const std::vector<ot::TreeNode>& sElements = this->getSplitterElements();
+            for(unsigned int p=0; p< npes ;p++)
+            {
+                keys.push_back(ot::SearchKey(sElements[2*p]));
+                keys.back().addOwner(-1);
+            }
+
+            std::vector<ot::SearchKey> tmp;
+            ot::SearchKey root(ot::TreeNode(0,0,0,0,m_uiDim,m_uiMaxDepth));
+            SFC::seqSort::SFC_treeSort(&(*(keys.begin())),keys.size(),tmp,tmp,tmp,m_uiMaxDepth,m_uiMaxDepth,root,ROOT_ROTATION,1,TS_SORT_ONLY);
+
+            std::vector<ot::Key> key_merged;
+            mergeKeys(keys,key_merged);
+
+            std::vector<ot::Key> sEleKeys;
+            sEleKeys.resize(npes);
+            for(unsigned int p = 0; p < npes ;p++)
+            {
+                sEleKeys[p]=Key(sElements[2*p]);
+            }
+                
+            SFC::seqSearch::SFC_treeSearch(&(*(sEleKeys.begin())),&(*(key_merged.begin())),0,sEleKeys.size(),0,key_merged.size(),m_uiMaxDepth,m_uiMaxDepth,ROOT_ROTATION);
+            unsigned int sBegin=0;
+            unsigned int sEnd;
+
+            for(unsigned int p=0;p<npes;p++)
+            {
+
+                assert((sEleKeys[p].getFlag() & OCT_FOUND));
+                assert(key_merged[sEleKeys[p].getSearchResult()]==sEleKeys[p]);
+                sBegin=sEleKeys[p].getSearchResult();
+                (p<(npes-1))? sEnd=sEleKeys[p+1].getSearchResult()+1: sEnd=key_merged.size();
+                
+                for(unsigned int k=sBegin;k<sEnd;k++)
+                {
+                    for (unsigned int w = 0; w < key_merged[k].getOwnerList()->size(); w++)
+                    {
+                        const unsigned kowner = (*(key_merged[k].getOwnerList()))[w];
+                        if(kowner >= 0)
+                        {
+                            ownerranks[kowner] =p;
+                        }
+                    }
+                }
+
+            }
+
+        }
+
+        return ;
+        
+    }
+
+    void Mesh::blkUnzipElementIDs(unsigned int blk, std::vector<unsigned int>&eid) const 
+    {
+        eid.clear();
+        if(this->isActive())
+        {
+            const ot::TreeNode * pNodes= m_uiAllElements.data();
+
+            const unsigned int nodeLocalBegin = this->getNodeLocalBegin();
+            const unsigned int nodeLocalEnd = this->getNodeLocalEnd();
+
+            const unsigned int* e2n_cg = &(*(this->getE2NMapping().begin()));
+            const unsigned int* e2e = &(*(this->getE2EMapping().begin()));
+
+            const std::vector<ot::Block>& blkList = this->getLocalBlockList();
+            const unsigned int nPe = this->getNumNodesPerElement();
+
+            unsigned int lookup,node_cg;
+            unsigned int child[NUM_CHILDREN];
+
+            if(blk> blkList.size()) 
+                return;
+
+            const unsigned int pWidth = blkList[blk].get1DPadWidth();
+            const ot::TreeNode blkNode = blkList[blk].getBlockNode();
+            const unsigned int regLevel = blkList[blk].getRegularGridLev();
+            
+            eid.clear();
+            unsigned int fchild[4];
+
+            for(unsigned int elem = blkList[blk].getLocalElementBegin(); elem < blkList[blk].getLocalElementEnd(); elem++)
+            {
+                const unsigned int ei=(pNodes[elem].getX()-blkNode.getX())>>(m_uiMaxDepth-regLevel);
+                const unsigned int ej=(pNodes[elem].getY()-blkNode.getY())>>(m_uiMaxDepth-regLevel);
+                const unsigned int ek=(pNodes[elem].getZ()-blkNode.getZ())>>(m_uiMaxDepth-regLevel);
+
+                const unsigned int emin = 0;
+                const unsigned int emax = (1u<<(regLevel-blkNode.getLevel()))-1;
+
+                if(pWidth > 0)
+                {   
+                    // we need to look for the boundary neigbours only when the padding width is > 0 . 
+                    if(ei==emin)
+                    { 
+                        // OCT_DIR_LEFT
+                        const unsigned int dir = OCT_DIR_LEFT;
+                        lookup = e2e[elem*NUM_FACES + dir];
+                        if(lookup!=LOOK_UP_TABLE_DEFAULT)
+                        {
+                            if(pNodes[lookup].getLevel() > regLevel )
+                            {  
+                                
+                                this->getFinerFaceNeighbors(elem, dir, fchild);
+                                eid.push_back(fchild[0]);
+                                eid.push_back(fchild[1]);
+                                eid.push_back(fchild[2]);
+                                eid.push_back(fchild[3]);
+
+
+                            }else
+                            {   
+                                // neighbour octant is same lev or coarser
+                                assert(pNodes[lookup].getLevel() <= regLevel );
+                                eid.push_back(lookup);
+
+                            }
+
+                        }
+                    }
+
+                    if(ei==emax)
+                    { 
+                        // OCT_DIR_RIGHT
+                        const unsigned int dir = OCT_DIR_RIGHT;
+                        lookup = e2e[elem*NUM_FACES + dir];
+                        
+                        if(lookup!=LOOK_UP_TABLE_DEFAULT)
+                        {
+                            if(pNodes[lookup].getLevel() > regLevel )
+                            {  
+                                
+                                this->getFinerFaceNeighbors(elem, dir, fchild);
+                                eid.push_back(fchild[0]);
+                                eid.push_back(fchild[1]);
+                                eid.push_back(fchild[2]);
+                                eid.push_back(fchild[3]);
+
+
+                            }else
+                            {   
+                                // neighbour octant is same lev or coarser
+                                assert(pNodes[lookup].getLevel() <= regLevel );
+                                eid.push_back(lookup);
+
+                            }
+
+                        }
+
+                    }
+
+                    if(ej==emin)
+                    {   
+                        // OCT_DIR_DOWN
+                        const unsigned int dir = OCT_DIR_DOWN;
+                        lookup = e2e[elem*NUM_FACES + dir];
+                        
+                        if(lookup!=LOOK_UP_TABLE_DEFAULT)
+                        {
+                            if(pNodes[lookup].getLevel() > regLevel )
+                            {  
+                                
+                                this->getFinerFaceNeighbors(elem, dir, fchild);
+                                eid.push_back(fchild[0]);
+                                eid.push_back(fchild[1]);
+                                eid.push_back(fchild[2]);
+                                eid.push_back(fchild[3]);
+
+
+                            }else
+                            {   
+                                // neighbour octant is same lev or coarser
+                                assert(pNodes[lookup].getLevel() <= regLevel );
+                                eid.push_back(lookup);
+
+                            }
+
+                        }
+
+                    }
+
+                    if(ej==emax)
+                    {   
+                        
+                        // OCT_DIR_UP
+                        const unsigned int dir = OCT_DIR_UP;
+                        lookup = e2e[elem*NUM_FACES + dir];
+                        if(lookup!=LOOK_UP_TABLE_DEFAULT)
+                        {
+                            if(pNodes[lookup].getLevel() > regLevel )
+                            {  
+                                
+                                this->getFinerFaceNeighbors(elem, dir, fchild);
+                                eid.push_back(fchild[0]);
+                                eid.push_back(fchild[1]);
+                                eid.push_back(fchild[2]);
+                                eid.push_back(fchild[3]);
+
+
+                            }else
+                            {   
+                                // neighbour octant is same lev or coarser
+                                assert(pNodes[lookup].getLevel() <= regLevel );
+                                eid.push_back(lookup);
+
+                            }
+
+                        }
+
+                    }
+
+
+                    if(ek==emin)
+                    {   
+                        // OCT_DIR_BACK
+                        const unsigned int dir = OCT_DIR_BACK;
+                        lookup = e2e[elem*NUM_FACES + dir];
+                        if(lookup!=LOOK_UP_TABLE_DEFAULT)
+                        {
+                            if(pNodes[lookup].getLevel() > regLevel )
+                            {  
+                                
+                                this->getFinerFaceNeighbors(elem, dir, fchild);
+                                eid.push_back(fchild[0]);
+                                eid.push_back(fchild[1]);
+                                eid.push_back(fchild[2]);
+                                eid.push_back(fchild[3]);
+
+
+                            }else
+                            {   
+                                // neighbour octant is same lev or coarser
+                                assert(pNodes[lookup].getLevel() <= regLevel );
+                                eid.push_back(lookup);
+
+                            }
+
+                        }
+
+                    }
+
+                    if(ek==emax)
+                    {
+                        // OCT_DIR_FRONT
+                        const unsigned int dir = OCT_DIR_FRONT;
+                        lookup = e2e[elem*NUM_FACES + dir];
+                        if(lookup!=LOOK_UP_TABLE_DEFAULT)
+                        {
+                            if(pNodes[lookup].getLevel() > regLevel )
+                            {  
+                                
+                                this->getFinerFaceNeighbors(elem, dir, fchild);
+                                eid.push_back(fchild[0]);
+                                eid.push_back(fchild[1]);
+                                eid.push_back(fchild[2]);
+                                eid.push_back(fchild[3]);
+
+
+                            }else
+                            {   
+                                // neighbour octant is same lev or coarser
+                                assert(pNodes[lookup].getLevel() <= regLevel );
+                                eid.push_back(lookup);
+
+                            }
+
+                        }   
+                        
+                    }
+                
+                }
+
+            }
+
+            
+            // now look for edge neighbors and vertex neighbors of the block, this is only needed when the padding width is >0
+            if(pWidth>0)
+            {
+                const std::vector<unsigned int> blk2Edge_map = blkList[blk].getBlk2DiagMap_vec();
+                const std::vector<unsigned int> blk2Vert_map = blkList[blk].getBlk2VertexMap_vec();
+                const unsigned int blk_ele_1D = blkList[blk].getElemSz1D();
+
+                for(unsigned int edir =0; edir < NUM_EDGES; edir++)
+                {
+
+                    for(unsigned int k=0; k< blk_ele_1D; k++)
+                    {
+
+                        if(blk2Edge_map[edir*(2*blk_ele_1D) + 2*k] != LOOK_UP_TABLE_DEFAULT)
+                        {
+                            if(blk2Edge_map[edir*(2*blk_ele_1D) + 2*k+0] == blk2Edge_map[edir*(2*blk_ele_1D) + 2*k+1])
+                            {
+                                lookup = blk2Edge_map[edir*(2*blk_ele_1D) + 2*k+0];
+                                eid.push_back(lookup);
+
+                                
+                            }else
+                            {
+                                lookup = blk2Edge_map[edir*(2*blk_ele_1D) + 2*k+0];
+                                eid.push_back(lookup);
+                                
+                                lookup = blk2Edge_map[edir*(2*blk_ele_1D) + 2*k+1];
+                                eid.push_back(lookup);
+
+                            }
+                        }
+                        
+                    }
+
+                }
+
+                
+                for(unsigned int k=0; k < blk2Vert_map.size(); k++)
+                {
+                    lookup = blk2Vert_map[k];
+
+                    if(lookup!=LOOK_UP_TABLE_DEFAULT)
+                        eid.push_back(lookup);
+
+                }
+
+            
+            }
+
+            std::sort(eid.begin(),eid.end());
+            eid.erase(std::unique(eid.begin(),eid.end()),eid.end());
+        
+        }
+
+        return;
+
     }
 
 

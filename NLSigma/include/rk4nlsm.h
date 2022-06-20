@@ -22,7 +22,8 @@
 #include "parameters.h"
 #include "nlsm.h"
 #include "rhs.h"
-#include "test/meshTestUtils.h"
+#include "meshTestUtils.h"
+#include "mathMeshUtils.h"
 
 
 static const double RK4_C[]={1.0/6.0,1.0/3.0,1.0/3.0,1.0/6.0};
@@ -116,6 +117,9 @@ namespace ode
         private:
             /** apply intial conditions*/
             void applyInitialConditions(double ** zipIn);
+
+            /**performs initial grid convergence until the mesh converges to initial data. */
+            void initialGridConverge();
 
             /** reallocates mpi resources if the mesh is changed, (need to be called during refmesing)*/
             void reallocateMPIResources();

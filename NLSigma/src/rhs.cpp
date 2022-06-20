@@ -34,7 +34,7 @@ void nlsmRhs(double **unzipVarsRHS, const double **uZipVars,
 
   unsigned int n = sz[0]*sz[1]*sz[2];
 
-nlsm::timer::t_deriv.start();
+  nlsm::timer::t_deriv.start();
 
   double *grad_0_chi = new double [n];
   double *grad_1_chi = new double [n];
@@ -52,7 +52,7 @@ nlsm::timer::t_deriv.start();
   deriv_yy(grad2_1_1_chi, chi, hy, sz, bflag);
   deriv_zz(grad2_2_2_chi, chi, hz, sz, bflag);
 
-nlsm::timer::t_deriv.stop();
+  nlsm::timer::t_deriv.stop();
 
   register double x;
   register double y;
@@ -61,92 +61,78 @@ nlsm::timer::t_deriv.stop();
 
   double r;
   double eta;
+  const unsigned int PW=nlsm::NLSM_PADDING_WIDTH;
 
   //cout << "begin loop" << endl;
-  for (unsigned int k = 3; k < nz-3; k++) {
+  for (unsigned int k = PW; k < nz-PW; k++) {
       z = pmin[2] + k*hz;
 
-    for (unsigned int j = 3; j < ny-3; j++) {
+    for (unsigned int j = PW; j < ny-PW; j++) {
        y = pmin[1] + j*hy;
 
-      for (unsigned int i = 3; i < nx-3; i++) {
+      for (unsigned int i = PW; i < nx-PW; i++) {
          x = pmin[0] + i*hx;
          pp = i + nx*(j + ny*k);
          r= sqrt(x*x + y*y + z*z);
 
-#if NONLINEAR
-         if (r > 1.0e-17) {
-
-
-nlsm::timer::t_rhs.start();
-
-#include "nlsm_eqs.cpp"
-
-nlsm::timer::t_rhs.stop();
-         } else {
-           chi_rhs[pp] = 0.0;
-           phi_rhs[pp] = 0.0;
-         }
-#else
-         phi_rhs[pp] = grad2_0_0_chi[pp]+grad2_1_1_chi[pp]+grad2_2_2_chi[pp];
-//--
-         chi_rhs[pp] = phi[pp];
-#endif
-
-
-
-       /* debugging */
-        unsigned int qi = 46 - 1;
-        unsigned int qj = 10 - 1;
-        unsigned int qk = 60 - 1;
-        unsigned int qidx = qi + nx*(qj + ny*qk);
-        if (0 && qidx == pp) {
-          std::cout << ".... end OPTIMIZED debug stuff..." << std::endl;
-        }
+        nlsm::timer::t_rhs.start();
+        #ifdef NLSM_NONLINEAR
+          if (r > 1.0e-6) {
+            phi_rhs[pp] =  NLSM_WAVE_SPEED_X*grad2_0_0_chi[pp] + NLSM_WAVE_SPEED_Y*grad2_1_1_chi[pp] + NLSM_WAVE_SPEED_Z*grad2_2_2_chi[pp] - sin(2*chi[pp])/pow(r, 2);
+            chi_rhs[pp] = phi[pp];
+          } else {
+            chi_rhs[pp] = 0.0;
+            phi_rhs[pp] = 0.0;
+          }
+        #else
+          phi_rhs[pp] =  NLSM_WAVE_SPEED_X*grad2_0_0_chi[pp] + NLSM_WAVE_SPEED_Y*grad2_1_1_chi[pp] + NLSM_WAVE_SPEED_Z*grad2_2_2_chi[pp];
+          chi_rhs[pp] = phi[pp];
+        #endif
+        nlsm::timer::t_rhs.stop();
 
       }
     }
   }
 
-
   if (bflag != 0) {
 
-    nlsm::timer::t_bdyc.start();
+      nlsm::timer::t_bdyc.start();
 
-    deriv_x(grad_0_chi, chi, hx, sz, bflag);
-    deriv_y(grad_1_chi, chi, hy, sz, bflag);
-    deriv_z(grad_2_chi, chi, hz, sz, bflag);
+      deriv_x(grad_0_chi, chi, hx, sz, bflag);
+      deriv_y(grad_1_chi, chi, hy, sz, bflag);
+      deriv_z(grad_2_chi, chi, hz, sz, bflag);
 
-    deriv_x(grad_0_phi, phi, hx, sz, bflag);
-    deriv_y(grad_1_phi, phi, hy, sz, bflag);
-    deriv_z(grad_2_phi, phi, hz, sz, bflag);
+      deriv_x(grad_0_phi, phi, hx, sz, bflag);
+      deriv_y(grad_1_phi, phi, hy, sz, bflag);
+      deriv_z(grad_2_phi, phi, hz, sz, bflag);
 
-    nlsm_bcs(chi_rhs, chi, grad_0_chi, grad_1_chi, grad_2_chi, pmin, pmax,
-             1.0, 0.0, sz, bflag);
-    nlsm_bcs(phi_rhs, phi, grad_0_phi, grad_1_phi, grad_2_phi, pmin, pmax,
-             1.0, 0.0, sz, bflag);
-    nlsm::timer::t_bdyc.stop();
+      nlsm_bcs(chi_rhs, chi, grad_0_chi, grad_1_chi, grad_2_chi, pmin, pmax,
+              1.0, 0.0, sz, bflag);
+      nlsm_bcs(phi_rhs, phi, grad_0_phi, grad_1_phi, grad_2_phi, pmin, pmax,
+              1.0, 0.0, sz, bflag);
+      nlsm::timer::t_bdyc.stop();
+    
   }
 
 
-nlsm::timer::t_deriv.start();
-ko_deriv_x(grad_0_chi, chi, hx, sz, bflag);
-ko_deriv_y(grad_1_chi, chi, hy, sz, bflag);
-ko_deriv_z(grad_2_chi, chi, hz, sz, bflag);
+  nlsm::timer::t_deriv.start();
+  ko_deriv_x(grad_0_chi, chi, hx, sz, bflag);
+  ko_deriv_y(grad_1_chi, chi, hy, sz, bflag);
+  ko_deriv_z(grad_2_chi, chi, hz, sz, bflag);
 
-ko_deriv_x(grad_0_phi, phi, hx, sz, bflag);
-ko_deriv_y(grad_1_phi, phi, hy, sz, bflag);
-ko_deriv_z(grad_2_phi, phi, hz, sz, bflag);
-nlsm::timer::t_deriv.stop();
+  ko_deriv_x(grad_0_phi, phi, hx, sz, bflag);
+  ko_deriv_y(grad_1_phi, phi, hy, sz, bflag);
+  ko_deriv_z(grad_2_phi, phi, hz, sz, bflag);
+  nlsm::timer::t_deriv.stop();
 
-nlsm::timer::t_rhs.start();
+  nlsm::timer::t_rhs.start();
 
   const  double sigma = KO_DISS_SIGMA;
 
 
-  for (unsigned int k = 3; k < nz-3; k++) {
-    for (unsigned int j = 3; j < ny-3; j++) {
-      for (unsigned int i = 3; i < nx-3; i++) {
+  for (unsigned int k = PW; k < nz-PW; k++) {
+    for (unsigned int j = PW; j < ny-PW; j++) {
+      for (unsigned int i = PW; i < nx-PW; i++) {
         pp = i + nx*(j + ny*k);
 
         chi_rhs[pp]  += sigma * (grad_0_chi[pp] + grad_1_chi[pp] + grad_2_chi[pp]);
@@ -160,27 +146,27 @@ nlsm::timer::t_rhs.start();
 
 
 
-nlsm::timer::t_deriv.start();
+  nlsm::timer::t_deriv.start();
 
-delete [] grad2_0_0_chi;
-delete [] grad2_1_1_chi;
-delete [] grad2_2_2_chi;
+  delete [] grad2_0_0_chi;
+  delete [] grad2_1_1_chi;
+  delete [] grad2_2_2_chi;
 
-delete [] grad_0_chi;
-delete [] grad_1_chi;
-delete [] grad_2_chi;
+  delete [] grad_0_chi;
+  delete [] grad_1_chi;
+  delete [] grad_2_chi;
 
-delete [] grad_0_phi;
-delete [] grad_1_phi;
-delete [] grad_2_phi;
+  delete [] grad_0_phi;
+  delete [] grad_1_phi;
+  delete [] grad_2_phi;
 
-nlsm::timer::t_deriv.stop();
+  nlsm::timer::t_deriv.stop();
 
-#if 0
-  for (unsigned int m = 0; m < 24; m++) {
-    std::cout<<"  || dtu("<<m<<")|| = "<<normLInfty(unzipVarsRHS[m] + offset, n)<<std::endl;
-  }
-#endif
+  #if 0
+    for (unsigned int m = 0; m < 24; m++) {
+      std::cout<<"  || dtu("<<m<<")|| = "<<normLInfty(unzipVarsRHS[m] + offset, n)<<std::endl;
+    }
+  #endif
 
 
 
@@ -206,12 +192,13 @@ void nlsm_bcs(double *f_rhs, const double *f,
   double hy = (pmax[1] - pmin[1]) / (ny - 1);
   double hz = (pmax[2] - pmin[2]) / (nz - 1);
 
-  unsigned int ib = 3;
-  unsigned int jb = 3;
-  unsigned int kb = 3;
-  unsigned int ie = sz[0]-3;
-  unsigned int je = sz[1]-3;
-  unsigned int ke = sz[2]-3;
+  const unsigned int PW=nlsm::NLSM_PADDING_WIDTH;
+  unsigned int ib = PW;
+  unsigned int jb = PW;
+  unsigned int kb = PW;
+  unsigned int ie = sz[0]-PW;
+  unsigned int je = sz[1]-PW;
+  unsigned int ke = sz[2]-PW;
 
   double x,y,z;
   unsigned int pp;
@@ -226,12 +213,17 @@ void nlsm_bcs(double *f_rhs, const double *f,
          pp = IDX(ib,j,k);
          inv_r = 1.0 / sqrt(x*x + y*y + z*z);
 
+#ifdef NLSM_DIRICHLET_BDY
+        f_rhs[pp] =0.0;
+#else
+
 
         f_rhs[pp] = -  inv_r * (
                          x * dxf[pp]
                        + y * dyf[pp]
                        + z * dzf[pp]
                        + f_falloff * (   f[pp] - f_asymptotic ) );
+#endif
 
       }
     }
@@ -246,11 +238,17 @@ void nlsm_bcs(double *f_rhs, const double *f,
          pp = IDX((ie-1),j,k);
          inv_r = 1.0 / sqrt(x*x + y*y + z*z);
 
+#ifdef NLSM_DIRICHLET_BDY
+        f_rhs[pp] =0.0;
+#else
+
+
         f_rhs[pp] = -  inv_r * (
                          x * dxf[pp]
                        + y * dyf[pp]
                        + z * dzf[pp]
                        + f_falloff * (   f[pp] - f_asymptotic ) );
+#endif
 
       }
     }
@@ -265,11 +263,17 @@ void nlsm_bcs(double *f_rhs, const double *f,
          inv_r = 1.0 / sqrt(x*x + y*y + z*z);
          pp = IDX(i,jb,k);
 
+#ifdef NLSM_DIRICHLET_BDY
+        f_rhs[pp] =0.0;
+#else
+
+
         f_rhs[pp] = -  inv_r * (
                          x * dxf[pp]
                        + y * dyf[pp]
                        + z * dzf[pp]
                        + f_falloff * (   f[pp] - f_asymptotic ) );
+#endif
 
       }
     }
@@ -284,11 +288,17 @@ void nlsm_bcs(double *f_rhs, const double *f,
          inv_r = 1.0 / sqrt(x*x + y*y + z*z);
          pp = IDX(i,(je-1),k);
 
+#ifdef NLSM_DIRICHLET_BDY
+        f_rhs[pp] =0.0;
+#else
+
+
         f_rhs[pp] = -  inv_r * (
                          x * dxf[pp]
                        + y * dyf[pp]
                        + z * dzf[pp]
                        + f_falloff * (   f[pp] - f_asymptotic ) );
+#endif
 
       }
     }
@@ -303,11 +313,17 @@ void nlsm_bcs(double *f_rhs, const double *f,
          inv_r = 1.0 / sqrt(x*x + y*y + z*z);
          pp = IDX(i,j,kb);
 
-        f_rhs[pp] = - inv_r * (
+#ifdef NLSM_DIRICHLET_BDY
+        f_rhs[pp] =0.0;
+#else
+
+
+        f_rhs[pp] = -  inv_r * (
                          x * dxf[pp]
                        + y * dyf[pp]
                        + z * dzf[pp]
                        + f_falloff * (   f[pp] - f_asymptotic ) );
+#endif
 
       }
     }
@@ -321,12 +337,19 @@ void nlsm_bcs(double *f_rhs, const double *f,
         x = pmin[0] + i*hx;
         inv_r = 1.0 / sqrt(x*x + y*y + z*z);
         pp = IDX(i,j,(ke-1));
+        
+#ifdef NLSM_DIRICHLET_BDY
+        f_rhs[pp] =0.0;
+#else
 
-        f_rhs[pp] = - inv_r * (
+
+        f_rhs[pp] = -  inv_r * (
                          x * dxf[pp]
                        + y * dyf[pp]
                        + z * dzf[pp]
                        + f_falloff * (   f[pp] - f_asymptotic ) );
+#endif
+        
 
       }
     }

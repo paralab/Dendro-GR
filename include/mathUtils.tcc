@@ -87,12 +87,12 @@ template <typename T>
 T vecMin(T * vec,unsigned int n)
 {
     if((std::isnan(vec[0]))) return NAN;
-    T min=fabs(vec[0]);
+    T min=(vec[0]);
     for(unsigned int i=1;i<n;i++)
     {
         if((std::isnan(vec[i]))) return NAN;
 
-        if(min>fabs(vec[i]))min=fabs(vec[i]);
+        if(min>(vec[i]))min=(vec[i]);
     }
 
 
@@ -104,12 +104,12 @@ template <typename T>
 T vecMax(T * vec,unsigned int n)
 {
     if((std::isnan(vec[0]))) return NAN;
-    T max=fabs(vec[0]);
+    T max=(vec[0]);
     for(unsigned int i=1;i<n;i++)
     {
         if((std::isnan(vec[i]))) return NAN;
 
-        if(max<fabs(vec[i]))max=fabs(vec[i]);
+        if(max<(vec[i]))max=(vec[i]);
     }
 
 
@@ -240,4 +240,43 @@ T subt(const T* v1, const T*v2,const unsigned int n, T* out)
 {
     for(unsigned int i=0;i<n;i++)
         out[i]=v1[i]-v2[i];
+}
+
+template<typename T>
+void kron(const T* M1, const T* M2, T* out, unsigned int r1,unsigned int c1, unsigned int r2, unsigned int c2)
+{
+    const unsigned int r3 = r1*r2;
+    const unsigned int c3 = c1*c2;
+
+    unsigned int sR, sC;
+	
+	for(unsigned int i=0; i<r1; i++ ) {
+		for(unsigned int j=0; j<c1; j++){
+			sR = i*r2;
+			sC = j*c2;
+
+			for(unsigned int k=0; k<r2; k++){
+				for(unsigned int l=0; l<c2; l++){
+					out[(sR+k)*c3 + (sC+l)] = M1[i*c1 + j] * M2[ k*c2 + l] ;
+				}
+			}
+		}
+	}
+    
+}
+
+template<typename T>
+void min_mean_max(T* stat, T* stat_g, MPI_Comm comm)
+{
+    int rank,npes;
+    MPI_Comm_size(comm,&npes);
+    MPI_Comm_rank(comm,&rank);
+
+    par::Mpi_Reduce(stat,stat_g,1,MPI_MIN,0,comm);
+    par::Mpi_Reduce(stat,stat_g+1,1,MPI_SUM,0,comm);
+    par::Mpi_Reduce(stat,stat_g+2,1,MPI_MAX,0,comm);
+    stat_g[1]/=(npes);
+
+    return;
+
 }

@@ -27,6 +27,8 @@
 #define __POINT_H
 
 #include  <cmath>
+#include "mpi.h"
+#include <ostream>
 
 /**
   @brief A point class
@@ -103,5 +105,66 @@ class Point{
     double _y;
     double _z;
 };
+
+
+
+namespace par {
+
+    //Forward Declaration
+    template <typename T>
+    class Mpi_datatype;
+
+    template <>
+    class Mpi_datatype<Point > {
+        
+        
+        static void Point_SUM(void *in, void *inout, int* len, MPI_Datatype * dptr) {
+            for(int i = 0; i < (*len); i++) {
+                Point p1 = (static_cast<Point*>(in))[i];
+                Point p2 = (static_cast<Point*>(inout))[i];
+                (static_cast<Point*>(inout))[i] +=p1;
+            }//end for
+        }//end function
+        
+
+    public:
+        /**
+         *@brief define MPI_SUM operator on Points
+         */
+        static MPI_Op _SUM() {
+            static bool first = true;
+            static MPI_Op sum;
+            if (first) {
+                first = false;
+                MPI_Op_create(Mpi_datatype<Point>::Point_SUM ,true ,&sum);
+            }
+            return sum;
+        }
+        
+        /**
+         * @return The MPI_Datatype corresponding to the datatype Point.
+         */
+        static MPI_Datatype value()
+        {
+            static bool         first = true;
+            static MPI_Datatype datatype;
+
+            if (first)
+            {
+                first = false;
+                MPI_Type_contiguous(sizeof(Point), MPI_BYTE, &datatype);
+                MPI_Type_commit(&datatype);
+            }
+
+            return datatype;
+        }
+
+    };
+
+}//end namespace par
+
+/**@brief: ostreem operator overload for the point class. */
+std::ostream& operator<<(std::ostream& os, Point const& other);
+
 
 #endif // POINT_H

@@ -52,7 +52,7 @@ namespace seq {
     @param idx 0-based index of the position of the key in the array
     @return 'true' if the key exists in the array and 'false' otherwise	
     */
-  template <typename T>
+    template <typename T>
     bool BinarySearch(const T* arr, unsigned int nelem, const T & key, unsigned int *idx) ;
 
   /**
@@ -64,7 +64,7 @@ namespace seq {
     @param key The search key
     @return the index of the first element in the array >= key	
     */
-  template <typename T>
+    template <typename T>
     int UpperBound (unsigned int nelem,const  T * arr,unsigned int startIdx, const T & key);
 
   /**
@@ -78,9 +78,8 @@ namespace seq {
     @param rightIdx if this is not NULL, then the search will be limited to elements at positions <= *rightIdx
     @return 'true' if the search was successful
     */
-  template <typename T>
-    bool maxLowerBound(const std::vector<T> & arr,const T & key, unsigned int & retIdx,
-        unsigned int* leftIdx, unsigned int* rightIdx);
+    template <typename T>
+    bool maxLowerBound(const std::vector<T> & arr,const T & key, unsigned int & retIdx, unsigned int* leftIdx, unsigned int* rightIdx);
 
 
 

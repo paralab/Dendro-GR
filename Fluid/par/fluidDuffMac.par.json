@@ -1,0 +1,134 @@
+{
+
+  "__comment__(Conserved variable indices )" : "U_D=0,U_SX=1,U_SY=2,U_SZ=3,U_TAU=4",
+  "__comment__(Primitive variable indices )" : "V_RHO=0,V_VX=1,V_VY=2,V_VZ=3,V_P=4",
+
+  "DENDRO_VERSION": 5.0,
+
+  "__comment__" : "=============== IO ==================================",
+    "               " : "Set to 1 to restore solver from a checkpoint",
+    "FLUID_RESTORE_SOLVER" : 0,
+    "               " : "frequency for VTU output",
+    "FLUID_IO_OUTPUT_FREQ" : 10,
+    "               " : "frequency for remeshing test based on wavelets",
+    "FLUID_REMESH_TEST_FREQ" : 10,
+    "               " : "frequency for checkpoint output",
+    "FLUID_CHECKPT_FREQ" : 10000,
+    "               " : "VTU file output gap. (Not currently used. Might be useful in adaptive timestepping.)",
+    "FLUID_IO_OUTPUT_GAP" : 1,
+    "               " : "file prefix for the vtu files",
+    "FLUID_VTU_FILE_PREFIX" : "fluid_gr",
+    "               " : "file prefix for the checkpoint files",
+    "FLUID_CHKPT_FILE_PREFIX" : "fluid_cp",
+    "               " : "file prefix for the intermediate profile files",
+    "FLUID_PROFILE_FILE_PREFIX" : "fluid_prof",
+    "               " : "number of variables (evolution) to output in vtu files",
+    "FLUID_NUM_EVOL_VARS_VTU_OUTPUT" : 5,
+    "               " : "evolution variable ids",
+    "FLUID_VTU_OUTPUT_EVOL_INDICES" : [0,1,2,3,4],
+    "               " : "output to 2d slice only",
+    "FLUID_VTU_Z_SLICE_ONLY" : true,
+  "__comment__" : "=====================================================",
+
+  "__comment__" : "============== LOAD BALANCING & MESH ================",
+    "               " : "grain size N/p, where N is the total number of octants, p number of active cores",
+    "FLUID_DENDRO_GRAIN_SZ" : 100,
+    "               " : "variable group size for the asynchronous unzip operation",
+    "FLUID_ASYNC_COMM_K" : 5,
+    "               " : "dendro coarsening factor, coarsened if computed wavelet tol < FLUID_DENDRO_AMR_FAC*FLUID_WAVELET_TOL",
+    "FLUID_DENDRO_AMR_FAC" : 1.0,
+    "               " : "Dendro load imbalance tolerance for flexible partitioning",
+    "FLUID_LOAD_IMB_TOL" : 0.1,
+    "               " : "dimensionality of the octree, (meshing is supported only for 3D)",
+    "FLUID_DIM" : 3,
+    "               " : "maximum level of refinement of the mesh",
+    "FLUID_MAXDEPTH" : 8,
+  "__comment__" : "=====================================================",
+
+  "__comment__" : "============ WAVELET REFINEMENT =====================",
+    "               " : " wavelet tolerance",
+    "FLUID_WAVELET_TOL" : 1.00E-07,
+    "               " : "number of refinement variables",
+    "FLUID_NUM_REFINE_VARS" : 5,
+    "               " : "refinement variable IDs",
+    "FLUID_REFINE_VARIABLE_INDICES" : [0,4,5,6,7],
+  "__comment__" : "=====================================================",
+
+  "__comment__" : "============ RK SOLVER ==============================",
+    "               " : "simulation time begin",
+    "FLUID_RK_TIME_BEGIN" : 0,
+    "               " : "simulation time end",
+    "FLUID_RK_TIME_END" : 3,
+    "               " : "Preferred step size (this is overwritten with the specified CFL factor, not recommended to use this",
+    "FLUID_RK45_TIME_STEP_SIZE" : 0.01,
+    "               " : "Used in adaptive time stepping (not currently used)",
+    "FLUID_RK45_DESIRED_TOL" : 1.00E-03,
+  "__comment__" : "=====================================================",
+
+"KO_DISS_SIGMA" : 1.00E-01,
+
+  "__comment__" : "===== BLOCK ADAPTIVITY (NOT RECOMMENDED) ============",
+    "               " : "Set to 1 to disable AMR and use block adaptivity (not recommended)",
+    "FLUID_ENABLE_BLOCK_ADAPTIVITY" : 0,
+
+    "FLUID_BLK_MIN_X" : -0.99,
+
+    "FLUID_BLK_MIN_Y" : -0.99,
+
+    "FLUID_BLK_MIN_Z" : -0.99,
+
+    "FLUID_BLK_MAX_X" : 0.99,
+
+    "FLUID_BLK_MAX_Y" : 0.99,
+
+    "FLUID_BLK_MAX_Z" : 0.99,
+  "__comment__" : "=====================================================",
+
+  "__comment__" : "================= GRID SIZE =========================",
+    "FLUID_GRID_MIN_X" : -0.25,
+
+    "FLUID_GRID_MAX_X" : 0.25,
+
+    "FLUID_GRID_MIN_Y" : -0.25,
+
+    "FLUID_GRID_MAX_Y" : 0.25,
+
+    "FLUID_GRID_MIN_Z" : -0.25,
+
+    "FLUID_GRID_MAX_Z" : 0.25,
+  "__comment__" : "=====================================================",
+
+  "__comment__" : "============ FLUID PARAMETERS =======================",
+    "               " : "Set up a Duffell-MacFayden blast wave.",
+    "FLUID_ID_TYPE" : 7,
+    "               " : "Value of the adiabatic constant used for the ideal gas EOS",
+    "               " : "5/3 is Newtonian, 4/3 is ultrarelativistic",
+    "FLUID_GAMMA" : 1.6667,
+    "               " : "Vacuum constant for flooring density",
+    "FLUID_VACUUM" : 1.00E-10,
+    "               " : "Vacuum constant for flooring relativistic density",
+    "FLUID_VACUUM_D" : 1.00E-10,
+    "               " : "Vacuum constant for flooring tau",
+    "FLUID_VACUUM_TAU" : 1.00E-15,
+    "               " : "Option for which EOS to use. Should always be 1 for now.",
+    "FLUID_EOS_SOLVER" : 1,
+
+    "FLUID_USE_WAVE_SPEEDS" : 1,
+    "               " : "Affects what kinds of messages the primitive solver will spit out.",
+    "FLUID_CONTOPRIMWARN" : 1,
+    "               " : "Affects how frequently spherical averages should be performed.",
+    "               " : "Not currently implemented.",
+    "FLUID_AVERAGING_FREQUENCY" : 1,
+    "               " : "What the standard code length unit should be.",
+    "FLUID_UNITS_CLU" : 1.00,
+    "               " : "What the standard code mass unit should be.",
+    "FLUID_UNITS_CMU" : 1.00,
+    "               " : "What the standard code value for the Boltzmann constant should be.",
+    "FLUID_UNITS_CKB" : 1.00,
+    "               " : "Defines what method to use for reconstruction. 0 = None, 1 = Minmod, 2 = WENO3, 3 = WENO5, 4 = MP5",
+    "FLUID_RECON_METHOD" : 4,
+    "               " : "Defines which axis the cylindrical Gaussian is oriented along.",
+    "FLUID_CYL_GAUSSIAN_AXIS" : 0,
+  "__comment__" : "====================================================="
+
+}

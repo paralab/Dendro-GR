@@ -1,0 +1,142 @@
+
+{
+
+    "__comment__(Evolution variable indices )" : "U_ALPHA=0,U_CHI=1,U_K=2,U_GT0=3,U_GT1=4,U_GT2=5,U_BETA0=6,U_BETA1=7,U_BETA2=8,U_B0=9,U_B1=10,U_B2=11,U_SYMGT0=12,U_SYMGT1=13,U_SYMGT2=14,U_SYMGT3=15,U_SYMGT4=16,U_SYMGT5=17,U_SYMAT0=18,U_SYMAT1=19,U_SYMAT2=20,U_SYMAT3=21,U_SYMAT4=22,U_SYMAT5=23",
+    "__comment__(constraint variable indices)" : "C_HAM=0, C_MOM0=1, C_MOM1=2, C_MOM2=3, C_PSI4_REAL=4, C_PSI4_IMG=5",
+
+    "DENDRO_VERSION": 5.0,
+    "__comment__" : "========================================================= IO ======================================================================================",
+            "__comment__" : "Set to 1 restore solver from a checkpoint",
+            "BSSN_RESTORE_SOLVER":0,
+            "__comment__" : "frequency for VTU output",
+            "BSSN_IO_OUTPUT_FREQ": 10,
+            "__comment__" : "frequency for remeshing test based on wavelets",
+            "BSSN_REMESH_TEST_FREQ": 10,
+            "__comment__" : "frequency for checkpoint output",
+            "BSSN_CHECKPT_FREQ": 10,
+            "__comment__" : "VTU file output gap. (Not currently used. Might be usefull in adaptive timestepping)",
+            "BSSN_IO_OUTPUT_GAP": 1,
+            "__comment__" : "file prefix for the vtu files",
+            "BSSN_VTU_FILE_PREFIX": "bssn_gr",
+            "__comment__" : "file prefix for the checkpoint files",
+            "BSSN_CHKPT_FILE_PREFIX": "bssn_cp",
+            "__comment__" : "file prefix for the intermediate profile files",
+            "BSSN_PROFILE_FILE_PREFIX": "bssn_prof",
+            "__comment__" : "number of variables (evolution) to output in vtu files",
+            "BSSN_NUM_EVOL_VARS_VTU_OUTPUT": 4,
+            "__comment__" : "evolution variable ids",
+            "BSSN_VTU_OUTPUT_EVOL_INDICES": [0,1,2,3],
+            "__comment__" : "number of constraint variables to ouput in vtu files",
+            "BSSN_NUM_CONST_VARS_VTU_OUTPUT": 6,
+            "__comment__" : "constraint variable var ids",
+            "BSSN_VTU_OUTPUT_CONST_INDICES": [0,1,2,3,4,5],
+    "__comment__" : "====================================================================================================================================================",
+
+
+    "__comment__" : "====================================== LOAD BALANCING & MESH ======================================================================================",
+            "__comment__" : "grain size N/p , Where N number of total octants, p number of active cores",
+            "BSSN_DENDRO_GRAIN_SZ": 100,
+            "__comment__" : "variable group size for the asynchronous unzip operation",
+            "BSSN_ASYNC_COMM_K": 4,
+            "__comment__" : "dendro coarsening factor, corsent if computed wavelet tol < BSSN_DENDRO_AMR_FAC*BSSN_WAVELET_TOL ",
+            "BSSN_DENDRO_AMR_FAC": 1.0,
+            "__comment__" : "wavelet tolerance ",
+            "BSSN_WAVELET_TOL": 1e-3,
+            "__comment__" : "dendro load imbalance tolerance for flexible partitioning",
+            "BSSN_LOAD_IMB_TOL": 0.1,
+            "__comment__" : "dimentionality of the octree, (meshing is supported only for 3D)",
+            "BSSN_DIM": 3,
+            "__comment__" : "maximum level of refinement of the mesh",
+            "BSSN_MAXDEPTH": 12,
+            "__comment__" : "number of refinement variables",
+            "BSSN_NUM_REFINE_VARS":1,
+            "__comment__" : "refinement variable IDs",
+            "BSSN_REFINE_VARIABLE_INDICES":[0],
+    "__comment__" : "====================================================================================================================================================",
+
+
+    "__comment__" : "================================================== RK SOLVER ======================================================================================",
+            "__comment__" : "simulation time begin",
+            "BSSN_RK45_TIME_BEGIN": 0,
+            "__comment__" : "simulation time end",
+            "BSSN_RK45_TIME_END": 1000,
+            "__comment__" : "prefered time step size (this is overwrited with the specified CFL factor, not recommend to use this)",
+            "BSSN_RK45_TIME_STEP_SIZE": 0.01,
+            "__comment__" : "used in adaptive time stepping (not currently used)",
+            "BSSN_RK45_DESIRED_TOL":1e-3,
+    "__comment__" : "====================================================================================================================================================",
+
+
+    "__comment__" : "================================================== BLOCK Adaptivity (Not Recommended use AMR) ======================================================",
+            "__comment__" : "Set to 1 disable AMR and use block adaptivity (not recomended). ",
+            "BSSN_ENABLE_BLOCK_ADAPTIVITY":0,
+            "BSSN_BLK_MIN_X": -6.0,
+            "BSSN_BLK_MIN_Y": -6.0,
+            "BSSN_BLK_MIN_Z": -6.0,
+            "BSSN_BLK_MAX_X": 6.0,
+            "BSSN_BLK_MAX_Y": 6.0,
+            "BSSN_BLK_MAX_Z": 6.0,
+    "__comment__" : "====================================================================================================================================================",
+
+    "__comment__" : "================================================== BSSN Parameters==================================================================================",
+            "ETA_CONST": 2.0,
+            "ETA_R0": 30.0,
+            "ETA_DAMPING": 1.0,
+            "ETA_DAMPING_EXP": 1.0,
+            "BSSN_LAMBDA": {
+            "BSSN_LAMBDA_1": 1,
+            "BSSN_LAMBDA_2": 1,
+            "BSSN_LAMBDA_3": 1,
+            "BSSN_LAMBDA_4": 1
+            },
+
+            "BSSN_LAMBDA_F": {
+            "BSSN_LAMBDA_F0": 1.0,
+            "BSSN_LAMBDA_F1": 0.0
+            },
+
+            "CHI_FLOOR": 1e-4,
+            "BSSN_TRK0": 0.0,
+            "KO_DISS_SIGMA": 1e-1,
+    "__comment__" : "====================================================================================================================================================",
+
+
+    "__comment__" : "================================================== Black Hole ======================================================================================",
+            "__comment__" : "Set to 1 disable AMR and use block adaptivity (not recomended). ",
+            "BSSN_GRID_MIN_X": -100.0,
+            "BSSN_GRID_MAX_X":  100.0,
+            "BSSN_GRID_MIN_Y": -100.0,
+            "BSSN_GRID_MAX_Y":  100.0,
+            "BSSN_GRID_MIN_Z": -100.0,
+            "BSSN_GRID_MAX_Z":  100.0,
+
+             "BSSN_BH1": {
+                 "MASS":0.4824,
+                 "X":-4.0,
+                 "Y":0.0,
+                 "Z": 0.00123e-6,
+                 "V_X": 0.0,
+                 "V_Y": -0.074,
+                 "V_Z": 0,
+                 "SPIN": 0,
+                 "SPIN_THETA":0,
+                 "SPIN_PHI": 0
+               },
+               "BSSN_BH2": {
+                   "MASS":4.824,
+                   "X":4.0,
+                   "Y":0.0,
+                   "Z":0.00123e-6,
+                   "V_X": 0.0,
+                   "V_Y": 0.074,
+                   "V_Z": 0,
+                   "SPIN": 0,
+                   "SPIN_THETA":0,
+                   "SPIN_PHI": 0
+               },
+
+    "__comment__" : "===================================================================================================================================================="
+
+
+
+  }

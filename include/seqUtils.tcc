@@ -13,13 +13,13 @@
 #include <cstdlib>
 #include <algorithm>
 #include <assert.h>
-#include <test/testUtils.h>
+#include "testUtils.h"
 
 
 namespace seq {
 
   template <typename T>
-    bool BinarySearch(const T* arr, unsigned int nelem, const T & key, unsigned int *ret_idx) {
+  bool BinarySearch(const T* arr, unsigned int nelem, const T & key, unsigned int *ret_idx) {
       if(!nelem) {*ret_idx = nelem; return false;}
       unsigned int left = 0;
       unsigned int right = (nelem -1);	
@@ -39,11 +39,12 @@ namespace seq {
       }//end while
       *ret_idx = nelem;	
       return false;
-    }//end function
+  }//end function
 
+  
   template <typename T>
-    int UpperBound (unsigned int p,const T * splitt,unsigned int itr, const T & elem)
-    {
+  int UpperBound (unsigned int p,const T * splitt,unsigned int itr, const T & elem)
+  {
       if (itr >= p) {
         return p;
       }
@@ -55,60 +56,59 @@ namespace seq {
         }
       }//end while
       return itr;
-    }//end function
+  }//end function
 
   template <typename T>
-    bool maxLowerBound(const std::vector<T>& arr, const T & key, unsigned int &ret_idx,
-        unsigned int* leftIdx, unsigned int* rightIdx ) {
+  bool maxLowerBound(const std::vector<T>& arr, const T & key, unsigned int &ret_idx, unsigned int* leftIdx, unsigned int* rightIdx ) {
 
 
-      unsigned int nelem = static_cast<unsigned int>(arr.size());
-      ret_idx = 0;
-      if(!nelem) { return false;}
-      if(arr[0] > key) {	return false;   }
-      if(arr[nelem-1] < key) {
-        ret_idx = (nelem-1);
+    unsigned int nelem = static_cast<unsigned int>(arr.size());
+    ret_idx = 0;
+    if(!nelem) { return false;}
+    if(arr[0] > key) {	return false;   }
+    if(arr[nelem-1] < key) {
+      ret_idx = (nelem-1);
+      return true;
+    }//end if	
+    //binary search
+    unsigned int left = 0;
+    unsigned int right = (nelem -1);	
+    unsigned int mid = 0;
+    if(leftIdx) {
+      left = (*leftIdx);
+    }
+    if(rightIdx) {
+      right = (*rightIdx);
+    }
+    while (left <= right) {
+      mid = (unsigned int)( left + (unsigned int)(floor((double)(right-left)/2.0)) );
+      if (key > arr[mid]) {
+        left  = mid + (1u);
+      } else if (key < arr[mid]){
+        if(mid>0) {
+          right = mid-1;
+        }else {
+          right=0;
+          break;
+        }
+      } else {
+        ret_idx = mid;
         return true;
-      }//end if	
-      //binary search
-      unsigned int left = 0;
-      unsigned int right = (nelem -1);	
-      unsigned int mid = 0;
-      if(leftIdx) {
-        left = (*leftIdx);
-      }
-      if(rightIdx) {
-        right = (*rightIdx);
-      }
-      while (left <= right) {
-        mid = (unsigned int)( left + (unsigned int)(floor((double)(right-left)/2.0)) );
-        if (key > arr[mid]) {
-          left  = mid + (1u);
-        } else if (key < arr[mid]){
-          if(mid>0) {
-            right = mid-1;
-          }else {
-            right=0;
-            break;
-          }
-        } else {
-          ret_idx = mid;
-          return true;
-        }//end if-else-if
-      }//end while
+      }//end if-else-if
+    }//end while
 
-      //If binary search did not find an exact match, it would have
-      //stopped one element after or one element before. 
+    //If binary search did not find an exact match, it would have
+    //stopped one element after or one element before. 
 
-      if( (arr[mid] > key) && (mid > 0) ){ mid--; }	
-      if(arr[mid] <= key ) { ret_idx = mid; return true; }
-      else { ret_idx = 0; return false;}
-    }//end function
+    if( (arr[mid] > key) && (mid > 0) ){ mid--; }	
+    if(arr[mid] <= key ) { ret_idx = mid; return true; }
+    else { ret_idx = 0; return false;}
+  }//end function
 
 
   template <typename T>
-    void flashsort(T* a, int n, int m, int *ctr)
-    {
+  void flashsort(T* a, int n, int m, int *ctr)
+  {
       const int THRESHOLD = 75;
       const int CLASS_SIZE = 75;     /* minimum value for m */
 
@@ -196,7 +196,7 @@ namespace seq {
                 a[j]=hold;
               }
         free(l);   /* need to free the memory we grabbed for the l vector */
-    }
+  }
 
 }//end namespace
 

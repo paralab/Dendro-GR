@@ -1,0 +1,57 @@
+{
+  
+
+  "__comment__(Evolution variable indices )" : "U_CHI=0,U_PHI=1",
+
+  "DENDRO_VERSION": 5.0,
+
+  "           " : "pvtu file path",
+  "NLSM_VTU_FILE_PREFIX": "nlsm_vtu",
+
+  "           " : "img file path",
+  "NLSM_IMG_FILE_PREFIX": "img",
+
+  "           " : "begin time step",
+  "NLSM_TIMESTEP_BEGIN" : 0,
+
+  "           " : "begin time end",
+  "NLSM_TIMESTEP_END" : 30,
+
+  "           " : "io ouput frequency",
+  "NLSM_IO_OUTPUT_FREQ": 50,
+
+  "           " : "maxdepth of the run",
+  "NLSM_MAXDEPTH": 12,
+
+  "NLSM_NUM_EVOL_VARS_VTU_OUTPUT":4,
+  "           " : "evolution variable ids",
+  "NLSM_VTU_OUTPUT_EVOL_INDICES": [0,1,2,3],
+  "           " : "number of constraint variables to ouput in vtu files",
+  "NLSM_NUM_CONST_VARS_VTU_OUTPUT": 0,
+  "           " : "constraint variable var ids",
+  "NLSM_VTU_OUTPUT_CONST_INDICES": [0],
+
+  "           ": "resolution of the image",
+  "VTK_RENDER_VIEW_SIZE": [1600,900],
+
+  "                    ": "make the color bar visible",
+  "SET_COLOR_BAR_VISIBILITY": 0,
+
+  "                     ": "anotate the time in the images",
+  "ANNOTATE_TIME" : 1,
+
+  "           " : "Courant factor",
+  "NLSM_CFL_FACTOR": 0.25,
+
+  "           " : "Display mode (Surface, Surface With Edges,Wireframe,points)",
+  "PARAVIEW_DISPLAY_MODE": "Wireframe",
+
+  "__comment__" : "========== Black Hole ==================================",
+  "NLSM_GRID_MIN_X": -50.0,
+  "NLSM_GRID_MAX_X":  50.0,
+  "NLSM_GRID_MIN_Y": -50.0,
+  "NLSM_GRID_MAX_Y":  50.0,
+  "NLSM_GRID_MIN_Z": -50.0,
+  "NLSM_GRID_MAX_Z":  50.0
+
+}

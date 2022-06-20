@@ -1,7 +1,6 @@
 
 /**
-  @file OctFunctions.C
-  @brief A collection of simple functions for manipulating octrees.
+@brief A collection of simple functions for manipulating octrees.
 Examples: Regular Refinements, Linearizing an octree, I/O, 
 Nearest Common Ancestor, adding positive boundaries, marking hanging nodes 
 @author Rahul S. Sampath, rahul.sampath@gmail.com
@@ -28,11 +27,10 @@ Nearest Common Ancestor, adding positive boundaries, marking hanging nodes
 namespace ot {
 
   //inOct1 and inOct2 must be globally sorted and complete
-  int mergeOctrees(std::vector<TreeNode>& inOct1, std::vector<TreeNode>& inOct2,
-      std::vector<TreeNode>& outOct, MPI_Comm comm) {
+  int mergeOctrees(std::vector<TreeNode>& inOct1, std::vector<TreeNode>& inOct2, std::vector<TreeNode>& outOct, MPI_Comm comm) {
+    
     PROF_MERGE_OCTREES_BEGIN
-
-      int rank;
+    int rank;
     int npes;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &npes);
@@ -138,8 +136,7 @@ namespace ot {
     PROF_MERGE_OCTREES_END
   }//end function
 
-  int refineOctree(const std::vector<ot::TreeNode> & inp,
-      std::vector<ot::TreeNode> &out) {
+  int refineOctree(const std::vector<ot::TreeNode> & inp, std::vector<ot::TreeNode> &out) {
     out.clear();
     for(unsigned int i = 0; i < inp.size(); i++) {
       if(inp[i].getLevel() < inp[i].getMaxDepth()) {
@@ -151,15 +148,13 @@ namespace ot {
     return 1;
   }//end function 
 
-  int refineAndPartitionOctree(const std::vector<ot::TreeNode> & inp,
-      std::vector<ot::TreeNode> &out, MPI_Comm comm) {
+  int refineAndPartitionOctree(const std::vector<ot::TreeNode> & inp, std::vector<ot::TreeNode> &out, MPI_Comm comm) {
     refineOctree(inp,out);
     par::partitionW<ot::TreeNode>(out, NULL,comm);
     return 1;
   }//end function
 
-  int createRegularOctree(std::vector<ot::TreeNode>& out, unsigned int lev, 
-      unsigned int dim, unsigned int maxDepth, MPI_Comm comm) {
+  int createRegularOctree(std::vector<ot::TreeNode>& out, unsigned int lev, unsigned int dim, unsigned int maxDepth, MPI_Comm comm) {
     TreeNode root(dim,maxDepth);
     out.clear();
     int rank;
@@ -181,9 +176,9 @@ namespace ot {
     std::vector<ot::TreeNode> tmp;
     if(!(list.empty())) {
       for(unsigned int i = 0; i < (list.size()-1); i++) {
-#ifdef __DEBUG_OCT__
+    #ifdef __DEBUG_OCT__
         assert(areComparable(list[i], list[i+1]));
-#endif
+    #endif
         if( (!(list[i].isAncestor(list[i+1]))) && (list[i] != list[i+1]) ) {
           tmp.push_back(list[i]);
         }
@@ -257,6 +252,8 @@ namespace ot {
       }      
     }//not empty procs only
 
+    MPI_Comm_free(&new_comm);
+
     return 1;
   }//end fn.
 
@@ -287,10 +284,10 @@ namespace ot {
 
   //If one of first and second is an ancestor of the other, it is returned.  
   TreeNode getNCA(TreeNode first, TreeNode second) {
-#ifdef __DEBUG_OCT__
-    assert(areComparable(first,second));
-    assert(first != second);
-#endif
+    #ifdef __DEBUG_OCT__
+      assert(areComparable(first,second));
+      assert(first != second);
+    #endif
     unsigned int fx = first.getX();
     unsigned int sx = second.getX();
     unsigned int fy = first.getY();
@@ -308,8 +305,8 @@ namespace ot {
     unsigned int ncaLev = (maxDepth - maxDiffBinLen);
     assert(ncaLev<std::min(first.getLevel(),second.getLevel()));
 
-//    if(ncaLev>std::min(first.getLevel(),second.getLevel()))
-//      ncaLev=std::min(first.getLevel(),second.getLevel());
+    //if(ncaLev>std::min(first.getLevel(),second.getLevel()))
+    //  ncaLev=std::min(first.getLevel(),second.getLevel());
 
     TreeNode nca(ncaX,ncaY,ncaZ,ncaLev,dim,maxDepth);
     return nca;
@@ -411,7 +408,7 @@ namespace ot {
   }//end function
 
 
-   int readNodesFromFile_binary (char* filename, std::vector<TreeNode > & nodes) {
+  int readNodesFromFile_binary (char* filename, std::vector<TreeNode > & nodes) {
 
      int res;
      FILE* infile = fopen(filename,"r");
@@ -430,7 +427,7 @@ namespace ot {
 
 
 
-    }
+  }
 
   int readNodesFromFile (char* filename, std::vector<TreeNode > & nodes) {
     int res;
@@ -764,9 +761,9 @@ namespace ot {
 
   void flagNodesType1(std::vector<ot::TreeNode> & in, MPI_Comm comm) {
 
-#ifdef __PROF_WITH_BARRIER__
-    MPI_Barrier(comm);
-#endif
+    #ifdef __PROF_WITH_BARRIER__
+        MPI_Barrier(comm);
+    #endif
 
     PROF_MARK_HANGING_BEGIN
 
@@ -955,7 +952,7 @@ namespace ot {
       totalKeys += numKeysRecv[i];
     }
 
-#ifdef __MEASURE_FLAG_NODES__
+    #ifdef __MEASURE_FLAG_NODES__
     MPI_Barrier(comm);
     int numProcsSend = 0;
     int numProcsRecv = 0;
@@ -998,7 +995,7 @@ namespace ot {
     delete [] allKeysSz;
     delete [] allTotalRecv;
     MPI_Barrier(comm);
-#endif
+    #endif
 
     // create the send and recv buffers ...
     std::vector<ot::TreeNode> sendK (keys.size());
@@ -1139,9 +1136,9 @@ namespace ot {
 
   void flagNodesType2(std::vector<ot::TreeNode> & in, MPI_Comm comm) {
 
-#ifdef __PROF_WITH_BARRIER__
+    #ifdef __PROF_WITH_BARRIER__
     MPI_Barrier(comm);
-#endif
+    #endif
 
     PROF_MARK_HANGING_BEGIN
 
@@ -1237,7 +1234,7 @@ namespace ot {
       }
     }//end for i	
 
-#ifdef __MEASURE_FLAG_NODES__
+    #ifdef __MEASURE_FLAG_NODES__
     unsigned int forwardKeysCount = 0;
     for (int i = 0; i < in.size(); i++) {
       unsigned int myLev = inPtr[i].getLevel();
@@ -1328,20 +1325,20 @@ namespace ot {
         default: assert(false);
       }//end switch
     }//end for i	
-#endif
+    #endif
 
     PROF_FLN_STAGE1_END
       PROF_FLN_STAGE2_BEGIN
 
-#ifdef __MEASURE_FLAG_NODES__
+    #ifdef __MEASURE_FLAG_NODES__
       unsigned int keysSzBefore = keys.size();
-#endif
+    #endif
 
     //Make keys sorted and unique locally. There could still be duplicates
     //globally and keys need not be globally sorted
     seq::makeVectorUnique<ot::TreeNode>(keys, false);
 
-#ifdef __MEASURE_FLAG_NODES__
+    #ifdef __MEASURE_FLAG_NODES__
     unsigned int keysSzAfter = keys.size();
     unsigned int* allKeysSzBefore = new unsigned int[npes];
     unsigned int* allKeysSzAfter = new unsigned int[npes];
@@ -1361,7 +1358,7 @@ namespace ot {
     delete [] allKeysSzAfter;
     delete [] allForwardKeysCount;
     MPI_Barrier(comm);
-#endif
+    #endif
 
     PROF_FLN_STAGE2_END
       PROF_FLN_STAGE3_BEGIN
@@ -1547,9 +1544,9 @@ namespace ot {
 
   void flagNodesType3(std::vector<ot::TreeNode> & in, MPI_Comm comm) {
 
-#ifdef __PROF_WITH_BARRIER__
+    #ifdef __PROF_WITH_BARRIER__
     MPI_Barrier(comm);
-#endif
+    #endif
 
     PROF_MARK_HANGING_BEGIN
 
@@ -1687,13 +1684,13 @@ namespace ot {
     //std::sort(keys.begin(),keys.end()); @Hari: Do we need to sort these keys? In my view it is not necessary
     //treeNodesTovtk(keys,rank,"oda_keys");
 
-#ifdef __DEBUG_DA_PUBLIC__
+    #ifdef __DEBUG_DA_PUBLIC__
       MPI_Barrier(comm);
     if(!rank) {
       std::cout<<"FLN Stage 1 passed."<<std::endl;
     }
     MPI_Barrier(comm);
-#endif
+    #endif
 
     PROF_FLN_STAGE2_BEGIN
 
@@ -1725,13 +1722,13 @@ namespace ot {
 
     PROF_FLN_STAGE2_END 
 
-#ifdef __DEBUG_DA_PUBLIC__
+    #ifdef __DEBUG_DA_PUBLIC__
       MPI_Barrier(comm);
     if(!rank) {
       std::cout<<"FLN Stage 2 passed."<<std::endl;
     }
     MPI_Barrier(comm);
-#endif
+    #endif
 
     PROF_FLN_STAGE3_BEGIN
 
@@ -1755,7 +1752,7 @@ namespace ot {
       totalKeys += numKeysRecv[i];
     }
 
-#ifdef __MEASURE_FLAG_NODES__
+    #ifdef __MEASURE_FLAG_NODES__
     MPI_Barrier(comm);
     int numProcsSend = 0;
     int numProcsRecv = 0;
@@ -1790,7 +1787,7 @@ namespace ot {
     delete [] allKeysSz;
     delete [] allTotalRecv;
     MPI_Barrier(comm);
-#endif
+    #endif
 
     // create the send and recv buffers ...
     ot::TreeNode* sendK = NULL;
@@ -1875,13 +1872,13 @@ namespace ot {
 
     PROF_FLN_STAGE3_END
 
-#ifdef __DEBUG_DA_PUBLIC__
+    #ifdef __DEBUG_DA_PUBLIC__
       MPI_Barrier(comm);
     if(!rank) {
       std::cout<<"FLN Stage 3 passed."<<std::endl;
     }
     MPI_Barrier(comm);
-#endif
+    #endif
 
     PROF_FLN_STAGE4_BEGIN
 
@@ -1906,13 +1903,13 @@ namespace ot {
 
     PROF_FLN_STAGE4_END 
 
-#ifdef __DEBUG_DA_PUBLIC__
+    #ifdef __DEBUG_DA_PUBLIC__
       MPI_Barrier(comm);
     if(!rank) {
       std::cout<<"FLN Stage 4 passed."<<std::endl;
     }
     MPI_Barrier(comm);
-#endif
+    #endif
 
     PROF_FLN_STAGE5_BEGIN
 
@@ -1933,13 +1930,13 @@ namespace ot {
 
     PROF_FLN_STAGE5_END 
 
-#ifdef __DEBUG_DA_PUBLIC__
+    #ifdef __DEBUG_DA_PUBLIC__
       MPI_Barrier(comm);
     if(!rank) {
       std::cout<<"FLN Stage 5 passed."<<std::endl;
     }
     MPI_Barrier(comm);
-#endif
+    #endif
 
     PROF_FLN_STAGE6_BEGIN
 
@@ -1955,13 +1952,13 @@ namespace ot {
 
     PROF_FLN_STAGE6_END
 
-#ifdef __DEBUG_DA_PUBLIC__
+    #ifdef __DEBUG_DA_PUBLIC__
       MPI_Barrier(comm);
     if(!rank) {
       std::cout<<"FLN Stage 6 passed."<<std::endl;
     }
     MPI_Barrier(comm);
-#endif
+    #endif
 
     PROF_FLN_STAGE7_BEGIN
 
@@ -1999,13 +1996,13 @@ namespace ot {
 
     PROF_FLN_STAGE7_END
 
-#ifdef __DEBUG_DA_PUBLIC__
+    #ifdef __DEBUG_DA_PUBLIC__
       MPI_Barrier(comm);
     if(!rank) {
       std::cout<<"FLN Stage 7 passed."<<std::endl;
     }
     MPI_Barrier(comm);
-#endif
+    #endif
 
     PROF_FLN_STAGE8_BEGIN
       bool* isHanging = new bool[in.size()];
@@ -2021,13 +2018,13 @@ namespace ot {
 
     PROF_FLN_STAGE8_END
 
-#ifdef __DEBUG_DA_PUBLIC__
+    #ifdef __DEBUG_DA_PUBLIC__
       MPI_Barrier(comm);
     if(!rank) {
       std::cout<<"FLN Stage 8 passed."<<std::endl;
     }
     MPI_Barrier(comm);
-#endif
+    #endif
 
     PROF_FLN_STAGE9_BEGIN
 
@@ -2048,13 +2045,13 @@ namespace ot {
 
     PROF_FLN_STAGE9_END
 
-#ifdef __DEBUG_DA_PUBLIC__
+    #ifdef __DEBUG_DA_PUBLIC__
       MPI_Barrier(comm);
     if(!rank) {
       std::cout<<"FLN Stage 9 passed."<<std::endl;
     }
     MPI_Barrier(comm);
-#endif
+    #endif
 
     PROF_FLN_STAGE10_BEGIN
 
@@ -2078,13 +2075,13 @@ namespace ot {
 
     PROF_FLN_STAGE10_END
 
-#ifdef __DEBUG_DA_PUBLIC__
+    #ifdef __DEBUG_DA_PUBLIC__
       MPI_Barrier(comm);
     if(!rank) {
       std::cout<<"FLN Stage 10 passed."<<std::endl;
     }
     MPI_Barrier(comm);
-#endif
+    #endif
 
     PROF_FLN_STAGE11_BEGIN
 
@@ -2148,13 +2145,13 @@ namespace ot {
 
     PROF_FLN_STAGE11_END
 
-#ifdef __DEBUG_DA_PUBLIC__
+  #ifdef __DEBUG_DA_PUBLIC__
       MPI_Barrier(comm);
     if(!rank) {
       std::cout<<"FLN Stage 11 passed."<<std::endl;
     }
     MPI_Barrier(comm);
-#endif
+  #endif
 
     PROF_MARK_HANGING_END
   }//end function

@@ -40,12 +40,6 @@
 using json = nlohmann::json;
 namespace nlsm
 {
-/**
- * @brief These variable indexes are based on the variables defined in rkNLSM.h
- * */
-enum VAR {U_CHI=0,U_PHI};
-
-static const char * NLSM_VAR_NAMES[]={"U_CHI","U_PHI"};
 
 /**
  * @brief internal variables needed for rk update.
@@ -59,6 +53,14 @@ static const char * NLSM_VAR_NAMES[]={"U_CHI","U_PHI"};
   * */
   void readParamFile(const char * fName,MPI_Comm comm);
 
+  /**
+   * @brief Dump the read parameters to verify. 
+   * 
+   * @param sout stream to output read parameters. 
+   * @param root rank to output read parameters
+   * @param comm MPI communicator. 
+   */
+  void dumpParamFile(std::ostream& sout, int root, MPI_Comm comm);
 
 /**
  * @brief Initialize all the variables for a given point in space.
@@ -71,6 +73,12 @@ static const char * NLSM_VAR_NAMES[]={"U_CHI","U_PHI"};
  void initData(const double xx1,const double yy1,const double zz1, double *var);
 
  /**
+  * analytical solution based on the d'Alembert's formular.
+  *
+  * */
+ void analyticalSol(const double xx1,const double yy1,const double zz1,const double t, double *var);
+
+ /**
   * @brief: Generates block adaptive octree for the given binary blockhole problem.
   *
   * */
@@ -80,7 +88,14 @@ static const char * NLSM_VAR_NAMES[]={"U_CHI","U_PHI"};
   /**
    * @brief wavelet tolerance as a function of space.
    * */
-  double computeWTol(double x,double y,double z,double tol_min);
+  double computeWTol(double x,double y,double z,double* hx);
+
+  /**
+   * @brief force refinement at the pulse. 
+   */
+  bool isRemeshForce(const ot::Mesh* pMesh, const double ** unzipVec, unsigned int vIndex, double refine_th, double coarsen_th, bool isOverwrite);
+
+  unsigned int getEleWeight(const ot::TreeNode* pNode);
 
 }// end of namespace nlsm
 

@@ -16,6 +16,11 @@
 #endif
 #endif
 
+/**
+ * !!! Warning : If you use splitComm functions you should free the allocated commnunicator after use.
+ * MPI_Comm Free. 
+ */
+
 namespace par {
 
   unsigned int splitCommBinary( MPI_Comm orig_comm, MPI_Comm *new_comm) {
@@ -126,9 +131,9 @@ namespace par {
 
   //create Comm groups and remove empty processors...
   int splitComm2way(bool iAmEmpty, MPI_Comm * new_comm, MPI_Comm comm) {
-#ifdef __PROFILE_WITH_BARRIER__
-    MPI_Barrier(comm);
-#endif
+    #ifdef __PROFILE_WITH_BARRIER__
+      MPI_Barrier(comm);
+    #endif
     PROF_SPLIT_COMM_2WAY_BEGIN
 
       MPI_Group  orig_group, new_group;
@@ -192,12 +197,12 @@ namespace par {
 
   int splitCommUsingSplittingRank(int splittingRank, MPI_Comm* new_comm,
       MPI_Comm comm) {
-#ifdef __PROFILE_WITH_BARRIER__
-    MPI_Barrier(comm);
-#endif
+    #ifdef __PROFILE_WITH_BARRIER__
+        MPI_Barrier(comm);
+    #endif
     PROF_SPLIT_COMM_BEGIN
 
-      MPI_Group  orig_group, new_group;
+    MPI_Group  orig_group, new_group;
     int size;
     int rank;
     MPI_Comm_rank(comm, &rank);

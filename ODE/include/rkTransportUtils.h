@@ -39,7 +39,7 @@ void grad(const ot::Mesh* pMesh,unsigned int dir,const T* uZipIn,T* uZipOut)
 {
 
 
-    const std::vector<ot::Block> blkList=pMesh->getLocalBlockList();
+    const std::vector<ot::Block>& blkList=pMesh->getLocalBlockList();
     ot::TreeNode blkNode;
     double h;
     unsigned int blkNpe_1D;

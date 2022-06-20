@@ -118,12 +118,13 @@ void enforceSiblingsAreNotPartitioned(std::vector<ot::TreeNode> & in,MPI_Comm co
  *
  * @param [in] pNodes 2:1 balance sorted octree. Note that pNodes should be a sorted octree.
  * @param [in] maxDepth maximum depth of the adaptive octree
+ * @param [in] coarsetLev: coarset block level allowed
  * @param [out] d_min min depth of the given octree
  * @param [out] d_max max depth of the given octree
  * @param [out] blockList finite sequence of blocks.
  * */
 
-void octree2BlockDecomposition(std::vector<ot::TreeNode>& pNodes, std::vector<ot::Block>& blockList,unsigned int maxDepth,unsigned int & d_min, unsigned int & d_max, DendroIntL localBegin, DendroIntL localEnd,unsigned int eleOrder);
+void octree2BlockDecomposition(std::vector<ot::TreeNode>& pNodes, std::vector<ot::Block>& blockList,unsigned int maxDepth,unsigned int & d_min, unsigned int & d_max, DendroIntL localBegin, DendroIntL localEnd,unsigned int eleOrder,unsigned int coarsetLev=0, unsigned int *tag=NULL, unsigned int tsz=0);
 
 
 
@@ -212,7 +213,7 @@ void partitionBasedOnSplitters(std::vector<T>& pNodes, const T* splitters, unsig
  * @para[in] comm2: current communicator.
  * */
 template <typename T>
-void shrinkOrExpandOctree(std::vector<T> & in,const double ld_tol,const unsigned int sf_k,bool isActive,MPI_Comm activeComm, MPI_Comm globalComm);
+void shrinkOrExpandOctree(std::vector<T> & in,const double ld_tol,const unsigned int sf_k,bool isActive,MPI_Comm activeComm, MPI_Comm globalComm,unsigned int (*getWeight)(const ot::TreeNode *)=NULL);
 
 
 /**
@@ -586,7 +587,7 @@ bool linearSearch(const T * pNodes, const T& key,unsigned int n,unsigned int sWi
 
 
 template <typename T>
-void shrinkOrExpandOctree(std::vector<T> & in,const double ld_tol,const unsigned int sf_k,bool isActive,MPI_Comm activeComm, MPI_Comm globalComm)
+void shrinkOrExpandOctree(std::vector<T> & in,const double ld_tol,const unsigned int sf_k,bool isActive,MPI_Comm activeComm, MPI_Comm globalComm,unsigned int (*getWeight)(const ot::TreeNode *))
 {
 
     int rank_g,npes_g;
@@ -658,6 +659,8 @@ void shrinkOrExpandOctree(std::vector<T> & in,const double ld_tol,const unsigned
         SFC::parSort::SFC_treeSort(in,recvBuf,recvBuf,recvBuf,ld_tol,m_uiMaxDepth,rootTN,ROOT_ROTATION,1,TS_REMOVE_DUPLICATES,sf_k,activeComm);
         std::swap(in,recvBuf);
         recvBuf.clear();
+        if(getWeight!=NULL ) 
+            par::partitionW(in,getWeight,activeComm);
         assert(par::test::isUniqueAndSorted(in,activeComm));
     }
 
@@ -703,5 +706,40 @@ void printBlockStats(const Blk* blkList, unsigned int n,unsigned int maxDepth,MP
     return ;
 
 }
+
+/**@brief compute octree statistics
+ * @param[in] in: input octree
+ * @param[in] n: size of in array
+ * @param[out] octsByLevLocal : array size of m_uiMaxDepth where octsByLev[i] denotes the number of octants for level i for each rank. 
+ * @param[out] octsByLevGlobal: reduction of octsByLevLocal with comm, and operator +
+ * @param[out] regOcts: precentage of regular octants in the entrie octree. 
+*/
+template<typename T>
+void computeOctreeStats(const T* in, unsigned int n, unsigned int * octsByLevLocal,unsigned int * octsByLevGlobal, double& regOcts,MPI_Comm comm)
+{
+
+    unsigned int octsScanByLev[m_uiMaxDepth];
+
+    for(unsigned int i=0;i<m_uiMaxDepth;i++)
+    {
+        octsByLevLocal[i]=0;
+        octsByLevGlobal[i]=0;
+    }
+
+    for(unsigned int i=0;i<n;i++)
+        octsByLevLocal[in[i].getLevel()]++;
+
+    par::Mpi_Allreduce(octsByLevLocal,octsByLevGlobal,m_uiMaxDepth,MPI_SUM,comm);
+
+    octsScanByLev[0]=0;
+    omp_par::scan(octsByLevGlobal,octsScanByLev,m_uiMaxDepth);
+
+    DendroIntL totalOcts=octsScanByLev[m_uiMaxDepth-1]+octsByLevGlobal[m_uiMaxDepth-1];
+
+    regOcts=totalOcts/(double)(1u<<(3*(m_uiMaxDepth-2)));
+    return;
+
+}
+
 
 #endif //SFCSORTBENCH_OCTUTILS_H

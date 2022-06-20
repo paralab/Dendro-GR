@@ -140,9 +140,7 @@ int createRegularOctree(std::vector<ot::TreeNode>& out, unsigned int lev,
 }
 
 
-
-
-int function2Octree(std::function<double(double,double,double)> fx, std::vector<ot::TreeNode> & nodes,unsigned int maxDepth, const double & tol ,unsigned int elementOrder, MPI_Comm comm )
+int function2Octree(std::function<double(double,double,double)> fx, std::vector<ot::TreeNode> & nodes,unsigned int max_ref_level, const double & tol ,unsigned int elementOrder, MPI_Comm comm )
 {
 
 
@@ -167,6 +165,8 @@ int function2Octree(std::function<double(double,double,double)> fx, std::vector<
     Point pt;
     Point pt_child;
 
+    const unsigned int maxDepth = m_uiMaxDepth;
+
     h = 1.0/(1<<(maxDepth));
     unsigned int mySz;
     RefElement refEl(m_uiDim,elementOrder);
@@ -179,7 +179,7 @@ int function2Octree(std::function<double(double,double,double)> fx, std::vector<
         ot::TreeNode root = ot::TreeNode(m_uiDim, maxDepth);
         root.addChildren(nodes);
 
-        while ( (num_intersected > 0 ) && (num_intersected < size/**size*/ ) && (depth < maxDepth) ) {
+        while ( (num_intersected > 0 ) && (num_intersected < size/**size*/ ) && (depth < max_ref_level) ) {
             std::cout << "Depth: " << depth << " n = " << nodes.size() << std::endl;
             num_intersected = 0;
 
@@ -254,7 +254,7 @@ int function2Octree(std::function<double(double,double,double)> fx, std::vector<
 
     ot::TreeNode root(m_uiDim,m_uiMaxDepth);
 
-    while ( (num_intersected > 0 ) && (depth < maxDepth) ) {
+    while ( (num_intersected > 0 ) && (depth < max_ref_level) ) {
         if(!rank)std::cout << "Depth: " << depth << " n = " << nodes.size() << std::endl;
         num_intersected = 0;
 
@@ -324,13 +324,13 @@ int function2Octree(std::function<double(double,double,double)> fx, std::vector<
     delete[] dist_child;
     delete[] dist_child_ip;
     delete[] dist_parent;
+    
+    return 0;
 
 
 }
 
-
-
-int function2Octree(std::function<void(double,double,double,double*)> fx,const unsigned int numVars,const unsigned int* varIndex,const unsigned int numInterpVars, std::vector<ot::TreeNode> & nodes,unsigned int maxDepth, const double & tol ,unsigned int elementOrder,MPI_Comm comm )
+int function2Octree(std::function<void(double,double,double,double*)> fx,const unsigned int numVars,const unsigned int* varIndex,const unsigned int numInterpVars, std::vector<ot::TreeNode> & nodes,unsigned int max_ref_level, const double & tol ,unsigned int elementOrder,MPI_Comm comm )
 {
 
 
@@ -355,6 +355,8 @@ int function2Octree(std::function<void(double,double,double,double*)> fx,const u
     double* dist_child_ip=new double[numVars*nodesPerElement];
     Point pt;
     Point pt_child;
+    
+    const unsigned int maxDepth=m_uiMaxDepth;
 
     h = 1.0/(1<<(maxDepth));
     unsigned int mySz;
@@ -369,7 +371,7 @@ int function2Octree(std::function<void(double,double,double,double*)> fx,const u
         ot::TreeNode root = ot::TreeNode(m_uiDim, maxDepth);
         root.addChildren(nodes);
 
-        while ( (num_intersected > 0 ) && (num_intersected < size/**size*/ ) && (depth < maxDepth) ) {
+        while ( (num_intersected > 0 ) && (num_intersected < size/**size*/ ) && (depth < max_ref_level) ) {
             std::cout << "Depth: " << depth << " n = " << nodes.size() << std::endl;
             num_intersected = 0;
 
@@ -460,7 +462,7 @@ int function2Octree(std::function<void(double,double,double,double*)> fx,const u
 
     ot::TreeNode root(m_uiDim,m_uiMaxDepth);
 
-    while ( (num_intersected > 0 ) && (depth < maxDepth) ) {
+    while ( (num_intersected > 0 ) && (depth < max_ref_level) ) {
         if(!rank)std::cout << "Depth: " << depth << " n = " << nodes.size() << std::endl;
         num_intersected = 0;
 
@@ -546,22 +548,23 @@ int function2Octree(std::function<void(double,double,double,double*)> fx,const u
     delete[] dist_parent;
     delete[] varVal;
 
+    return 0;
+    
 
 }
 
-
-void octree2BlockDecomposition(std::vector<ot::TreeNode>& pNodes, std::vector<ot::Block>& blockList,unsigned int maxDepth,unsigned int & d_min, unsigned int & d_max,DendroIntL localBegin, DendroIntL localEnd,unsigned int eleOrder)
+void octree2BlockDecomposition(std::vector<ot::TreeNode>& pNodes, std::vector<ot::Block>& blockList,unsigned int maxDepth,unsigned int & d_min, unsigned int & d_max,DendroIntL localBegin, DendroIntL localEnd,unsigned int eleOrder, unsigned int coarsetLev, unsigned int* tag, unsigned int tsz)
 {
 
     // Note that we assume pnodes to be sorted.
     assert(seq::test::isUniqueAndSorted(pNodes));
 
     // Note: Commented out code is for debugging purposes.
-#ifdef OCT2BLK_DEBUG
+    #ifdef OCT2BLK_DEBUG
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD,&rank);
     treeNodesTovtk(pNodes,rank,"balOct");
-#endif
+    #endif
 
     unsigned int x,y,z,hindex,hindexN,index;
     unsigned int rot_id=ROOT_ROTATION;
@@ -605,7 +608,7 @@ void octree2BlockDecomposition(std::vector<ot::TreeNode>& pNodes, std::vector<ot
     DendroUInt_128 blockVolume=0; // 128-bit integer to store the volume of the block. .
     DendroUInt_128 octVolume=0; // 128-bit integer to store oct volume inside a block.
 
-    bool octLevelGap;
+    
 
     while(!initialBLocks.empty())
     {
@@ -620,7 +623,8 @@ void octree2BlockDecomposition(std::vector<ot::TreeNode>& pNodes, std::vector<ot
         nBegin=tmpBlock.getLocalElementBegin();
         nEnd=tmpBlock.getLocalElementEnd();
         assert(parent.getLevel()<=currRegGridLev);
-        octLevelGap=true;
+        bool octLevelGap=true;
+        bool isTagValid=true;
         if(parent.getLevel()==currRegGridLev)
         {
             assert((nEnd-nBegin)==1);
@@ -635,22 +639,44 @@ void octree2BlockDecomposition(std::vector<ot::TreeNode>& pNodes, std::vector<ot
         (m_uiDim==3)? numIdealRegGridOct=numIdealRegGridOct*numIdealRegGridOct*numIdealRegGridOct : numIdealRegGridOct=numIdealRegGridOct*numIdealRegGridOct;
         octVolume=0;
 
-        for(unsigned int elem=nBegin;elem<nEnd;elem++)
+        if(tag != NULL)
         {
-            if(pNodes[elem].getLevel()==currRegGridLev)
-                numRegGridOcts++;
-            else if(abs((int)pNodes[elem].getLevel()-(int)currRegGridLev)>OCT2BLK_DECOMP_LEV_GAP){
-                octLevelGap=false;
-                break;
+            assert(tsz == (localEnd-localBegin));
+            for(unsigned int elem=nBegin;elem<nEnd;elem++)
+            {
+                if(pNodes[elem].getLevel()==currRegGridLev)
+                    numRegGridOcts++;
+                else if(abs((int)pNodes[elem].getLevel()-(int)currRegGridLev)>OCT2BLK_DECOMP_LEV_GAP){
+                    octLevelGap=false;
+                    break;
+                }
+
+                if(tag[nBegin-localBegin] != tag[elem-localBegin])
+                    isTagValid = false;
+
+                octVolume+=1u<<(3*(maxDepth-pNodes[elem].getLevel()));
+
             }
 
-            octVolume+=1u<<(3*(maxDepth-pNodes[elem].getLevel()));
+        }else
+        {
+            for(unsigned int elem=nBegin;elem<nEnd;elem++)
+            {
+                if(pNodes[elem].getLevel()==currRegGridLev)
+                    numRegGridOcts++;
+                else if(abs((int)pNodes[elem].getLevel()-(int)currRegGridLev)>OCT2BLK_DECOMP_LEV_GAP){
+                    octLevelGap=false;
+                    break;
+                }
+
+                octVolume+=1u<<(3*(maxDepth-pNodes[elem].getLevel()));
+            }
+
         }
 
         //if(rank==debug_rank) std::cout<<"current parent: "<<parent<<" rot id: "<<(int)rot_id<<" curRegGridLev: "<<currRegGridLev<<" begin: "<<nBegin<<" end: "<<nEnd<<" numRegGridOcts: "<<numRegGridOcts<<std::endl;
         blockFillRatio=(double) numRegGridOcts/numIdealRegGridOct;
-
-        if( (octLevelGap) && blockFillRatio>=OCT2BLK_DECOMP_BLK_FILL_RATIO && (octVolume==blockVolume))
+        if((parent.getLevel()>=coarsetLev) && (isTagValid) && (octLevelGap) && (blockFillRatio>=OCT2BLK_DECOMP_BLK_FILL_RATIO) && (octVolume==blockVolume))
         {
            blockList.push_back(tmpBlock);
            if((currRegGridLev+1)<=d_max) initialBLocks.push_back(ot::Block(parent,rot_id,(currRegGridLev+1),nBegin,nEnd,eleOrder));
@@ -720,7 +746,9 @@ void octree2BlockDecomposition(std::vector<ot::TreeNode>& pNodes, std::vector<ot
         }
     }
 
-#ifdef OCT2BLK_DEBUG
+   std::reverse(blockList.begin(),blockList.end());
+
+    #ifdef OCT2BLK_DEBUG
     std::vector<ot::TreeNode> blockNodes;
     blockNodes.resize(blockList.size());
     for(unsigned int k=0;k<blockList.size();k++)
@@ -729,9 +757,9 @@ void octree2BlockDecomposition(std::vector<ot::TreeNode>& pNodes, std::vector<ot
     }
 
     treeNodesTovtk(blockNodes,rank,"blockNodes");
-#endif
+    #endif
 
-#ifdef OCT2BLK_DEBUG
+    #ifdef OCT2BLK_DEBUG
     unsigned int numIdealRegOcts=0;
     unsigned int numActualRegOcts=0;
     unsigned int singleOctBlockCount=0;
@@ -756,7 +784,7 @@ void octree2BlockDecomposition(std::vector<ot::TreeNode>& pNodes, std::vector<ot
 
     }
     std::cout<<"rank: "<<rank<<" singleOctBlocks: "<<singleOctBlockCount<<" pNodes size: "<<pNodes.size()<<" ratio: "<<(double(singleOctBlockCount)/pNodes.size())<<std::endl;
-#endif
+    #endif
 
 
 
@@ -1175,9 +1203,9 @@ unsigned int rankSelectRule(unsigned int size_global,unsigned int rank_global, u
     if(size_local>size_global){std::cout<<"[Error] : "<<__func__<<" rank: "<<rank_global<<" size_local > size_global "<<std::endl; exit(0);}
     
     // Rule 1 [enable this code to choose consecative ranks (deafult) works with any size_global and size_local]
-#ifdef BSSN_CONSEC_COMM_SELECT
-    return rank_i;
-#else
+    #ifdef BSSN_CONSEC_COMM_SELECT
+        return rank_i;
+    #else
     // Rule 2 [select ranks which is equivalent to complete binary tree fashion (size_global) & (rank_global) needs to be power of two.]
     if((!binOp::isPowerOfTwo(size_global)) || (!binOp::isPowerOfTwo(size_local)))
         return rank_i;
@@ -1191,7 +1219,7 @@ unsigned int rankSelectRule(unsigned int size_global,unsigned int rank_global, u
         
         
     }
-#endif   
+    #endif   
     
     
 }

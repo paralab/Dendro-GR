@@ -1,0 +1,58 @@
+{
+  "__comment__(Evolution variable indices )": "U_ALPHA=0,U_CHI=1,U_K=2,U_GT0=3,U_GT1=4,U_GT2=5,U_BETA0=6,U_BETA1=7,U_BETA2=8,U_B0=9,U_B1=10,U_B2=11,U_SYMGT0=12,U_SYMGT1=13,U_SYMGT2=14,U_SYMGT3=15,U_SYMGT4=16,U_SYMGT5=17,U_SYMAT0=18,U_SYMAT1=19,U_SYMAT2=20,U_SYMAT3=21,U_SYMAT4=22,U_SYMAT5=23",
+  "__comment__(constraint variable indices)": "C_HAM=0, C_MOM0=1, C_MOM1=2, C_MOM2=3, C_PSI4_REAL=4, C_PSI4_IMG=5",
+  "DENDRO_VERSION": 5.0,
+
+  "           " : "pvtu file path",
+  "BSSN_VTU_FILE_PREFIX": "bssn_gr",
+
+  "           " : "img file path",
+  "BSSN_IMG_FILE_PREFIX": "img",
+
+  "           " : "begin time step",
+  "BSSN_TIMESTEP_BEGIN" : 0,
+
+  "           " : "begin time end",
+  "BSSN_TIMESTEP_END" : 100,
+
+  "           " : "io ouput frequency",
+  "BSSN_IO_OUTPUT_FREQ": 400,
+
+  "           " : "maxdepth of the run",
+  "BSSN_MAXDEPTH": 12,
+
+  "BSSN_NUM_EVOL_VARS_VTU_OUTPUT":14,
+  "           " : "evolution variable ids",
+  "BSSN_VTU_OUTPUT_EVOL_INDICES": [0,1,2,3,12,14,15,16,17,18,19,20,21,22,23],
+  "           " : "number of constraint variables to ouput in vtu files",
+  "BSSN_NUM_CONST_VARS_VTU_OUTPUT": 6,
+  "           " : "constraint variable var ids",
+  "BSSN_VTU_OUTPUT_CONST_INDICES": [0,1,2,3,4,5],
+
+  "           " : "florr value of chi enforced",
+  "CHI_FLOOR": 1e-4,
+
+  "           ": "resolution of the image",
+  "VTK_RENDER_VIEW_SIZE": [1600,900],
+
+  "                    ": "make the color bar visible",
+  "SET_COLOR_BAR_VISIBILITY": 0,
+
+  "                     ": "anotate the time in the images",
+  "ANNOTATE_TIME" : 0,
+
+  "           " : "Courant factor",
+  "BSSN_CFL_FACTOR": 0.25,
+
+  "           " : "Display mode (Surface, Surface With Edges,Wireframe,points)",
+  "PARAVIEW_DISPLAY_MODE": "Wireframe",
+
+  "__comment__" : "========== Black Hole ==================================",
+  "BSSN_GRID_MIN_X": -200.0,
+  "BSSN_GRID_MAX_X":  200.0,
+  "BSSN_GRID_MIN_Y": -200.0,
+  "BSSN_GRID_MAX_Y":  200.0,
+  "BSSN_GRID_MIN_Z": -200.0,
+  "BSSN_GRID_MAX_Z":  200.0
+
+}

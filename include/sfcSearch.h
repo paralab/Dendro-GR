@@ -21,6 +21,23 @@
 
 namespace  SFC
 {
+    /*@ breif compare function defined based on sfc < ordering operator defined in ot::TreeSort class.
+     *
+     * */
+    template <typename T>
+    int compare(const void *ap, const void *bp)
+    {
+        const T *a = (T *) ap;
+        const T *b = (T *) bp;
+        if(*a < *b)
+            return -1;
+        else if(*a > *b)
+            return 1;
+        else
+            return 0;
+    }
+
+
     namespace seqSearch
     {
         /** @author Milinda Fernando
@@ -35,8 +52,6 @@ namespace  SFC
 
         template <typename TKey, typename TOctant>
         void SFC_treeSearch(TKey* pKeys , TOctant* pNodes,DendroIntL nKeyBegin,DendroIntL nKeyEnd,DendroIntL nNodeBegin,DendroIntL nNodeEnd,unsigned int pMaxDepthBit,unsigned int pMaxDepth, unsigned int rot_id);
-
-
 
 
         /** @author Milinda Fernando
@@ -152,7 +167,7 @@ namespace  SFC
             {
                 if(((nNodeEnd-nNodeBegin)==1) )
                 {
-                    assert(pNodes[nNodeBegin].getLevel()>=lev);
+                    //assert(pNodes[nNodeBegin].getLevel()>=lev); this assertion is not always needs to be true. 08-29-2019 Milinda. 
                     for(unsigned int k=nKeyBegin;k<nKeyEnd;k++)
                     {
                         //assert(((pNodes[nNodeBegin].isAncestor(pKeys[k]))||(pNodes[nNodeBegin]==pKeys[k]))); // Note: Since we are sarching for the ghost elements we might not find a given key. Hence this should be disabled

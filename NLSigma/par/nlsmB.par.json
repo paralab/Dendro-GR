@@ -7,7 +7,7 @@
             "           " : "Set to 1 restore solver from a checkpoint",
             "NLSM_RESTORE_SOLVER":0,
             "           " : "frequency for VTU output",
-            "NLSM_IO_OUTPUT_FREQ": 400,
+            "NLSM_IO_OUTPUT_FREQ": 10,
             "           " : "frequency for remeshing test based on wavelets",
             "NLSM_REMESH_TEST_FREQ": 10,
             "           " : "frequency for checkpoint output",
@@ -29,7 +29,7 @@
 
     "__comment__" : "========== LOAD BALANCING & MESH ======================",
             "           " : "grain size N/p , Where N number of total octants, p number of active cores",
-            "NLSM_DENDRO_GRAIN_SZ": 100,
+            "NLSM_DENDRO_GRAIN_SZ": 2,
             "           " : "variable group size for the asynchronous unzip operation",
             "NLSM_ASYNC_COMM_K": 2,
             "           " : "dendro coarsening factor, corsent if computed wavelet tol < NLSM_DENDRO_AMR_FAC*NLSM_WAVELET_TOL ",
@@ -39,7 +39,7 @@
             "           " : "dimentionality of the octree, (meshing is supported only for 3D)",
             "NLSM_DIM": 3,
             "           " : "maximum level of refinement of the mesh",
-            "NLSM_MAXDEPTH": 6,
+            "NLSM_MAXDEPTH": 8,
     "__comment__" : "=======================================================",
 
 
@@ -62,12 +62,14 @@
             "NLSM_RK45_TIME_BEGIN": 0,
             "           " : "simulation time end",
             "NLSM_RK45_TIME_END": 10,
+            "           " : "CFL factor",
+            "NLSM_CFL_FACTOR":0.1,
             "           " : "prefered time step size (this is overwrited with the specified CFL factor, not recommend to use this)",
             "NLSM_RK45_TIME_STEP_SIZE": 0.01,
             "           " : "used in adaptive time stepping (not currently used)",
             "NLSM_RK45_DESIRED_TOL":1e-3,
             "           " : "Kreiss-Oliger dissipation",
-            "KO_DISS_SIGMA": 1e-1,
+            "KO_DISS_SIGMA": 1e-4,
 
     "__comment__" : "=======================================================",
 
@@ -112,12 +114,12 @@
 
     "__comment__" : "========== Black Hole ==================================",
             "           " : "Set to 1 disable AMR and use block adaptivity (not recomended). ",
-            "NLSM_GRID_MIN_X": -200.0,
-            "NLSM_GRID_MAX_X":  200.0,
-            "NLSM_GRID_MIN_Y": -200.0,
-            "NLSM_GRID_MAX_Y":  200.0,
-            "NLSM_GRID_MIN_Z": -200.0,
-            "NLSM_GRID_MAX_Z":  200.0,
+            "NLSM_GRID_MIN_X": -15.0,
+            "NLSM_GRID_MAX_X":  15.0,
+            "NLSM_GRID_MIN_Y": -15.0,
+            "NLSM_GRID_MAX_Y":  15.0,
+            "NLSM_GRID_MIN_Z": -15.0,
+            "NLSM_GRID_MAX_Z":  15.0,
 
     "__comment__" : "========================================================"
 

@@ -157,16 +157,16 @@ namespace io
 
           FILE * infile = fopen(fName,"r");
           if(infile==NULL){std::cout<<fName<<" file open failed "<<std::endl; return  1;}
-          fread(&numNodes,sizeof(unsigned int ),1,infile);
-          fread(&nLocalBegin,sizeof(unsigned int ),1,infile);
-          fread(&nLocalEnd,sizeof(unsigned int ),1,infile);
+          size_t fr_status = fread(&numNodes,sizeof(unsigned int ),1,infile);
+          fr_status=fread(&nLocalBegin,sizeof(unsigned int ),1,infile);
+          fr_status=fread(&nLocalEnd,sizeof(unsigned int ),1,infile);
 
           if(numNodes!=(pMesh->getNumPreMeshNodes()+pMesh->getNumLocalMeshNodes()+pMesh->getNumPostMeshNodes())) {std::cout<<fName<<" file number of total node mismatched with the mesh. "<<std::endl; return 1;}
           if(nLocalBegin!=pMesh->getNodeLocalBegin()) {std::cout<<fName<<" file local node begin location mismatched with the mesh. "<<std::endl; return 1;}
           if(nLocalEnd!=pMesh->getNodeLocalEnd()) {std::cout<<fName<<" file local node end location mismatched with the mesh. "<<std::endl; return 1;}
 
           if(numNodes>0)
-              fread((vec+nLocalBegin),sizeof(T),pMesh->getNumLocalMeshNodes(),infile);
+              fr_status=fread((vec+nLocalBegin),sizeof(T),pMesh->getNumLocalMeshNodes(),infile);
 
           fclose(infile);
           return 0;
@@ -179,9 +179,10 @@ namespace io
 
           FILE * infile = fopen(fName,"r");
           if(infile==NULL){std::cout<<fName<<" file open failed "<<std::endl; return  1;}
-          fread(&numNodes,sizeof(unsigned int ),1,infile);
-          fread(&nLocalBegin,sizeof(unsigned int ),1,infile);
-          fread(&nLocalEnd,sizeof(unsigned int ),1,infile);
+
+          size_t fr_status=fread(&numNodes,sizeof(unsigned int ),1,infile);
+          fr_status=fread(&nLocalBegin,sizeof(unsigned int ),1,infile);
+          fr_status=fread(&nLocalEnd,sizeof(unsigned int ),1,infile);
 
           if(numNodes!=(pMesh->getNumPreMeshNodes()+pMesh->getNumLocalMeshNodes()+pMesh->getNumPostMeshNodes())) {std::cout<<fName<<" file number of total node mismatched with the mesh. "<<std::endl; return 1;}
           if(nLocalBegin!=pMesh->getNodeLocalBegin()) {std::cout<<fName<<" file local node begin location mismatched with the mesh. "<<std::endl; return 1;}
@@ -189,7 +190,7 @@ namespace io
 
           if(numNodes>0)
               for(unsigned int i=0;i<numVars;i++)
-                fread((vec[i]+nLocalBegin),sizeof(T),pMesh->getNumLocalMeshNodes(),infile);
+                fr_status=fread((vec[i]+nLocalBegin),sizeof(T),pMesh->getNumLocalMeshNodes(),infile);
 
           fclose(infile);
           return 0;

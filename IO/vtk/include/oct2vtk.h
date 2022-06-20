@@ -14,7 +14,8 @@
 #define FNAME_LENGTH 256
 #define VTK_HEXAHEDRON 12
 
-#define DENDRO_NODE_COORD_TYPE "UInt32"
+#define DENDRO_NODE_COORD_TYPE "Float32"
+#define DENDRO_NODE_COORD_DTYPE float
 #define DENDRO_NODE_ID_TYPE "UInt64"
 #define DENDRO_NODE_VAR_INT "UInt32"
 #define DENDRO_NODE_VAR_FLOAT "Float32"
@@ -35,6 +36,14 @@
 #include "zlib.h"
 #include <iostream>
 #include <string>
+#include "meshUtils.h"
+#include <vector>
+
+
+// macros for coord. transformations. 
+#define VTU_OCT_X_GRID_X(xx) (dmin.x() + ((xx)*(dmax.x() - dmin.x()) * invRg))
+#define VTU_OCT_Y_GRID_Y(yy) (dmin.y() + ((yy)*(dmax.y() - dmin.y()) * invRg))
+#define VTU_OCT_Z_GRID_Z(zz) (dmin.z() + ((zz)*(dmax.z() - dmin.z()) * invRg))
 
 namespace io
 {
@@ -43,20 +52,21 @@ namespace io
 
         static FILE *fp = NULL;
 
+        /**@brief: writes vtu header. */
         static void write_vtu_header(void)
         {
             fprintf(fp, "# vtk DataFile Version 2.0\n");
             fprintf(fp, "Dendro-5.0\n");
 
-#ifdef DENDRO_VTU_ASCII
-            fprintf(fp, "ASCII\n");
-#else
-            fprintf(fp, "BINARY\n");
-#endif
+            #ifdef DENDRO_VTU_ASCII
+                fprintf(fp, "ASCII\n");
+            #else
+                fprintf(fp, "BINARY\n");
+            #endif
 
         }
 
-
+        /** @brief writes the compressed vtu file. */
         static int vtk_write_compressed (FILE * vtkfile, char *numeric_data,size_t byte_length)
         {
             int                 retval, fseek1, fseek2;
@@ -163,72 +173,72 @@ namespace io
             return 0;
         }
 
-
+        /**@brief writes vtu binary data*/
         static int vtk_write_binary (FILE * vtkfile, char *numeric_data, size_t byte_length)
         {
 
-#ifdef DENDRO_VTU_ZLIB
-            return vtk_write_compressed(vtkfile,numeric_data,byte_length);
-#else
-            size_t              chunks, chunksize, remaining, writenow;
-            size_t              code_length, base_length;
-            uint32_t            int_header;
-            char                *base_data;
-            base64_encodestate  encode_state;
+            #ifdef DENDRO_VTU_ZLIB
+                return vtk_write_compressed(vtkfile,numeric_data,byte_length);
+            #else
+                size_t              chunks, chunksize, remaining, writenow;
+                size_t              code_length, base_length;
+                uint32_t            int_header;
+                char                *base_data;
+                base64_encodestate  encode_state;
 
-            /* VTK format used 32bit header info */
-            assert (byte_length <= (size_t) UINT32_MAX);
+                /* VTK format used 32bit header info */
+                assert (byte_length <= (size_t) UINT32_MAX);
 
-            /* This value may be changed although this is not tested with VTK */
-            chunksize = (size_t) 1 << 15; /* 32768 */
-            int_header = (uint32_t) byte_length;
+                /* This value may be changed although this is not tested with VTK */
+                chunksize = (size_t) 1 << 15; /* 32768 */
+                int_header = (uint32_t) byte_length;
 
-            /* Allocate sufficient memory for base64 encoder */
-            code_length = 2 * std::max (chunksize, sizeof (int_header));
-            code_length = std::max (code_length, (size_t)4) + 1;
-            base_data = (char*)calloc(code_length,sizeof(char));// (code_length*sizeof(char));
+                /* Allocate sufficient memory for base64 encoder */
+                code_length = 2 * std::max (chunksize, sizeof (int_header));
+                code_length = std::max (code_length, (size_t)4) + 1;
+                base_data = (char*)calloc(code_length,sizeof(char));// (code_length*sizeof(char));
 
-            base64_init_encodestate (&encode_state);
-            base_length =base64_encode_block ((char *) &int_header, sizeof (int_header), base_data,&encode_state);
-            assert (base_length < code_length);
-            base_data[base_length] = '\0';
-            (void) fwrite (base_data, 1, base_length, vtkfile);
-
-            chunks = 0;
-            remaining = byte_length;
-            while (remaining > 0) {
-                writenow = std::min (remaining, chunksize);
-                base_length = base64_encode_block (numeric_data + chunks * chunksize,writenow, base_data, &encode_state);
+                base64_init_encodestate (&encode_state);
+                base_length =base64_encode_block ((char *) &int_header, sizeof (int_header), base_data,&encode_state);
                 assert (base_length < code_length);
                 base_data[base_length] = '\0';
                 (void) fwrite (base_data, 1, base_length, vtkfile);
-                remaining -= writenow;
-                ++chunks;
-            }
 
-            base_length = base64_encode_blockend (base_data, &encode_state);
-            assert (base_length < code_length);
-            base_data[base_length] = '\0';
-            (void) fwrite (base_data, 1, base_length, vtkfile);
+                chunks = 0;
+                remaining = byte_length;
+                while (remaining > 0) {
+                    writenow = std::min (remaining, chunksize);
+                    base_length = base64_encode_block (numeric_data + chunks * chunksize,writenow, base_data, &encode_state);
+                    assert (base_length < code_length);
+                    base_data[base_length] = '\0';
+                    (void) fwrite (base_data, 1, base_length, vtkfile);
+                    remaining -= writenow;
+                    ++chunks;
+                }
 
-            free(base_data);
-            if (ferror (vtkfile)) {
-                return -1;
-            }
-            return 0;
-#endif
+                base_length = base64_encode_blockend (base_data, &encode_state);
+                assert (base_length < code_length);
+                base_data[base_length] = '\0';
+                (void) fwrite (base_data, 1, base_length, vtkfile);
+
+                free(base_data);
+                if (ferror (vtkfile)) {
+                    return -1;
+                }
+                return 0;
+            #endif
 
 
         }
 
-
+        /**@brief: get the file name.*/
         static std::string getFileName(const std::string& s) {
 
             char sep = '/';
 
-#ifdef _WIN32
-            sep = '\\';
-#endif
+            #ifdef _WIN32
+                sep = '\\';
+            #endif
 
             size_t i = s.rfind(sep, s.length());
             if (i != std::string::npos) {
@@ -237,8 +247,6 @@ namespace io
 
             return(s);
         }
-
-
 
         /**
          *@breif Writes the given mesh to a binary vtk (legacy format) file.
@@ -258,7 +266,7 @@ namespace io
         * @param [in] varNames: list of variable names
         * @param [in] vars: double ** pointer to the varaibles.
         * */
-        void mesh2vtu(const ot::Mesh *pMesh, const char *fPrefix,unsigned int numFieldData,const char** filedDataNames,const double * filedData,unsigned int numPointdata, const char **pointDataNames, const double **pointData);
+        void mesh2vtu(const ot::Mesh *pMesh, const char *fPrefix,unsigned int numFieldData,const char** filedDataNames,const double * filedData,unsigned int numPointdata, const char **pointDataNames, const double **pointData,bool isDGPData=false);
 
 
         /**
@@ -278,7 +286,7 @@ namespace io
         * @param [in] varNames: list of variable names
         * @param [in] vars: double ** pointer to the varaibles.
         * */
-        void mesh2vtuCoarse(const ot::Mesh *pMesh, const char *fPrefix,unsigned int numFieldData,const char** filedDataNames,const double * filedData,unsigned int numPointdata, const char **pointDataNames, const double **pointData);
+        void mesh2vtuCoarse(const ot::Mesh *pMesh, const char *fPrefix,unsigned int numFieldData,const char** filedDataNames,const double * filedData,unsigned int numPointdata, const char **pointDataNames, const double **pointData,bool isDGPData=false);
 
         /**
         *@breif Writes the given mesh to a binary vtu (in xml format) file (Note that this will write only the coarse octree. ).
@@ -288,7 +296,24 @@ namespace io
         * @param [in] varNames: list of variable names
         * @param [in] vars: double ** pointer to the varaibles.
         * */
-        void mesh2vtuFine(const ot::Mesh *pMesh, const char *fPrefix,unsigned int numFieldData,const char** filedDataNames,const double * filedData,unsigned int numPointdata, const char **pointDataNames, const double **pointData);
+        void mesh2vtuFine(const ot::Mesh *pMesh, const char *fPrefix,unsigned int numFieldData,const char** filedDataNames,const double * filedData,unsigned int numPointdata, const char **pointDataNames, const double **pointData, unsigned int nCellData=0, const char** cellDNames=NULL, const double** cellData=NULL, bool isDGPData=false);
+
+
+        /**
+         * @brief Writes the given mesh to a binary vtu (in xml format) file (Note that this will write only the coarse octree. ). (Only the slice of it. )
+         * 
+         * @param pMesh :input mesh
+         * @param s_val : point in the slice
+         * @param s_normal : normal vector to the slice. 
+         * @param fPrefix : file prefrix
+         * @param numFieldData : number of field data. 
+         * @param filedDataNames : field data names. 
+         * @param filedData : pointer to the field data
+         * @param numPointdata : number of point data. 
+         * @param pointDataNames : point data names. 
+         * @param pointData : pointer to the point data. 
+         */
+        void mesh2vtu_slice(const ot::Mesh *pMesh, unsigned int s_val[], unsigned int s_normal[], const char *fPrefix,unsigned int numFieldData,const char** filedDataNames,const double * filedData,unsigned int numPointdata, const char **pointDataNames, const double **pointData,bool isDGPData=false);
         
         
         /**
@@ -301,7 +326,6 @@ namespace io
          * @param [in] fileName: output file name
          *
          */
-        
         void waveletsToVTU(ot::Mesh* mesh,const double ** zippedVec, const double **unzippedVec,const unsigned int * varIds,const unsigned int numVars,const char* fileName);
         
 

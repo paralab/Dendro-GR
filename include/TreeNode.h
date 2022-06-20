@@ -24,6 +24,7 @@ extern unsigned int m_uiMaxDepth;
 #include "point.h"
 #include <algorithm>
 #include "dendro.h"
+#include <ostream>
 
 
 namespace ot {
@@ -37,6 +38,7 @@ namespace ot {
         //Level is also used as a flag.
         unsigned int m_uiX, m_uiY, m_uiZ, m_uiLevel;
         //unsigned int m_uiMaxDepth;
+        unsigned int m_uiWeight=1;
 
     public:
 
@@ -53,6 +55,13 @@ namespace ot {
         TreeNode();
 
     public:
+
+        /**@brief: getweight of the octant (used in the wpart)*/
+        unsigned int getWeight() const {return m_uiWeight;}
+
+        /**@brief: set weight of the octant  */
+        void setWeight(unsigned int w) {m_uiWeight=w;}
+
         /**
           @author Milinda Fernando
           @brief return the dimension of the octant
@@ -502,7 +511,7 @@ namespace ot {
         unsigned int index2=0;
         unsigned int num_children=1u<<dim; // This is basically the hilbert table offset
         unsigned int rot_offset=num_children<<1;
-        char index_temp=0;
+        //char index_temp=0;
         int current_rot=0;
 
         //unsigned int b_x,b_y,b_z;

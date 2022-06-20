@@ -74,10 +74,10 @@ to this user-defined datatype.
         }
     };
 
-/**
-@brief A template specialization of the abstract class Mpi_datatype. This can be used for communicating messages of type "bool"
-@author Rahul Sampath, rahul.sampath@gmail.com
-*/
+    /**
+    @brief A template specialization of the abstract class Mpi_datatype. This can be used for communicating messages of type "bool"
+    @author Rahul Sampath, rahul.sampath@gmail.com
+    */
     template <>
     class Mpi_datatype<bool> {
         static void bool_LOR(void *in, void *inout, int* len, MPI_Datatype * dptr) {

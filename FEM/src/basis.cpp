@@ -93,7 +93,7 @@ namespace basis {
     void jacobigq(double alpha, double beta, int N, double *x, double *w)
     {
 
-#ifdef WITH_BLAS_LAPACK
+        #ifdef WITH_BLAS_LAPACK
         //Note: size of x and w should be (N+1)
         if(N==0)
         {
@@ -133,7 +133,7 @@ namespace basis {
             for(unsigned int j=0;j<(N+1);j++)
                 jtrans[i*(N+1)+j]=ji[i*(N+1)+j]+ji[j*(N+1)+i];
 
-/*        for(unsigned int i=0;i<(N+1);i++)
+        /*for(unsigned int i=0;i<(N+1);i++)
         {
             for(unsigned int j=0;j<(N+1);j++)
                 std::cout<<jtrans[i*(N+1)+j]<<" ";
@@ -141,7 +141,7 @@ namespace basis {
         }*/
 
 
-//      Compute quadrature by eigenvalue solve
+        //Compute quadrature by eigenvalue solve
         unsigned int info;
         //std::cout<<" lapack eigen solve begin "<<std::endl;
         lapack::lapack_DSYEV((N+1),jtrans,(N+1),wr,vs,info);
@@ -161,7 +161,7 @@ namespace basis {
         delete [] wr;
         delete [] wi;
         delete [] vs;
-#endif
+        #endif
 
     }
 
@@ -171,51 +171,116 @@ namespace basis {
     void jacobiglq(double alpha, double beta, int N, double *x, double *w)
     {
 
-#ifdef WITH_BLAS_LAPACK
-        if(N==1)
-        {
-            x[0]=-1.0;
-            x[1]=1.0;
-
-            w[0]=1.0;
-            w[1]=1.0;
-            return ;
-        }
-
-
-        if(N>2) {
-            double * xint=new double [N-2+1];
-            double * wq=new double [N-2+1];
-            //std::cout<<" gauss quad begin "<<std::endl;
-            basis::jacobigq(alpha + 1, beta + 1, (N - 2),xint,wq);
-            //std::cout<<"gauss quad end "<<std::endl;
-            for(unsigned int k=1;k<=(N-1);k++)
-                x[k]=xint[k-1];
-
-            x[0]=-1.0;
-            x[N]=1.0;
-
-            basis::jacobip(alpha,beta,N,x,w,(N+1));
-            double adgammaN = (2.0*N + alpha + beta + 1.0) / (N * (alpha + beta + N + 1.0));
-
-            for(unsigned int k=0;k<(N+1);k++)
+        #ifdef WITH_BLAS_LAPACK
+            if(N==1)
             {
-                w[k]=w[k]*w[k];
-                w[k]=adgammaN/w[k];
+                x[0]=-1.0;
+                x[1]=1.0;
+
+                w[0]=1.0;
+                w[1]=1.0;
+                return ;
             }
 
-            w[0]=w[0]*(1.0+alpha);
-            w[N]=w[N]*(1.0+ beta);
 
-            delete [] xint;
-            delete [] wq;
+            if(N>=2) {
+                double * xint=new double [N-2+1];
+                double * wq=new double [N-2+1];
+                //std::cout<<" gauss quad begin "<<std::endl;
+                basis::jacobigq(alpha + 1, beta + 1, (N - 2),xint,wq);
+                //std::cout<<"gauss quad end "<<std::endl;
+                for(unsigned int k=1;k<=(N-1);k++)
+                    x[k]=xint[k-1];
 
-        }
-#endif
+                x[0]=-1.0;
+                x[N]=1.0;
+
+                basis::jacobip(alpha,beta,N,x,w,(N+1));
+                double adgammaN = (2.0*N + alpha + beta + 1.0) / (N * (alpha + beta + N + 1.0));
+
+                for(unsigned int k=0;k<(N+1);k++)
+                {
+                    w[k]=w[k]*w[k];
+                    w[k]=adgammaN/w[k];
+                }
+
+                w[0]=w[0]*(1.0+alpha);
+                w[N]=w[N]*(1.0+ beta);
+
+                delete [] xint;
+                delete [] wq;
+
+            }
+        #endif
     }
 
+    void lagrange(const double * x0, int N, int at, const double * x, double* px,  int m)
+    {
+        for(unsigned int k=0; k<m; k++)
+        {
+            px[k]=1.0;
+            for(unsigned int i=0; i < (N+1);i++)
+            {
+                if(i==at) continue;
+                px[k] *= (x[k]-x0[i])/(x0[at]-x[i]);
+            }
+        }
 
 
+    }
 
+    void jacobisf(double alpha, double beta, unsigned int N, double *x, double *p , unsigned int np)
+    {
+        double * y  = new double[(N+1)]; // zeros of jacobi N+1;
+        double * w  = new double[(N+1)];
+        double * py = new double[(N+1)];
+
+        jacobigq(alpha,beta,N,y,w);
+        jacobip(alpha,beta,N,y,py,N+1);
+
+        double py_fac=0;
+        for(unsigned int i=0; i < (N+1); i++)
+            py_fac += py[i]*py[i];
+
+        for(unsigned int i=0; i < (N+1); i++)
+            py[i] = py[i]/py_fac;
+
+        // for(unsigned int i=0; i< (N+1); i++)
+        // {
+        //   std::cout<<"i: "<<i<<"root of order :"<<N+1<<" jac : "<<py[i]<<std::endl;
+        // }
+        
+        double * px = new double[(N+1)*np];
+
+        for(unsigned int d = 0 ; d < (N+1); d++)
+          jacobip(alpha,beta,d,x,(px+d*np),np);
+
+        
+        
+        
+        for(unsigned int i=0; i< np; i++)
+        {
+            p[i]=0;
+            for(unsigned int d = 0 ; d < (N+1); d++)
+            {
+              p[i] += px[d*np + i] * py[d];
+            }
+
+            p[i]=px[N*np+i];
+
+            
+
+          
+        }
+
+
+        delete [] y;
+        delete [] w;
+        delete [] py;
+        delete [] px;
+            
+        
+
+    }
 
 }

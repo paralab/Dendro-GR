@@ -34,12 +34,13 @@ namespace io
           FILE* inpfile = fopen(fName,"r");
           if(inpfile==NULL) {std::cout<<fName<<" file open failed "<<std::endl; return 1;}
           unsigned int num=0;
-          fread(&num,sizeof(unsigned int ),1,inpfile);
+          
+          size_t fr_status=fread(&num,sizeof(unsigned int ),1,inpfile);
 
           if(num>0)
           {
               pNodes.resize(num);
-              fread(&(*(pNodes.begin())),(sizeof(ot::TreeNode)),num,inpfile);
+              fr_status=fread(&(*(pNodes.begin())),(sizeof(ot::TreeNode)),num,inpfile);
           }
 
           fclose(inpfile);

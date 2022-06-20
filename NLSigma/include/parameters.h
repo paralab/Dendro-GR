@@ -7,9 +7,7 @@
 */
 //
 
-#ifndef SFCSORTBENCH_PARAMETERS_H
-#define SFCSORTBENCH_PARAMETERS_H
-
+#pragma once
 #include <string.h>
 #include <iostream>
 
@@ -19,8 +17,27 @@
 namespace nlsm
 {
 
+    /** @brief These variable indexes are based on the variables defined in rkNLSM.h */
+    enum VAR {U_CHI=0,U_PHI};
+
+
+    /**@brief variable names. */
+    static const char * NLSM_VAR_NAMES[]={"U_CHI","U_PHI"};
+
+
+    /**
+     * @brief refinement modes
+     * WAMR for wavelet bases refinement 
+     * FR: force refinement based on limit of a specific variable. 
+     * WAMR_FR : combine WAMR and FR.
+    */
+    enum RefineMode {WAMR=0,FR,WAMR_FR};
+
     /**@brief element order*/
-    static const unsigned int NLSM_ELE_ORDER=4;
+    extern unsigned int NLSM_ELE_ORDER;
+
+    /**@brief: padding width for NLSM, Set to element order /2 */
+    extern unsigned int NLSM_PADDING_WIDTH;
 
     /**@brief number of variables*/
     static const unsigned int NLSM_NUM_VARS=2;
@@ -33,10 +50,7 @@ namespace nlsm
 
     /**@brief number of rk4 stages*/
     static const unsigned int NLSM_RK3_STAGES=3;
-
-    /**@brief CFL stability number number (specifies how dt=NLSM_CFL_FACTOR*dx)*/
-    static const double NLSM_CFL_FACTOR=0.1;
-
+    
     /**@brief: parameter used for adaptive time step update. */
     static const double NLSM_SAFETY_FAC=0.8;
 
@@ -47,6 +61,9 @@ namespace nlsm
     extern double NLSM_COMPD_MIN[3];
     /**@brief min bh domain @todo add these to the parameter file. */
     extern double NLSM_COMPD_MAX[3];
+
+    /**@brief CFL stability number number (specifies how dt=NLSM_CFL_FACTOR*dx)*/
+    extern double NLSM_CFL_FACTOR;
 
     /**@brief min coords of the OCTREE */
     extern double NLSM_OCTREE_MIN[3];
@@ -111,7 +128,6 @@ namespace nlsm
     /**@brief: async. communication at a time. (upper bound shoud be NLSM_NUM_VARS) */
     extern unsigned int NLSM_ASYNC_COMM_K;
 
-
     /**@brief simulation begin time. */
     extern double NLSM_RK45_TIME_BEGIN;
     /**@brief simulation end time*/
@@ -167,13 +183,14 @@ namespace nlsm
     /**@brief: max refinement level*/
     extern unsigned int NLSM_MAXDEPTH;
 
-    /**@brief: Kreiss-Oliger dissipation */
-    extern double KO_DISS_SIGMA;
+    /**@brief: min refinement level*/
+    extern unsigned int NLSM_MINDEPTH;
 
     /**@brief: Kreiss-Oliger dissipation */
     extern double KO_DISS_SIGMA;
 
-
+    /**@brief: Kreiss-Oliger dissipation */
+    extern double KO_DISS_SIGMA;
 
     /**@brief: Initial data Gaussian amplitude */
     extern double NLSM_ID_AMP1;
@@ -203,11 +220,17 @@ namespace nlsm
     /**@brief: Initial data Gaussian elliptic y factor */
     extern double NLSM_ID_EPSY1;
 
+    /**@brief: Initial data Gaussian elliptic z factor */
+    extern double NLSM_ID_EPSZ1;
+
     /**@brief: Initial data Gaussian elliptic x factor */
     extern double NLSM_ID_EPSX2;
 
     /**@brief: Initial data Gaussian elliptic y factor */
     extern double NLSM_ID_EPSY2;
+
+    /**@brief: Initial data Gaussian elliptic z factor */
+    extern double NLSM_ID_EPSZ2;
 
     /**@brief: Initial data Gaussian R */
     extern double NLSM_ID_R1;
@@ -224,6 +247,23 @@ namespace nlsm
     /**@brief: Initial data Gaussian Omega */
     extern double NLSM_ID_OMEGA;
 
-}
+    /**@brief: wave speed direction x*/
+    extern double NLSM_WAVE_SPEED_X;
 
-#endif //SFCSORTBENCH_PARAMETERS_H
+    /**@brief: wave speed direction y*/
+    extern double NLSM_WAVE_SPEED_Y;
+    
+    /**@brief: wave speed direction z*/
+    extern double NLSM_WAVE_SPEED_Z;
+
+    /**@brief: nlsm force refinement threshold for */
+    extern double NLSM_CHI_REFINE_VAL;
+
+    /**@brief: nlsm force coarsen threshold for */
+    extern double NLSM_CHI_COARSEN_VAL;
+
+    /**@brief: nlsm specify the refinement mode.  */
+    extern RefineMode NLSM_REFINE_MODE;
+    
+
+}// end of namespace nlsm

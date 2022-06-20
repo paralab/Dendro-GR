@@ -45,6 +45,8 @@
 
 
     "__comment__" : "========== WAVELET REFINEMENT ==========================",
+            "           " : "element order ",
+            "NLSM_ELE_ORDER": 4,
             "           " : "wavelet tolerance",
             "NLSM_WAVELET_TOL": 1e-4,
             "           " : "number of refinement variables",
@@ -62,6 +64,8 @@
             "NLSM_RK45_TIME_BEGIN": 0,
             "           " : "simulation time end",
             "NLSM_RK45_TIME_END": 10,
+            "           " : "CFL factor",
+            "NLSM_CFL_FACTOR":0.1,
             "           " : "prefered time step size (this is overwrited with the specified CFL factor, not recommend to use this)",
             "NLSM_RK45_TIME_STEP_SIZE": 0.01,
             "           " : "used in adaptive time stepping (not currently used)",
@@ -88,14 +92,15 @@
             "           " : "0-test data",
             "NLSM_ID_TYPE": 0,
 
-            "NLSM_ID_AMP1": 1.3,
-            "NLSM_ID_R1": 8.0,
+            "NLSM_ID_AMP1": 1.0,
+            "NLSM_ID_R1": 0.0,
             "NLSM_ID_DELTA1": 3.0,
             "NLSM_ID_XC1": 0.0,
             "NLSM_ID_YC1": 0.0,
             "NLSM_ID_ZC1": 0.0,
-            "NLSM_ID_EPSX1": 0.5,
+            "NLSM_ID_EPSX1": 1.0,
             "NLSM_ID_EPSY1": 1.0,
+            "NLSM_ID_EPSZ1": 1.0,
             "NLSM_ID_NU1": 0.0,
             "NLSM_ID_OMEGA": 0.4,
 
@@ -105,8 +110,9 @@
             "NLSM_ID_XC2": 0.0,
             "NLSM_ID_YC2": 0.0,
             "NLSM_ID_ZC2": 0.0,
-            "NLSM_ID_EPSX2": 2.0,
+            "NLSM_ID_EPSX2": 1.0,
             "NLSM_ID_EPSY2": 1.0,
+            "NLSM_ID_EPSZ2": 1.0,
             "NLSM_ID_NU2": 0.0,
 
 

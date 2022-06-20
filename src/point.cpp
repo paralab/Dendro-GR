@@ -138,3 +138,7 @@ double Point::magnitude()
   return abs;
 }
 
+std::ostream& operator<<(std::ostream& os, Point const& other) {
+	return (os << other.x() << " " << other.y() << " " << other.z());
+} //end fn.
+

@@ -128,6 +128,24 @@ namespace basis {
 
 
 
+   /**
+    * @brief computes the Lagrange polynomials evalueated at x coords. 
+    * @param x0: nodal locations. N+1 points. 
+    * @param N:  order of the Lagrange polynomial
+    * @param x:  points which Lagrange evaluated at.
+    * @param px: P(x)
+    * @param m: size of x points, (i.e. similar to px)
+    */
+    void lagrange(const double * x0, int N, int at, const double * x, double* px,  int m); 
+
+
+    /**
+     * @brief wavelet scaling function construction based on the Jacobi polynomials.
+     * 
+     */
+    void jacobisf(double alpha, double beta, unsigned int N, double *x, double *p , unsigned int np);
+
+
 }
 
 #endif //SFCSORTBENCH_JACOBIPOLYNOMIAL_H

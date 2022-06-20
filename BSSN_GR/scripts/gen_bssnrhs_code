@@ -1,0 +1,399 @@
+#!/usr/bin/perl
+
+
+#####################################################################
+#
+#
+#   @d   - list of geometric vars that need 1st derivs for RHS
+#   @dd  - list of geometric vars that need 2nd derivs for RHS
+#   @ad  - list of geometric vars that need advective derivs for RHS
+#   @con_d -
+#   @con_dd -
+#   @mad_d
+#   @funcs - combined list of all derivatives for functions in @d and @dd
+#
+#
+#####################################################################
+
+# first derivs required for RHS
+
+# Note: gbx, gby, gbz are not needed for the RHS, but the derivatives
+# are needed for the boundary conditions.  The allocation of derivatives
+# and calls to derivative routines for the boundaries uses the functions
+# required for the rhs, so I include them here.
+@d = (alpha, beta0, beta1, beta2,
+      B0, B1, B2,
+      chi, Gt0, Gt1, Gt2, K,
+      gt0, gt1, gt2, gt3, gt4, gt5,
+      At0, At1, At2, At3, At4, At5 );
+
+# second derivs required for RHS
+@dd = (gt0, gt1, gt2, gt3, gt4, gt5, chi,
+       alpha, beta0, beta1, beta2 );
+
+# advective derivatives
+@ad = (gt0, gt1, gt2, gt3, gt4, gt5,
+       At0, At1, At2, At3, At4, At5,
+       alpha, beta0, beta1, beta2, chi, Gt0, Gt1, Gt2, K,
+       B0, B1, B2 );
+
+# first derivs required for constraints--no gauge variables
+@con_d = ( chi, Gt0, Gt1, Gt2, K,
+           gt0, gt1, gt2, gt3, gt4, gt5,
+           At0, At1, At2, At3, At4, At5 );
+
+# second derivs required for constraints--no gauge variables
+@con_dd = (gt0, gt1, gt2, gt3, gt4, gt5, chi);
+
+
+@pd = ("grad_0_", "grad_1_", "grad_2_");
+@pad = ("agrad_0_", "agrad_1_", "agrad_2_");
+@pkod = ("kograd_0_", "kograd_1_", "kograd_2_");
+@pdd = ("grad2_0_0_", "grad2_0_1_", "grad2_0_2_", "grad2_1_1_", "grad2_1_2_", "grad2_2_2_");
+
+# RHS derivatives...................................................
+@funcs = ();
+
+foreach $f (@d) {
+  foreach $p (@pd) {
+    $n = $p . $f;
+    # printf "name: $n\n";
+    push(@funcs, $n);
+  }
+}
+
+foreach $f (@dd) {
+  foreach $p (@pdd) {
+    $n = $p . $f;
+    # printf "name: $n\n";
+    push(@funcs, $n);
+  }
+}
+
+#foreach $f (@d) {
+#  foreach $p (@pkod) {
+#    $n = $p . $f;
+#    # printf "name: $n\n";
+#    push(@funcs, $n);
+#  }
+#}
+
+# advective derivatives...................................................
+@afuncs=();
+foreach $f (@ad) {
+  foreach $p (@pad) {
+    $n = $p . $f;
+    # printf "name: $n\n";
+    push(@afuncs, $n);
+  }
+}
+
+# advective derivatives 2....here we handle advective derivs with centered
+# ...........................operators....................................
+@afuncs2=();
+foreach $f (@ad) {
+  foreach $p (@pd) {
+    $n = $p . $f;
+    # printf "name: $n\n";
+    push(@afuncs2, $n);
+  }
+}
+
+# Constraint derivatives...................................................
+@cfuncs = ();
+
+foreach $f (@con_d) {
+  foreach $p (@pd) {
+    $n = $p . $f;
+    # printf "name: $n\n";
+    push(@cfuncs, $n);
+  }
+}
+
+foreach $f (@con_dd) {
+  foreach $p (@pdd) {
+    $n = $p . $f;
+    # printf "name: $n\n";
+    push(@cfuncs, $n);
+  }
+}
+
+###########################################################################
+#
+#  Write declarations for the main RHS file
+#
+###########################################################################
+
+###########################################################################
+#
+#  Allocate memory (1)
+#
+###########################################################################
+$ofile = "bssnrhs_memalloc.h";
+open(OFILE, ">$ofile");
+
+  #print OFILE "  const unsigned int bytes = n * sizeof(double);\n";
+
+foreach $f (@funcs) {
+  #print OFILE "  posix_memalign((void **)&" . $f . ", align, (n+AVX_SIMD_LENGTH) * sizeof(double));\n";
+  print OFILE "  double *" . $f . " = __mem_pool->allocate(n);\n";
+}
+
+close(OFILE);
+
+###########################################################################
+#
+#  Calls for derivatives (1)
+#
+###########################################################################
+$ofile = "bssnrhs_derivs.h";
+open(OFILE, ">$ofile");
+
+# more cache friendly version, 
+foreach $e (@d) {
+  if ($e ~~ @dd) {
+    $dxn = "grad_0_" . $e;
+    $dyn = "grad_1_" . $e;
+    $dzn = "grad_2_" . $e;
+
+    $dxxn = "grad2_0_0_" . $e;
+    $dyyn = "grad2_1_1_" . $e;
+    $dzzn = "grad2_2_2_" . $e;
+
+    $dxyn = "grad2_0_1_" . $e;
+    $dxzn = "grad2_0_2_" . $e;
+    $dyzn = "grad2_1_2_" . $e;
+
+    print OFILE "  deriv_x(" . $dxn . ", " . $e . ", hx, sz, bflag);\n";
+    print OFILE "  deriv_xx(" . $dxxn . ", " . $e . ", hx, sz, bflag);\n";
+
+    print OFILE "  deriv_y(" . $dyn . ", " . $e . ", hy, sz, bflag);\n";
+    print OFILE "  deriv_yy(" . $dyyn . ", " . $e . ", hy, sz, bflag);\n";
+
+    print OFILE "  deriv_z(" . $dzn . ", " . $e . ", hz, sz, bflag);\n";
+    print OFILE "  deriv_zz(" . $dzzn . ", " . $e . ", hz, sz, bflag);\n";
+
+    # mixed 2nd derivs. 
+    print OFILE "  deriv_y(" . $dxyn . ", " . $dxn . ", hy, sz, bflag);\n";
+    print OFILE "  deriv_z(" . $dxzn . ", " . $dxn . ", hz, sz, bflag);\n";
+    print OFILE "  deriv_z(" . $dyzn . ", " . $dyn . ", hz, sz, bflag);\n";
+
+    
+  }
+  else {
+    $dxn = "grad_0_" . $e;
+    $dyn = "grad_1_" . $e;
+    $dzn = "grad_2_" . $e;
+    print OFILE "  deriv_x(" . $dxn . ", " . $e . ", hx, sz, bflag);\n";
+    print OFILE "  deriv_y(" . $dyn . ", " . $e . ", hy, sz, bflag);\n";
+    print OFILE "  deriv_z(" . $dzn . ", " . $e . ", hz, sz, bflag);\n";
+    
+  }
+}
+
+close(OFILE);
+
+###########################################################################
+#
+# Deallocate memory
+#
+###########################################################################
+$ofile = "bssnrhs_dealloc.h";
+open(OFILE, ">$ofile");
+
+# geometric vars
+foreach $f (@funcs) {
+  print OFILE "__mem_pool->free(" . $f . ");\n";
+}
+
+close(OFILE);
+
+###########################################################################
+#
+# Now do the same for advective derivatives
+#
+###########################################################################
+
+###########################################################################
+#
+#  Allocate memory for advective derivs
+#
+###########################################################################
+$ofile = "bssnrhs_memalloc_adv.h";
+open(OFILE, ">$ofile");
+print OFILE "#ifdef BSSN_USE_ADVECTIVE_DERIVS\n";
+foreach $f (@afuncs) {
+  print OFILE "  double *" . $f . " = __mem_pool->allocate(n);\n";
+}
+print OFILE "#else\n";
+for($i = 0; $i <= $#afuncs; $i++){
+  print OFILE "  double *" . $afuncs[$i] . " = ". $afuncs2[$i] .";\n";
+	#$print("$afuncs[$i] = $afuncs2[$i] \n");
+}
+
+
+print OFILE "#endif\n";
+close(OFILE);
+
+###########################################################################
+#
+#  Calls for derivatives (1)
+#
+###########################################################################
+$ofile = "bssnrhs_derivs_adv.h";
+open(OFILE, ">$ofile");
+print OFILE "#ifdef BSSN_USE_ADVECTIVE_DERIVS\n";
+foreach $e (@ad) {
+  $dxn = "agrad_0_" . $e;
+  print OFILE "  adv_deriv_x(" . $dxn . ", " . $e . ", hx, sz, beta0, bflag);\n";
+  $dyn = "agrad_1_" . $e;
+  print OFILE "  adv_deriv_y(" . $dyn . ", " . $e . ", hy, sz, beta1, bflag);\n";
+  $dzn = "agrad_2_" . $e;
+  print OFILE "  adv_deriv_z(" . $dzn . ", " . $e . ", hz, sz, beta2, bflag);\n";
+}
+print OFILE "#endif\n";
+close(OFILE);
+
+###########################################################################
+#
+#  Calls for Kreiss-Oliger derivatives (1).
+#  Use the same storage as for the standard first derivatives.
+#
+###########################################################################
+$ofile = "bssnrhs_ko_derivs.h";
+open(OFILE, ">$ofile");
+
+foreach $e (@ad) {
+  $dxn = "grad_0_" . $e;
+  print OFILE "  ko_deriv_x(" . $dxn . ", " . $e . ", hx, sz, bflag);\n";
+  $dyn = "grad_1_" . $e;
+  print OFILE "  ko_deriv_y(" . $dyn . ", " . $e . ", hy, sz, bflag);\n";
+  $dzn = "grad_2_" . $e;
+  print OFILE "  ko_deriv_z(" . $dzn . ", " . $e . ", hz, sz, bflag);\n";
+
+}
+
+close(OFILE);
+
+
+$ofile = "bssnrhs_lts_smooth_ko.h";
+open(OFILE, ">$ofile");
+
+foreach $e (@ad) {
+  $dxn = "grad_0_" . $e;
+  $dyn = "grad_1_" . $e;
+  $dzn = "grad_2_" . $e;
+  print OFILE "  double *" . $dxn . " = __mem_pool->allocate(n);\n";
+  print OFILE "  double *" . $dyn . " = __mem_pool->allocate(n);\n";
+  print OFILE "  double *" . $dzn . " = __mem_pool->allocate(n);\n";
+}
+
+foreach $e (@ad) {
+  $dxn = "grad_0_" . $e;
+  print OFILE "  ko_deriv_x(" . $dxn . ", " . $e . ", hx, sz, bflag);\n";
+  $dyn = "grad_1_" . $e;
+  print OFILE "  ko_deriv_y(" . $dyn . ", " . $e . ", hy, sz, bflag);\n";
+  $dzn = "grad_2_" . $e;
+  print OFILE "  ko_deriv_z(" . $dzn . ", " . $e . ", hz, sz, bflag);\n";
+
+}
+
+close(OFILE);
+
+
+
+###########################################################################
+#
+# Deallocate memory for advective derivs
+#
+###########################################################################
+$ofile = "bssnrhs_dealloc_adv.h";
+open(OFILE, ">$ofile");
+print OFILE "#ifdef BSSN_USE_ADVECTIVE_DERIVS\n";
+foreach $f (@afuncs) {
+  print OFILE "__mem_pool->free(" . $f . ");\n";
+}
+print OFILE "#endif\n";
+close(OFILE);
+
+
+###########################################################################
+#
+#  Allocate memory for constraint variables
+#
+###########################################################################
+$ofile = "constraint_memalloc.h";
+open(OFILE, ">$ofile");
+
+foreach $f (@cfuncs) {
+  #print OFILE "  posix_memalign((void **)&" . $f . ", align, (n+AVX_SIMD_LENGTH) * sizeof(double));\n";
+  print OFILE "  double *" . $f . " = __mem_pool->allocate(n);\n";
+}
+
+close(OFILE);
+
+###########################################################################
+#
+#  Calls for derivatives (1)
+#
+###########################################################################
+$ofile = "constraint_derivs.h";
+open(OFILE, ">$ofile");
+
+foreach $e (@con_d) {
+  if ($e ~~ @con_dd) {
+    $dxn = "grad_0_" . $e;
+    $dyn = "grad_1_" . $e;
+    $dzn = "grad_2_" . $e;
+
+    $dxxn = "grad2_0_0_" . $e;
+    $dyyn = "grad2_1_1_" . $e;
+    $dzzn = "grad2_2_2_" . $e;
+
+    $dxyn = "grad2_0_1_" . $e;
+    $dxzn = "grad2_0_2_" . $e;
+    $dyzn = "grad2_1_2_" . $e;
+
+    print OFILE "  deriv_x(" . $dxn . ", " . $e . ", hx, sz, bflag);\n";
+    print OFILE "  deriv_xx(" . $dxxn . ", " . $e . ", hx, sz, bflag);\n";
+
+    print OFILE "  deriv_y(" . $dyn . ", " . $e . ", hy, sz, bflag);\n";
+    print OFILE "  deriv_yy(" . $dyyn . ", " . $e . ", hy, sz, bflag);\n";
+
+    print OFILE "  deriv_z(" . $dzn . ", " . $e . ", hz, sz, bflag);\n";
+    print OFILE "  deriv_zz(" . $dzzn . ", " . $e . ", hz, sz, bflag);\n";
+
+    # mixed 2nd derivs. 
+    print OFILE "  deriv_y(" . $dxyn . ", " . $dxn . ", hy, sz, bflag);\n";
+    print OFILE "  deriv_z(" . $dxzn . ", " . $dxn . ", hz, sz, bflag);\n";
+    print OFILE "  deriv_z(" . $dyzn . ", " . $dyn . ", hz, sz, bflag);\n";
+
+    
+  }
+  else {
+    $dxn = "grad_0_" . $e;
+    $dyn = "grad_1_" . $e;
+    $dzn = "grad_2_" . $e;
+    print OFILE "  deriv_x(" . $dxn . ", " . $e . ", hx, sz, bflag);\n";
+    print OFILE "  deriv_y(" . $dyn . ", " . $e . ", hy, sz, bflag);\n";
+    print OFILE "  deriv_z(" . $dzn . ", " . $e . ", hz, sz, bflag);\n";
+    
+  }
+}
+
+close(OFILE);
+
+###########################################################################
+#
+# Deallocate memory
+#
+###########################################################################
+$ofile = "constraint_dealloc.h";
+open(OFILE, ">$ofile");
+
+# geometric vars
+foreach $f (@cfuncs) {
+  print OFILE "__mem_pool->free(" . $f . ");\n";
+}
+
+close(OFILE);

@@ -1,0 +1,142 @@
+{
+
+    "__comment__(Evolution variable indices )" : "U_CHI=0,U_PHI=1",
+
+    "DENDRO_VERSION": 5.0,
+    "__comment__" : "============== IO =====================================",
+            "           " : "Set to 1 restore solver from a checkpoint",
+            "EM3_RESTORE_SOLVER":0,
+            "           " : "frequency for VTU output",
+            "EM3_IO_OUTPUT_FREQ": 10,
+            "           " : "frequency for remeshing test based on wavelets",
+            "EM3_REMESH_TEST_FREQ": 5,
+            "           " : "frequency for checkpoint output",
+            "EM3_CHECKPT_FREQ": 10000,
+            "           " : "VTU file output gap. (Not currently used. Might be usefull in adaptive timestepping)",
+            "EM3_IO_OUTPUT_GAP": 1,
+            "           " : "file prefix for the vtu files",
+            "EM3_VTU_FILE_PREFIX": "vtu/em3",
+            "           " : "file prefix for the checkpoint files",
+            "EM3_CHKPT_FILE_PREFIX": "cp/em3_cp",
+            "           " : "file prefix for the intermediate profile files",
+            "EM3_PROFILE_FILE_PREFIX": "em3_prof",
+            "           " : "number of variables (evolution) to output in vtu files",
+            "EM3_NUM_EVOL_VARS_VTU_OUTPUT":6,
+            "           " : "evolution variable ids",
+            "EM3_VTU_OUTPUT_EVOL_INDICES": [0,1,2,3,4,5],
+            "           " : "number of constraint variables to output in vtu files",
+            "EM3_NUM_CONST_VARS_VTU_OUTPUT":1,
+            "           " : "constraint variable ids",
+            "EM3_VTU_OUTPUT_CONST_INDICES": [0],
+            "           " : "if true only output the z-slice, false -full grid",
+            "EM3_VTU_Z_SLICE_ONLY": false,
+    "__comment__" : "=======================================================",
+
+
+    "__comment__" : "========== LOAD BALANCING & MESH ======================",
+            "           " : "grain size N/p , Where N number of total octants, p number of active cores",
+            "EM3_DENDRO_GRAIN_SZ": 30,
+            "           " : "variable group size for the asynchronous unzip operation",
+            "EM3_ASYNC_COMM_K": 1,
+            "           " : "dendro coarsening factor, coarsen if computed wavelet tol < EM3_DENDRO_AMR_FAC*EM3_WAVELET_TOL ",
+            "EM3_DENDRO_AMR_FAC": 1e-3,
+            "           " : "dendro load imbalance tolerance for flexible partitioning",
+            "EM3_LOAD_IMB_TOL": 0.1,
+            "           " : "dimensionality of the octree, (meshing is supported only for 3D)",
+            "EM3_DIM": 3,
+            "           " : "maximum level of refinement of the mesh",
+            "EM3_MAXDEPTH": 10,
+    "__comment__" : "=======================================================",
+
+
+
+    "__comment__" : "========== WAVELET REFINEMENT ==========================",
+            "           " : "element order ",
+            "EM3_ELE_ORDER": 8,
+            "           " : "wavelet tolerance",
+            "EM3_WAVELET_TOL": 1e-3,
+            "           " : "number of refinement variables",
+            "EM3_NUM_REFINE_VARS": 3,
+            "           " : "refinement variable IDs",
+            "EM3_REFINE_VARIABLE_INDICES":[0,1,5,3,4,5],
+    "__comment__" : "=======================================================",
+
+
+
+
+    "__comment__" : "========== RK SOLVER ===================================",
+            "           " : "simulation time begin",
+            "EM3_RK45_TIME_BEGIN": 0,
+            "           " : "simulation time end",
+            "EM3_RK45_TIME_END": 100,
+            "           " : "CFL factor",
+            "EM3_CFL_FACTOR":0.25,
+            "           " : "RK method to use (0--RK3, 1--RK4, 2--RK45)",
+            "EM3_RK_TYPE": 0,
+            "           " : "prefered time step size (this is overwritten with the specified CFL factor, not recommend to use this)",
+            "EM3_RK45_TIME_STEP_SIZE": 0.01,
+            "           " : "used in adaptive time stepping (not currently used)",
+            "EM3_RK45_DESIRED_TOL":1e-3,
+            "           " : "Kreiss-Oliger dissipation",
+            "KO_DISS_SIGMA": 4e-1,
+
+    "__comment__" : "=======================================================",
+
+
+    "__comment__" : "========== BLOCK Adaptivity (Not Recommended use AMR) ====",
+            "           " : "Set to 1 disable AMR and use block adaptivity (not recomended). ",
+            "EM3_ENABLE_BLOCK_ADAPTIVITY":0,
+            "EM3_BLK_MIN_X": -2.0,
+            "EM3_BLK_MIN_Y": -2.0,
+            "EM3_BLK_MIN_Z": -2.0,
+            "EM3_BLK_MAX_X": 2.0,
+            "EM3_BLK_MAX_Y": 2.0,
+            "EM3_BLK_MAX_Z": 2.0,
+    "__comment__" : "========================================================",
+
+
+    "__comment__" : "========== Select Initial Data =========================",
+            "           " : "0-test data",
+            "EM3_ID_TYPE": 0,
+            "EM3_ID_LAMBDA1":1.0,
+
+            "EM3_ID_AMP1": 1.0,
+            "EM3_ID_R1": 0.0,
+            "EM3_ID_DELTA1": 3.0,
+            "EM3_ID_XC1": 0.0,
+            "EM3_ID_YC1": 0.0,
+            "EM3_ID_ZC1": 0.0,
+            "EM3_ID_EPSX1": 1.0,
+            "EM3_ID_EPSY1": 1.0,
+            "EM3_ID_EPSZ1": 1.0,
+            "EM3_ID_NU1": 0.0,
+            "EM3_ID_OMEGA": 0.4,
+
+            "EM3_ID_AMP2": 0.0,
+            "EM3_ID_R2": 0.0,
+            "EM3_ID_DELTA2": 3.0,
+            "EM3_ID_XC2": 0.0,
+            "EM3_ID_YC2": 0.0,
+            "EM3_ID_ZC2": 0.0,
+            "EM3_ID_EPSX2": 1.0,
+            "EM3_ID_EPSY2": 1.0,
+            "EM3_ID_EPSZ2": 1.0,
+            "EM3_ID_NU2": 0.0,
+
+
+    "__comment__" : "========================================================",
+
+    "__comment__" : "========== Black Hole ==================================",
+            "           " : "Set to 1 disable AMR and use block adaptivity (not recomended). ",
+            "EM3_GRID_MIN_X": -50.0,
+            "EM3_GRID_MAX_X":  50.0,
+            "EM3_GRID_MIN_Y": -50.0,
+            "EM3_GRID_MAX_Y":  50.0,
+            "EM3_GRID_MIN_Z": -50.0,
+            "EM3_GRID_MAX_Z":  50.0,
+
+    "__comment__" : "========================================================"
+
+  }
+
+

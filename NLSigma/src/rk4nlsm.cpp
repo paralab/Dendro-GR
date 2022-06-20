@@ -158,7 +158,7 @@ namespace ode
         {
             unsigned int nodeLookUp_CG;
             unsigned int nodeLookUp_DG;
-            unsigned int x,y,z,len;
+            double x,y,z,len;
             const ot::TreeNode * pNodes=&(*(m_uiMesh->getAllElements().begin()));
             unsigned int ownerID,ii_x,jj_y,kk_z;
             unsigned int eleOrder=m_uiMesh->getElementOrder();
@@ -186,12 +186,11 @@ namespace ode
                             {
                                 nodeLookUp_DG=e2n_dg[elem*nPe+k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i];
                                 m_uiMesh->dg2eijk(nodeLookUp_DG,ownerID,ii_x,jj_y,kk_z);
-                                len=1u<<(m_uiMaxDepth-pNodes[ownerID].getLevel());
+                                len= (double) (1u<<(m_uiMaxDepth-pNodes[ownerID].getLevel()));
                                 x=pNodes[ownerID].getX()+ ii_x*(len/(eleOrder));
                                 y=pNodes[ownerID].getY()+ jj_y*(len/(eleOrder));
                                 z=pNodes[ownerID].getZ()+ kk_z*(len/(eleOrder));
-                                assert(len%eleOrder==0);
-
+                                
                                 nlsm::initData((double)x,(double)y,(double)z,var);
                                 for(unsigned int v=0;v<nlsm::NLSM_NUM_VARS;v++)
                                     zipIn[v][nodeLookUp_CG]=var[v];
@@ -204,6 +203,119 @@ namespace ode
             }
             
             delete [] var;
+
+        }
+
+
+        void RK4_NLSM::initialGridConverge()
+        {
+
+            applyInitialConditions(m_uiPrevVar);
+
+            bool isRefine=false;
+            unsigned int oldElements,oldElements_g;
+            unsigned int newElements,newElements_g;
+
+            // refine based on all the variables
+            const unsigned int refineNumVars=nlsm::NLSM_NUM_REFINE_VARS;
+            unsigned int refineVarIds[refineNumVars];
+            for(unsigned int vIndex=0;vIndex<refineNumVars;vIndex++)
+                refineVarIds[vIndex]=nlsm::NLSM_REFINE_VARIABLE_INDICES[vIndex];
+
+            double wTol=nlsm::NLSM_WAVELET_TOL;
+            std::function<double(double,double,double,double*)> waveletTolFunc =[wTol](double x,double y, double z,double *hx){ return nlsm::computeWTol(x,y,z,hx);};
+            unsigned int iterCount=1;
+            do
+            {
+
+                #ifdef RK_SOLVER_OVERLAP_COMM_AND_COMP
+                                unzipVars_async(m_uiPrevVar,m_uiUnzipVar);
+                #else
+                                performGhostExchangeVars(m_uiPrevVar);
+                                unzipVars(m_uiPrevVar,m_uiUnzipVar);
+                #endif
+
+
+                if(nlsm::NLSM_ENABLE_BLOCK_ADAPTIVITY)
+                    isRefine=false;
+                else
+                {
+                    isRefine=nlsm::isRemeshForce(m_uiMesh,(const double **)m_uiUnzipVar,nlsm::VAR::U_CHI,nlsm::NLSM_CHI_REFINE_VAL,nlsm::NLSM_CHI_COARSEN_VAL,true);
+                    //m_uiMesh->isReMeshUnzip((const double **)m_uiUnzipVar,refineVarIds,refineNumVars,waveletTolFunc,nlsm::NLSM_DENDRO_AMR_FAC);
+                }
+                    
+
+                if(isRefine)
+                {
+                    ot::Mesh* newMesh=m_uiMesh->ReMesh(nlsm::NLSM_DENDRO_GRAIN_SZ,nlsm::NLSM_LOAD_IMB_TOL,nlsm::NLSM_SPLIT_FIX);
+
+                    oldElements=m_uiMesh->getNumLocalMeshElements();
+                    newElements=newMesh->getNumLocalMeshElements();
+
+                    par::Mpi_Allreduce(&oldElements,&oldElements_g,1,MPI_SUM,m_uiMesh->getMPIGlobalCommunicator());
+                    par::Mpi_Allreduce(&newElements,&newElements_g,1,MPI_SUM,m_uiMesh->getMPIGlobalCommunicator());
+
+                    if(!(m_uiMesh->getMPIRankGlobal()))std::cout<<"initial grid iteration : "<<iterCount<<" old mesh: "<<oldElements_g<<" new mesh: "<<newElements_g<<std::endl;
+
+
+                    // performs the inter-grid transfer
+                    intergridTransferVars(m_uiPrevVar,newMesh);
+
+                    for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+                    {
+                        delete [] m_uiVar[index];
+                        delete [] m_uiVarIm[index];
+                        delete [] m_uiUnzipVar[index];
+                        delete [] m_uiUnzipVarRHS[index];
+
+                        m_uiVar[index]=NULL;
+                        m_uiVarIm[index]=NULL;
+                        m_uiUnzipVar[index]=NULL;
+                        m_uiUnzipVarRHS[index]=NULL;
+
+                        m_uiVar[index]=newMesh->createVector<double>();
+                        m_uiVarIm[index]=newMesh->createVector<double>();
+                        m_uiUnzipVar[index]=newMesh->createUnZippedVector<double>();
+                        m_uiUnzipVarRHS[index]=newMesh->createUnZippedVector<double>();
+
+
+                    }
+
+                    for(unsigned int stage=0;stage<nlsm::NLSM_RK4_STAGES;stage++)
+                        for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+                        {
+                            delete [] m_uiStage[stage][index];
+                            m_uiStage[stage][index]=NULL;
+                            m_uiStage[stage][index]=newMesh->createVector<double>();
+                        }
+
+
+                    std::swap(newMesh,m_uiMesh);
+                    delete newMesh;
+
+                    #ifdef RK_SOLVER_OVERLAP_COMM_AND_COMP
+                                        // reallocates mpi resources for the the new mesh. (this will deallocate the old resources)
+                                        reallocateMPIResources();
+                    #endif
+
+                    if(m_uiMesh->isActive())
+                    {
+                        double l_min=vecMin(m_uiPrevVar[nlsm::VAR::U_CHI]+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
+                        double l_max=vecMax(m_uiPrevVar[nlsm::VAR::U_CHI]+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
+                        if(!(m_uiMesh->getMPIRank())) {
+                            std::cout << "transfer completed:    ||VAR::U_ALPHA|| (min, max) : ("<<l_min<<", "<<l_max<<" ) "<<std::endl;
+                        }
+
+                    }
+
+                    iterCount+=1;
+
+                }
+
+                applyInitialConditions(m_uiPrevVar);
+
+            }while(isRefine && (newElements_g!=oldElements_g));
+
 
         }
 
@@ -263,10 +375,101 @@ namespace ode
 
         void RK4_NLSM::writeToVTU(double **evolZipVarIn, double ** constrZipVarIn, unsigned int numEvolVars,unsigned int numConstVars,const unsigned int * evolVarIndices, const unsigned int * constVarIndices)
         {
+            if(!m_uiMesh->isActive())
+                return;
+                
             nlsm::timer::t_ioVtu.start();
 
             std::vector<std::string> pDataNames;
-            double *pData[(numConstVars+numEvolVars)];
+            double *pData[(numConstVars+numEvolVars+2)];
+
+            #ifdef NLSM_COMPARE_WITH_ANALYTICAL_SOL
+                double * chiAnalytical=m_uiMesh->createVector<double>();
+                double * diffVec=m_uiMesh->createVector<double>();
+
+                std::function<void(double,double,double,double,double*)> u_x_t=[](double x,double y,double z,double t,double*var){nlsm::analyticalSol(x,y,z,t,var);};
+
+                // initialize diff begin.
+                unsigned int nodeLookUp_CG;
+                unsigned int nodeLookUp_DG;
+                double x,y,z,len;
+                const ot::TreeNode * pNodes=&(*(m_uiMesh->getAllElements().begin()));
+                unsigned int ownerID,ii_x,jj_y,kk_z;
+                unsigned int eleOrder=m_uiMesh->getElementOrder();
+                const unsigned int * e2n_cg=&(*(m_uiMesh->getE2NMapping().begin()));
+                const unsigned int * e2n_dg=&(*(m_uiMesh->getE2NMapping_DG().begin()));
+                const unsigned int nPe=m_uiMesh->getNumNodesPerElement();
+                const unsigned int nodeLocalBegin=m_uiMesh->getNodeLocalBegin();
+                const unsigned int nodeLocalEnd=m_uiMesh->getNodeLocalEnd();
+
+
+                double var[2];
+
+                double mp, mm, mp_adm, mm_adm, E, J1, J2, J3;
+
+                for(unsigned int elem=m_uiMesh->getElementLocalBegin();elem<m_uiMesh->getElementLocalEnd();elem++)
+                {
+
+
+                    for(unsigned int k=0;k<(eleOrder+1);k++)
+                        for(unsigned int j=0;j<(eleOrder+1);j++ )
+                            for(unsigned int i=0;i<(eleOrder+1);i++)
+                            {
+                                nodeLookUp_CG=e2n_cg[elem*nPe+k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i];
+                                if(nodeLookUp_CG>=nodeLocalBegin && nodeLookUp_CG<nodeLocalEnd)
+                                {
+                                    nodeLookUp_DG=e2n_dg[elem*nPe+k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i];
+                                    m_uiMesh->dg2eijk(nodeLookUp_DG,ownerID,ii_x,jj_y,kk_z);
+                                    len= (double) (1u<<(m_uiMaxDepth-pNodes[ownerID].getLevel()));
+                                    x=pNodes[ownerID].getX()+ ii_x*(len/(eleOrder));
+                                    y=pNodes[ownerID].getY()+ jj_y*(len/(eleOrder));
+                                    z=pNodes[ownerID].getZ()+ kk_z*(len/(eleOrder));
+                                    
+                                    u_x_t((double)x,(double)y,(double)z,m_uiCurrentTime,var);
+                                    diffVec[nodeLookUp_CG]=var[nlsm::VAR::U_CHI]-evolZipVarIn[nlsm::VAR::U_CHI][nodeLookUp_CG];
+                                    chiAnalytical[nodeLookUp_CG]=var[nlsm::VAR::U_CHI];
+
+
+                                }
+
+                            }
+
+                }
+
+                m_uiMesh->performGhostExchange(diffVec);
+                m_uiMesh->performGhostExchange(chiAnalytical);
+
+                double l_rs = rsNormLp<double>(m_uiMesh,chiAnalytical,evolZipVarIn[nlsm::VAR::U_CHI],2);
+                double l_min=vecMin(diffVec+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
+                double l_max=vecMax(diffVec+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
+                double l2_norm=normL2(diffVec+m_uiMesh->getNodeLocalBegin(),(m_uiMesh->getNumLocalMeshNodes()),m_uiMesh->getMPICommunicator());
+                DendroIntL local_dof=m_uiMesh->getNumLocalMeshNodes();
+                DendroIntL total_dof=0;
+                par::Mpi_Reduce(&local_dof,&total_dof,1,MPI_SUM,0,m_uiMesh->getMPICommunicator());
+
+
+                if(!m_uiMesh->getMPIRank()) {
+                    //std::cout << "executing step: " << m_uiCurrentStep << " dt: " << m_uiT_h << " rk_time : "<< m_uiCurrentTime << std::endl;
+                    l2_norm=sqrt((l2_norm*l2_norm)/(double)(total_dof*total_dof));
+                    std::cout <<YLW<< "\t ||VAR::DIFF|| (min, max,l2,l_2rs) : ("<<l_min<<", "<<l_max<<", "<<l2_norm<<", "<<l_rs<<" ) "<<NRM<<std::endl;
+
+                    std::ofstream fileGW;
+                    char fName[256];
+                    sprintf(fName,"%s_error.dat",nlsm::NLSM_PROFILE_FILE_PREFIX.c_str());
+                    fileGW.open (fName,std::ofstream::app);
+                    // writes the header
+                    if(m_uiCurrentStep==0)
+                        fileGW<<"TimeStep\t"<<" time\t"<<" min\t"<<" max\t"<<" l2\t cgNodes\t l2_rs"<<std::endl;
+
+                    fileGW<<m_uiCurrentStep<<"\t"<<m_uiCurrentTime<<"\t"<<l_min<<"\t"<<l_max<<"\t"<<l2_norm<<"\t"<<total_dof<<"\t "<<l_rs<<std::endl;
+                    fileGW.close();
+
+
+                }
+
+                // initialize diff end
+            #endif
+
 
             for(unsigned int i=0;i<numEvolVars;i++)
             {
@@ -274,7 +477,12 @@ namespace ode
                 pData[i]=evolZipVarIn[evolVarIndices[i]];
             }
 
-
+            #ifdef NLSM_COMPARE_WITH_ANALYTICAL_SOL
+                        pDataNames.push_back("diff");
+                        pDataNames.push_back("chi_analytical");
+                        pData[numConstVars+numEvolVars]=diffVec;
+                        pData[numConstVars+numEvolVars+1]=chiAnalytical;
+            #endif
             std::vector<char*> pDataNames_char;
             pDataNames_char.reserve(pDataNames.size());
 
@@ -282,12 +490,21 @@ namespace ode
                 pDataNames_char.push_back(const_cast<char*>(pDataNames[i].c_str()));
 
             const char * fDataNames[]={"Time","Cycle"};
-            const double fData[]={m_uiCurrentTime,m_uiCurrentStep};
+            const double fData[]={m_uiCurrentTime,(double)m_uiCurrentStep};
 
             char fPrefix[256];
             sprintf(fPrefix,"%s_%d",nlsm::NLSM_VTU_FILE_PREFIX.c_str(),m_uiCurrentStep);
 
-            io::vtk::mesh2vtuFine(m_uiMesh,fPrefix,2,fDataNames,fData,(numEvolVars+numConstVars),(const char **)&pDataNames_char[0],(const double **)pData);
+            #ifdef NLSM_COMPARE_WITH_ANALYTICAL_SOL
+                        io::vtk::mesh2vtuFine(m_uiMesh,fPrefix,2,fDataNames,fData,(numEvolVars+numConstVars+2),(const char **)&pDataNames_char[0],(const double **)pData);
+            #else
+                        io::vtk::mesh2vtuFine(m_uiMesh,fPrefix,2,fDataNames,fData,(numEvolVars+numConstVars),(const char **)&pDataNames_char[0],(const double **)pData);
+            #endif
+
+            #ifdef NLSM_COMPARE_WITH_ANALYTICAL_SOL
+                        delete[] diffVec;
+                        delete[] chiAnalytical;
+            #endif
 
             nlsm::timer::t_ioVtu.stop();
 
@@ -394,14 +611,14 @@ namespace ode
                     double current_t=m_uiCurrentTime;
                     double current_t_adv=current_t;
 
-#ifdef RK_SOLVER_OVERLAP_COMM_AND_COMP
-                    unzipVars_async(m_uiPrevVar,m_uiUnzipVar);
-#else
-                    //1. perform ghost exchange.
-                    performGhostExchangeVars(m_uiPrevVar);
-                    //2. unzip all the variables.
-                    unzipVars(m_uiPrevVar,m_uiUnzipVar);
-#endif
+                    #ifdef RK_SOLVER_OVERLAP_COMM_AND_COMP
+                        unzipVars_async(m_uiPrevVar,m_uiUnzipVar);
+                    #else
+                        //1. perform ghost exchange.
+                        performGhostExchangeVars(m_uiPrevVar);
+                        //2. unzip all the variables.
+                        unzipVars(m_uiPrevVar,m_uiUnzipVar);
+                    #endif
 
 
 
@@ -412,7 +629,7 @@ namespace ode
                     const unsigned int nodeLocalBegin=m_uiMesh->getNodeLocalBegin();
                     const unsigned int nodeLocalEnd=m_uiMesh->getNodeLocalEnd();
 
-                    const std::vector<ot::Block> blkList=m_uiMesh->getLocalBlockList();
+                    const std::vector<ot::Block>& blkList=m_uiMesh->getLocalBlockList();
 
                     unsigned int offset;
                     double ptmin[3], ptmax[3];
@@ -421,17 +638,17 @@ namespace ode
                     double dx,dy,dz;
                     const Point pt_min(nlsm::NLSM_COMPD_MIN[0],nlsm::NLSM_COMPD_MIN[1],nlsm::NLSM_COMPD_MIN[2]);
                     const Point pt_max(nlsm::NLSM_COMPD_MAX[0],nlsm::NLSM_COMPD_MAX[1],nlsm::NLSM_COMPD_MAX[2]);
-
+                    const unsigned int PW=nlsm::NLSM_PADDING_WIDTH;
 
                     for(unsigned int stage=0;stage<(nlsm::NLSM_RK4_STAGES-1);stage++)
                     {
 
 
-#ifdef DEBUG_RK_SOLVER
-                        if(!rank)std::cout<<" stage: "<<stage<<" begin: "<<std::endl;
-                    for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
-                        ot::test::isUnzipNaN(m_uiMesh,m_uiUnzipVar[index]);
-#endif
+                        #ifdef DEBUG_RK_SOLVER
+                            if(!rank)std::cout<<" stage: "<<stage<<" begin: "<<std::endl;
+                            for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+                                ot::test::isUnzipNaN(m_uiMesh,m_uiUnzipVar[index]);
+                        #endif
 
                         for(unsigned int blk=0;blk<blkList.size();blk++)
                         {
@@ -446,36 +663,37 @@ namespace ode
                             dy=blkList[blk].computeDy(pt_min,pt_max);
                             dz=blkList[blk].computeDz(pt_min,pt_max);
 
-                            ptmin[0]=GRIDX_TO_X(blkList[blk].getBlockNode().minX())-3*dx;
-                            ptmin[1]=GRIDY_TO_Y(blkList[blk].getBlockNode().minY())-3*dy;
-                            ptmin[2]=GRIDZ_TO_Z(blkList[blk].getBlockNode().minZ())-3*dz;
+                            //std::cout<<" dx: "<<dx<<" ele x : "<<(1u<<(m_uiMaxDepth-m_uiMesh->getAllElements()[blkList[blk].getLocalElementBegin()].getLevel()))/(double)nlsm::NLSM_ELE_ORDER<<" computed blk: "<<blkList[blk].computeGridDx()<<std::endl;
 
-                            ptmax[0]=GRIDX_TO_X(blkList[blk].getBlockNode().maxX())+3*dx;
-                            ptmax[1]=GRIDY_TO_Y(blkList[blk].getBlockNode().maxY())+3*dy;
-                            ptmax[2]=GRIDZ_TO_Z(blkList[blk].getBlockNode().maxZ())+3*dz;
+                            ptmin[0]=GRIDX_TO_X(blkList[blk].getBlockNode().minX())-PW*dx;
+                            ptmin[1]=GRIDY_TO_Y(blkList[blk].getBlockNode().minY())-PW*dy;
+                            ptmin[2]=GRIDZ_TO_Z(blkList[blk].getBlockNode().minZ())-PW*dz;
 
+                            ptmax[0]=GRIDX_TO_X(blkList[blk].getBlockNode().maxX())+PW*dx;
+                            ptmax[1]=GRIDY_TO_Y(blkList[blk].getBlockNode().maxY())+PW*dy;
+                            ptmax[2]=GRIDZ_TO_Z(blkList[blk].getBlockNode().maxZ())+PW*dz;
 
                             nlsmRhs(m_uiUnzipVarRHS, (const double **)m_uiUnzipVar, offset, ptmin, ptmax, sz, bflag);
 
 
                         }
 
-#ifdef DEBUG_RK_SOLVER
-                        if(!rank)std::cout<<" stage: "<<stage<<" af rhs UNZIP RHS TEST:"<<std::endl;
-                    for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
-                        ot::test::isUnzipInternalNaN(m_uiMesh,m_uiUnzipVarRHS[index]);
-#endif
+                        #ifdef DEBUG_RK_SOLVER
+                            if(!rank)std::cout<<" stage: "<<stage<<" af rhs UNZIP RHS TEST:"<<std::endl;
+                            for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+                                ot::test::isUnzipInternalNaN(m_uiMesh,m_uiUnzipVarRHS[index]);
+                        #endif
 
 
 
                         zipVars(m_uiUnzipVarRHS,m_uiStage[stage]);
 
 
-#ifdef DEBUG_RK_SOLVER
-                        for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
-                        if(seq::test::isNAN(m_uiStage[stage][index]+m_uiMesh->getNodeLocalBegin(),m_uiMesh->getNumLocalMeshNodes()))
-                            std::cout<<" var: "<<index<<" contains nan af zip  stage: "<<stage<<std::endl;
-#endif
+                        #ifdef DEBUG_RK_SOLVER
+                            for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+                            if(seq::test::isNAN(m_uiStage[stage][index]+m_uiMesh->getNodeLocalBegin(),m_uiMesh->getNumLocalMeshNodes()))
+                                std::cout<<" var: "<<index<<" contains nan af zip  stage: "<<stage<<std::endl;
+                        #endif
 
                         /*for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
                              for(unsigned int node=nodeLocalBegin;node<nodeLocalEnd;node++)
@@ -496,12 +714,12 @@ namespace ode
 
 
                         current_t_adv=current_t+RK4_T[stage+1]*m_uiT_h;
-#ifdef RK_SOLVER_OVERLAP_COMM_AND_COMP
-                        unzipVars_async(m_uiVarIm,m_uiUnzipVar);
-#else
-                        performGhostExchangeVars(m_uiVarIm);
-                        unzipVars(m_uiVarIm,m_uiUnzipVar);
-#endif
+                        #ifdef RK_SOLVER_OVERLAP_COMM_AND_COMP
+                            unzipVars_async(m_uiVarIm,m_uiUnzipVar);
+                        #else
+                            performGhostExchangeVars(m_uiVarIm);
+                            unzipVars(m_uiVarIm,m_uiUnzipVar);
+                        #endif
 
 
                     }
@@ -509,12 +727,11 @@ namespace ode
                     current_t_adv=current_t+RK4_T[(nlsm::NLSM_RK4_STAGES-1)]*m_uiT_h;
 
 
-#ifdef DEBUG_RK_SOLVER
-                    if(!rank)std::cout<<" stage: "<<(nlsm::NLSM_RK4_STAGES-1)<<" begin: "<<std::endl;
-
-                for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
-                    ot::test::isUnzipNaN(m_uiMesh,m_uiUnzipVar[index]);
-#endif
+                    #ifdef DEBUG_RK_SOLVER
+                        if(!rank)std::cout<<" stage: "<<(nlsm::NLSM_RK4_STAGES-1)<<" begin: "<<std::endl;
+                        for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+                            ot::test::isUnzipNaN(m_uiMesh,m_uiUnzipVar[index]);
+                    #endif
 
 
                     for(unsigned int blk=0;blk<blkList.size();blk++)
@@ -531,13 +748,13 @@ namespace ode
                         dy=blkList[blk].computeDy(pt_min,pt_max);
                         dz=blkList[blk].computeDz(pt_min,pt_max);
 
-                        ptmin[0]=GRIDX_TO_X(blkList[blk].getBlockNode().minX())-3*dx;
-                        ptmin[1]=GRIDY_TO_Y(blkList[blk].getBlockNode().minY())-3*dy;
-                        ptmin[2]=GRIDZ_TO_Z(blkList[blk].getBlockNode().minZ())-3*dz;
+                        ptmin[0]=GRIDX_TO_X(blkList[blk].getBlockNode().minX())-PW*dx;
+                        ptmin[1]=GRIDY_TO_Y(blkList[blk].getBlockNode().minY())-PW*dy;
+                        ptmin[2]=GRIDZ_TO_Z(blkList[blk].getBlockNode().minZ())-PW*dz;
 
-                        ptmax[0]=GRIDX_TO_X(blkList[blk].getBlockNode().maxX())+3*dx;
-                        ptmax[1]=GRIDY_TO_Y(blkList[blk].getBlockNode().maxY())+3*dy;
-                        ptmax[2]=GRIDZ_TO_Z(blkList[blk].getBlockNode().maxZ())+3*dz;
+                        ptmax[0]=GRIDX_TO_X(blkList[blk].getBlockNode().maxX())+PW*dx;
+                        ptmax[1]=GRIDY_TO_Y(blkList[blk].getBlockNode().maxY())+PW*dy;
+                        ptmax[2]=GRIDZ_TO_Z(blkList[blk].getBlockNode().maxZ())+PW*dz;
 
 
                         nlsmRhs(m_uiUnzipVarRHS, (const double **)m_uiUnzipVar, offset, ptmin, ptmax, sz, bflag);
@@ -545,11 +762,11 @@ namespace ode
 
                     }
 
-#ifdef DEBUG_RK_SOLVER
-                    if(!rank)std::cout<<" stage: "<<(nlsm::NLSM_RK4_STAGES-1)<<" af rhs UNZIP RHS TEST:"<<std::endl;
-                    for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
-                        ot::test::isUnzipInternalNaN(m_uiMesh,m_uiUnzipVarRHS[index]);
-#endif
+                    #ifdef DEBUG_RK_SOLVER
+                        if(!rank)std::cout<<" stage: "<<(nlsm::NLSM_RK4_STAGES-1)<<" af rhs UNZIP RHS TEST:"<<std::endl;
+                        for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+                            ot::test::isUnzipInternalNaN(m_uiMesh,m_uiUnzipVarRHS[index]);
+                    #endif
 
                     zipVars(m_uiUnzipVarRHS,m_uiStage[(nlsm::NLSM_RK4_STAGES-1)]);
 
@@ -597,7 +814,8 @@ namespace ode
 
             if(m_uiCurrentStep==0)
             {
-                applyInitialConditions(m_uiPrevVar);
+                //applyInitialConditions(m_uiPrevVar);
+                initialGridConverge();
             }
 
             bool isRefine=true;
@@ -611,9 +829,11 @@ namespace ode
                 refineVarIds[vIndex]=nlsm::NLSM_REFINE_VARIABLE_INDICES[vIndex];
 
             double wTol=nlsm::NLSM_WAVELET_TOL;
-            std::function<double(double,double,double)> waveletTolFunc =[wTol](double x,double y, double z){ return nlsm::computeWTol(x,y,z,wTol);};
+            std::function<double(double,double,double,double*)> waveletTolFunc =[wTol](double x,double y, double z,double*hx) {
+                return nlsm::computeWTol(x,y,z,hx);
+            };
 
-
+            const unsigned int PW=nlsm::NLSM_PADDING_WIDTH;
             double l_min,l_max;
             for(double t=m_uiCurrentTime;t<m_uiTimeEnd;t=t+m_uiT_h)
             {
@@ -643,101 +863,120 @@ namespace ode
 
                 if((m_uiCurrentStep%nlsm::NLSM_REMESH_TEST_FREQ)==0)
                 {
-
-#ifdef RK_SOLVER_OVERLAP_COMM_AND_COMP
-                    unzipVars_async(m_uiPrevVar,m_uiUnzipVar);
-#else
-                    performGhostExchangeVars(m_uiPrevVar);
-                    //isRefine=m_uiMesh->isReMesh((const double **)m_uiPrevVar,refineVarIds,refineNumVars,nlsm::NLSM_WAVELET_TOL);
-                    unzipVars(m_uiPrevVar,m_uiUnzipVar);
-#endif
+                    #ifdef RK_SOLVER_OVERLAP_COMM_AND_COMP
+                        unzipVars_async(m_uiPrevVar,m_uiUnzipVar);
+                    #else
+                        performGhostExchangeVars(m_uiPrevVar);
+                        //isRefine=m_uiMesh->isReMesh((const double **)m_uiPrevVar,refineVarIds,refineNumVars,nlsm::NLSM_WAVELET_TOL);
+                        unzipVars(m_uiPrevVar,m_uiUnzipVar);
+                    #endif
                     
-//                     char fPrefix[256];
-//                     sprintf(fPrefix,"%s_wavelets_%d",nlsm::NLSM_VTU_FILE_PREFIX.c_str(),m_uiCurrentStep);
-//                     io::vtk::waveletsToVTU(m_uiMesh,(const double **)m_uiPrevVar,(const double**)m_uiUnzipVar,refineVarIds,refineNumVars,(const char*)fPrefix);
+                    //char fPrefix[256];
+                    //sprintf(fPrefix,"%s_wavelets_%d",nlsm::NLSM_VTU_FILE_PREFIX.c_str(),m_uiCurrentStep);
+                    //io::vtk::waveletsToVTU(m_uiMesh,(const double **)m_uiPrevVar,(const double**)m_uiUnzipVar,refineVarIds,refineNumVars,(const char*)fPrefix);
 
-#ifdef DEBUG_RK_SOLVER
-                    if(m_uiMesh->isActive())
-                    {
-                        if(!m_uiMesh->getMPIRank())std::cout<<" isRemesh Unzip : "<<std::endl;
-                        for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
-                            ot::test::isUnzipNaN(m_uiMesh,m_uiUnzipVar[index]);
-
-                    }
-#endif
+                    #ifdef DEBUG_RK_SOLVER
+                        if(m_uiMesh->isActive())
+                        {
+                            if(!m_uiMesh->getMPIRank())std::cout<<" isRemesh Unzip : "<<std::endl;
+                            for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
+                                ot::test::isUnzipNaN(m_uiMesh,m_uiUnzipVar[index]);
+                        }
+                    #endif
+                    
                     nlsm::timer::t_isReMesh.start();
                     if(nlsm::NLSM_ENABLE_BLOCK_ADAPTIVITY)
                         isRefine=false;
-                    else
-                        isRefine=m_uiMesh->isReMeshUnzip((const double **)m_uiUnzipVar,refineVarIds,refineNumVars,waveletTolFunc,nlsm::NLSM_DENDRO_AMR_FAC);
+                    else 
+                    {
+                        
+                        if(nlsm::NLSM_REFINE_MODE == nlsm::RefineMode::WAMR)
+                            isRefine=m_uiMesh->isReMeshUnzip((const double **)m_uiUnzipVar,refineVarIds,refineNumVars,waveletTolFunc,nlsm::NLSM_DENDRO_AMR_FAC);
+                        
+
+                        if(nlsm::NLSM_REFINE_MODE == nlsm::RefineMode::FR)
+                            isRefine=nlsm::isRemeshForce(m_uiMesh,(const double **)m_uiUnzipVar,nlsm::VAR::U_CHI,nlsm::NLSM_CHI_REFINE_VAL,nlsm::NLSM_CHI_COARSEN_VAL,true);
+
+
+                        if(nlsm::NLSM_REFINE_MODE == nlsm::RefineMode::WAMR_FR)
+                        {
+                            const bool isRefine1 = m_uiMesh->isReMeshUnzip((const double **)m_uiUnzipVar,refineVarIds,refineNumVars,waveletTolFunc,nlsm::NLSM_DENDRO_AMR_FAC);
+                            const bool isRefine2 = isRefine=nlsm::isRemeshForce(m_uiMesh,(const double **)m_uiUnzipVar,nlsm::VAR::U_CHI,nlsm::NLSM_CHI_REFINE_VAL,nlsm::NLSM_CHI_COARSEN_VAL,false);
+                            isRefine = (isRefine1 || isRefine2 );
+                        }
+
+                       
+
+
+                    }
+                        
                     nlsm::timer::t_isReMesh.stop();
 
                     if(isRefine)
                     {
 
+                        #ifdef DEBUG_IS_REMESH
+                            unsigned int rank=m_uiMesh->getMPIRankGlobal();
+                            MPI_Comm globalComm=m_uiMesh->getMPIGlobalCommunicator();
+                            std::vector<ot::TreeNode> unChanged;
+                            std::vector<ot::TreeNode> refined;
+                            std::vector<ot::TreeNode> coarsened;
+                            std::vector<ot::TreeNode> localBlocks;
 
-#ifdef DEBUG_IS_REMESH
-			unsigned int rank=m_uiMesh->getMPIRankGlobal();
-			MPI_Comm globalComm=m_uiMesh->getMPIGlobalCommunicator();
-                        std::vector<ot::TreeNode> unChanged;
-                        std::vector<ot::TreeNode> refined;
-                        std::vector<ot::TreeNode> coarsened;
-                        std::vector<ot::TreeNode> localBlocks;
-
-                        const ot::Block* blkList=&(*(m_uiMesh->getLocalBlockList().begin()));
-                        for(unsigned int ele=0;ele<m_uiMesh->getLocalBlockList().size();ele++)
-                        {
-                            localBlocks.push_back(blkList[ele].getBlockNode());
-                        }
-
-
-                        const ot::TreeNode * pNodes=&(*(m_uiMesh->getAllElements().begin()));
-                        for(unsigned int ele=m_uiMesh->getElementLocalBegin();ele<m_uiMesh->getElementLocalEnd();ele++)
-                        {
-                            if((pNodes[ele].getFlag()>>NUM_LEVEL_BITS)==OCT_NO_CHANGE)
+                            const ot::Block* blkList=&(*(m_uiMesh->getLocalBlockList().begin()));
+                            for(unsigned int ele=0;ele<m_uiMesh->getLocalBlockList().size();ele++)
                             {
-                                unChanged.push_back(pNodes[ele]);
-                            }else if((pNodes[ele].getFlag()>>NUM_LEVEL_BITS)==OCT_SPLIT)
-                            {
-                                refined.push_back(pNodes[ele]);
-                            }else
-                            {
-                                assert((pNodes[ele].getFlag()>>NUM_LEVEL_BITS)==OCT_COARSE);
-                                coarsened.push_back(pNodes[ele]);
+                                localBlocks.push_back(blkList[ele].getBlockNode());
                             }
-                        }
-
-                        char fN1[256];
-                        char fN2[256];
-                        char fN3[256];
-                        char fN4[256];
-
-                        sprintf(fN1,"unchanged_%d",m_uiCurrentStep);
-                        sprintf(fN2,"refined_%d",m_uiCurrentStep);
-                        sprintf(fN3,"coarsend_%d",m_uiCurrentStep);
-                        sprintf(fN4,"blocks_%d",m_uiCurrentStep);
-
-                        DendroIntL localSz=unChanged.size();
-                        DendroIntL globalSz;
-                        par::Mpi_Reduce(&localSz,&globalSz,1,MPI_SUM,0,globalComm);
-                        if(!rank) std::cout<<" total unchanged: "<<globalSz<<std::endl;
-
-                        localSz=refined.size();
-                        par::Mpi_Reduce(&localSz,&globalSz,1,MPI_SUM,0,globalComm);
-                        if(!rank) std::cout<<" total refined: "<<globalSz<<std::endl;
 
 
-                        localSz=coarsened.size();
-                        par::Mpi_Reduce(&localSz,&globalSz,1,MPI_SUM,0,globalComm);
-                        if(!rank) std::cout<<" total coarsend: "<<globalSz<<std::endl;
+                            const ot::TreeNode * pNodes=&(*(m_uiMesh->getAllElements().begin()));
+                            for(unsigned int ele=m_uiMesh->getElementLocalBegin();ele<m_uiMesh->getElementLocalEnd();ele++)
+                            {
+                                if((pNodes[ele].getFlag()>>NUM_LEVEL_BITS)==OCT_NO_CHANGE)
+                                {
+                                    unChanged.push_back(pNodes[ele]);
+                                }else if((pNodes[ele].getFlag()>>NUM_LEVEL_BITS)==OCT_SPLIT)
+                                {
+                                    refined.push_back(pNodes[ele]);
+                                }else
+                                {
+                                    assert((pNodes[ele].getFlag()>>NUM_LEVEL_BITS)==OCT_COARSE);
+                                    coarsened.push_back(pNodes[ele]);
+                                }
+                            }
+
+                            char fN1[256];
+                            char fN2[256];
+                            char fN3[256];
+                            char fN4[256];
+
+                            sprintf(fN1,"unchanged_%d",m_uiCurrentStep);
+                            sprintf(fN2,"refined_%d",m_uiCurrentStep);
+                            sprintf(fN3,"coarsend_%d",m_uiCurrentStep);
+                            sprintf(fN4,"blocks_%d",m_uiCurrentStep);
+
+                            DendroIntL localSz=unChanged.size();
+                            DendroIntL globalSz;
+                            par::Mpi_Reduce(&localSz,&globalSz,1,MPI_SUM,0,globalComm);
+                            if(!rank) std::cout<<" total unchanged: "<<globalSz<<std::endl;
+
+                            localSz=refined.size();
+                            par::Mpi_Reduce(&localSz,&globalSz,1,MPI_SUM,0,globalComm);
+                            if(!rank) std::cout<<" total refined: "<<globalSz<<std::endl;
 
 
-                        io::vtk::oct2vtu(&(*(unChanged.begin())),unChanged.size(),fN1,globalComm);
-                        io::vtk::oct2vtu(&(*(refined.begin())),refined.size(),fN2,globalComm);
-                        io::vtk::oct2vtu(&(*(coarsened.begin())),coarsened.size(),fN3,globalComm);
-                        io::vtk::oct2vtu(&(*(localBlocks.begin())),localBlocks.size(),fN4,globalComm);
+                            localSz=coarsened.size();
+                            par::Mpi_Reduce(&localSz,&globalSz,1,MPI_SUM,0,globalComm);
+                            if(!rank) std::cout<<" total coarsend: "<<globalSz<<std::endl;
 
-#endif
+
+                            io::vtk::oct2vtu(&(*(unChanged.begin())),unChanged.size(),fN1,globalComm);
+                            io::vtk::oct2vtu(&(*(refined.begin())),refined.size(),fN2,globalComm);
+                            io::vtk::oct2vtu(&(*(coarsened.begin())),coarsened.size(),fN3,globalComm);
+                            io::vtk::oct2vtu(&(*(localBlocks.begin())),localBlocks.size(),fN4,globalComm);
+
+                        #endif
                         nlsm::timer::t_mesh.start();
                         ot::Mesh* newMesh=m_uiMesh->ReMesh(nlsm::NLSM_DENDRO_GRAIN_SZ,nlsm::NLSM_LOAD_IMB_TOL,nlsm::NLSM_SPLIT_FIX);
                         nlsm::timer::t_mesh.stop();
@@ -754,6 +993,7 @@ namespace ode
                         // performs the inter-grid transfer
                         intergridTransferVars(m_uiPrevVar,newMesh);
 
+                        
                         for(unsigned int index=0;index<nlsm::NLSM_NUM_VARS;index++)
                         {
                             delete [] m_uiVar[index];
@@ -787,10 +1027,17 @@ namespace ode
                         std::swap(newMesh,m_uiMesh);
                         delete newMesh;
 
-#ifdef RK_SOLVER_OVERLAP_COMM_AND_COMP
-                        // reallocates mpi resources for the the new mesh. (this will deallocate the old resources)
-                        reallocateMPIResources();
-#endif
+                        if(m_uiCurrentStep==0)
+                         applyInitialConditions(m_uiPrevVar);
+
+                        unsigned int lmin,lmax;
+                        m_uiMesh->computeMinMaxLevel(lmin,lmax);
+                        nlsm::NLSM_RK45_TIME_STEP_SIZE=nlsm::NLSM_CFL_FACTOR*((nlsm::NLSM_COMPD_MAX[0]-nlsm::NLSM_COMPD_MIN[0])*((1u<<(m_uiMaxDepth-lmax))/((double) nlsm::NLSM_ELE_ORDER))/((double)(1u<<(m_uiMaxDepth))));
+
+                        #ifdef RK_SOLVER_OVERLAP_COMM_AND_COMP
+                            // reallocates mpi resources for the the new mesh. (this will deallocate the old resources)
+                            reallocateMPIResources();
+                        #endif
 
                         if(m_uiMesh->isActive())
                         {
@@ -812,18 +1059,18 @@ namespace ode
                 if((m_uiCurrentStep%nlsm::NLSM_IO_OUTPUT_FREQ)==0)
                 {
 
-#ifdef RK_SOLVER_OVERLAP_COMM_AND_COMP
+                    #ifdef RK_SOLVER_OVERLAP_COMM_AND_COMP
                     unzipVars_async(m_uiPrevVar,m_uiUnzipVar);
-#else
+                    #else
                     performGhostExchangeVars(m_uiPrevVar);
                     unzipVars(m_uiPrevVar,m_uiUnzipVar);
-#endif
+                    #endif
 
 
 
-//#ifdef NLSM_ENABLE_VTU_OUTPUT
+                    //#ifdef NLSM_ENABLE_VTU_OUTPUT
                     writeToVTU(m_uiPrevVar,m_uiConstraintVars,nlsm::NLSM_NUM_EVOL_VARS_VTU_OUTPUT,0,nlsm::NLSM_VTU_OUTPUT_EVOL_INDICES,NULL);
-//#endif
+                    //#endif
 
                 }
 

@@ -58,6 +58,22 @@ namespace binOp{
   int getPrevHighestPowerOfTwo(unsigned int n);
 
 
+  /**@brief sets the i^th bit on the value val*/
+  template <typename T>
+  inline void setBit(T& val, unsigned int i)
+  {
+    val=(((T)1<<i)|val);
+  }
+
+  /**@brief gets the i^th bit on the value val*/
+  template<typename T>
+  inline unsigned int getBit(T val, unsigned int i)
+  {
+    return (val >> i) & 1;
+  }
+
+
+
 }//end namespace
 
 #endif

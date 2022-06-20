@@ -11,6 +11,27 @@
 #ifndef SFCSORTBENCH_WAVELET_H
 #define SFCSORTBENCH_WAVELET_H
 
+#include "refel.h"
+
+/**@brief : Reference element for order 3*/
+//static const RefElement RE_OR3 = RefElement(1,3);
+
+/**@brief : Reference element for order 4*/
+//static const RefElement RE_OR4 = RefElement(1,4);
+
+//static const RefElement RE_OR5 = RefElement(1,5);
+
+//static const RefElement RE_OR6 = RefElement(1,6);
+
+/**@brief : Reference element for order 7*/
+//static const RefElement RE_OR7 = RefElement(1,7);
+
+/**@brief : Reference element for order 8*/
+//static const RefElement RE_OR8 = RefElement(1,8);
+
+
+
+
 #define REFINE_INDEX_OFFSET 2
 #define REFINE_END_OFFSET 9
 #define NUM_REFINE_WAVELET_COEF 8
@@ -21,8 +42,18 @@
 #define NUM_COARSE_WAVELET_COEF 27
 #define NUM_COARSE_INPUT_PTS 64
 
+const double BH_EH_THRESHOLD_REFINE = 0.3;
+const double BH_EH_THRESHOLD_COARSEN = 0.4;
 
 // Below matrices are generated from HOMG (for uniform points.) matlab code. Don't change those unless you know exactly what you are doing.
+
+static int isRefEleSetup =0;
+static RefElement refEl;
+static std::vector<double> wIn;
+static std::vector<double> wOut;
+static std::vector<double> interpIn;
+static std::vector<double> interpOut;
+
 
 
 
@@ -67,8 +98,6 @@ static const double IW_4_3_COARSEN [NUM_COARSE_WAVELET_COEF][NUM_COARSE_INPUT_PT
         { -0.0002441406 ,0.0021972656 ,0.0021972656 ,-0.0002441406 ,0.0012207031 ,-0.0109863281 ,-0.0109863281 ,0.0012207031 ,-0.0036621094 ,0.0329589844 ,0.0329589844 ,-0.0036621094 ,-0.0012207031 ,0.0109863281 ,0.0109863281 ,-0.0012207031 ,0.0012207031 ,-0.0109863281 ,-0.0109863281 ,0.0012207031 ,-0.0061035156 ,0.0549316406 ,0.0549316406 ,-0.0061035156 ,0.0183105469 ,-0.1647949219 ,-0.1647949219 ,0.0183105469 ,0.0061035156 ,-0.0549316406 ,-0.0549316406 ,0.0061035156 ,-0.0036621094 ,0.0329589844 ,0.0329589844 ,-0.0036621094 ,0.0183105469 ,-0.1647949219 ,-0.1647949219 ,0.0183105469 ,-0.0549316406 ,0.4943847656 ,0.4943847656 ,-0.0549316406 ,-0.0183105469 ,0.1647949219 ,0.1647949219 ,-0.0183105469 ,-0.0012207031 ,0.0109863281 ,0.0109863281 ,-0.0012207031 ,0.0061035156 ,-0.0549316406 ,-0.0549316406 ,0.0061035156 ,-0.0183105469 ,0.1647949219 ,0.1647949219 ,-0.0183105469 ,-0.0061035156 ,0.0549316406 ,0.0549316406 ,-0.0061035156 },
         { 0.0002441406 ,-0.0012207031 ,0.0036621094 ,0.0012207031 ,-0.0012207031 ,0.0061035156 ,-0.0183105469 ,-0.0061035156 ,0.0036621094 ,-0.0183105469 ,0.0549316406 ,0.0183105469 ,0.0012207031 ,-0.0061035156 ,0.0183105469 ,0.0061035156 ,-0.0012207031 ,0.0061035156 ,-0.0183105469 ,-0.0061035156 ,0.0061035156 ,-0.0305175781 ,0.0915527344 ,0.0305175781 ,-0.0183105469 ,0.0915527344 ,-0.2746582031 ,-0.0915527344 ,-0.0061035156 ,0.0305175781 ,-0.0915527344 ,-0.0305175781 ,0.0036621094 ,-0.0183105469 ,0.0549316406 ,0.0183105469 ,-0.0183105469 ,0.0915527344 ,-0.2746582031 ,-0.0915527344 ,0.0549316406 ,-0.2746582031 ,0.8239746094 ,0.2746582031 ,0.0183105469 ,-0.0915527344 ,0.2746582031 ,0.0915527344 ,0.0012207031 ,-0.0061035156 ,0.0183105469 ,0.0061035156 ,-0.0061035156 ,0.0305175781 ,-0.0915527344 ,-0.0305175781 ,0.0183105469 ,-0.0915527344 ,0.2746582031 ,0.0915527344 ,0.0061035156 ,-0.0305175781 ,0.0915527344 ,0.0305175781 },
 };
-
-
 
 /**
  * @brief: Computes the wavelet coefficients, for the unzipped version of the block.
@@ -165,7 +194,6 @@ void computeCoarsenWavelets(const T* unzippedVec, const unsigned int offset,cons
     //*--*--*--*--*--*--*--*--*--*--*--*--*
     //1--2--3--4--5--6--7--8--9--10-11-12-13
 
-
     const unsigned int ib=(eI[0]*eleOrder+pWidth-REFINE_INDEX_OFFSET);
     const unsigned int ie=ib+COARSE_END_OFFSET;
 
@@ -203,6 +231,244 @@ void computeCoarsenWavelets(const T* unzippedVec, const unsigned int offset,cons
 
 
 
+
+/**
+ * @brief generic function to compute wavelets for multiple element orders. 
+ * @tparam T type of the vector
+ * @param unzippedVec : unzip vector
+ * @param eleOrder : order of the intepolation to the wavelets
+ * @param eI : element index
+ * @param pWidth : padding width
+ * @param sz : size of the 
+ * @param wavelets : wavelet coefficients. 
+ * @param szn : number of coefficients. 
+ * @param ws: allocated work spaces for wavelet compute interpoation in and out. 
+ */
+template<typename T>
+void refine_wavelets(const T* unzippedVec, const unsigned int eleOrder,const unsigned int *eI, const unsigned int pWidth, const unsigned int *sz , T* wavelets,unsigned int szn, T** ws)
+{
+
+    for(unsigned int w=0;w<szn;w++)
+        wavelets[w]=0.0;
+
+    unsigned int ib,ie,jb,je,kb,ke;
+    ib= (eI[0]*eleOrder + pWidth);  jb = (eI[1]*eleOrder + pWidth) ; kb = (eI[2]*eleOrder + pWidth);
+    ie = ib + (eleOrder + 1); je = jb + (eleOrder+1); ke = kb + (eleOrder+1);
+
+    if(eleOrder % 2  == 0 )
+    { 
+      const unsigned int pp = (eleOrder>>1u);
+      
+      if(isRefEleSetup  == 0)
+      {
+        refEl = RefElement(1,pp);
+        interpIn.resize((pp+1)*(pp+1)*(pp+1));
+        interpOut.resize((pp+1)*(pp+1)*(pp+1));
+        wIn.resize((2*pp+1)*(2*pp+1)*(2*pp+1));
+        wOut.resize((2*pp+1)*(2*pp+1)*(2*pp+1));
+        isRefEleSetup =1;
+      }
+
+      //   RefElement refEl = RefElement(1,pp);
+      //   std::vector<double>  wIn;
+      //   std::vector<double>  wOut;  
+      //   std::vector<double>  interpOut;
+      //   std::vector<double>  interpIn;
+
+      interpIn.resize((pp+1)*(pp+1)*(pp+1));
+      interpOut.resize((pp+1)*(pp+1)*(pp+1));
+      wIn.resize((2*pp+1)*(2*pp+1)*(2*pp+1));
+      wOut.resize((2*pp+1)*(2*pp+1)*(2*pp+1));
+
+      unsigned int m=0;
+      for(unsigned int k = kb; k < ke; k+=2 )
+       for(unsigned int j = jb; j < je; j+=2 )
+        for(unsigned int i = ib; i < ie; i+=2, m++)
+        {
+           interpIn[m] = unzippedVec[k*sz[0]*sz[1] + j*sz[0]  + i ];
+           //std::cout<<"interp m : "<<m<< " value: "<<interpIn[m] <<" i,j,k "<<i<<" , "<<j<<" , "<<k<<" siz: "<<sz[0]<<std::endl;
+        }
+          
+
+
+
+
+      unsigned char bit[3];
+      for(unsigned int cnum = 0 ; cnum < NUM_CHILDREN; cnum++ )
+      {
+        refEl.I3D_Parent2Child(interpIn.data(),interpOut.data(),cnum);
+        
+        bit[0] = binOp::getBit(cnum,0);
+        bit[1] = binOp::getBit(cnum,1);
+        bit[2] = binOp::getBit(cnum,2);
+        
+        unsigned int m=0;
+        for(unsigned int k = (bit[2]*pp) ; k < ((bit[2] + 1)*pp) +1 ; k++)
+         for(unsigned int j = (bit[1]*pp) ; j < ((bit[1] + 1)*pp) +1 ; j++)
+          for(unsigned int i = (bit[0]*pp) ; i < ((bit[0] + 1)*pp) +1 ; i++ , m++)
+          {
+            wIn [ (k)*(eleOrder+1)*(eleOrder+1) + (j)*(eleOrder+1) + (i) ] = unzippedVec[ (k+kb)*sz[0]*sz[1] + (j+jb)*sz[0]  + (i+ib) ] ;
+            wOut[ (k)*(eleOrder+1)*(eleOrder+1) + (j)*(eleOrder+1) + (i) ] = interpOut[m];
+          }
+           
+
+      }
+
+      m=0;  
+      for(unsigned int k = 1; k < 2*pp+1; k+=2 )
+       for(unsigned int j = 1; j < 2*pp+1; j+=2 )
+        for(unsigned int i = 1; i < 2*pp+1; i+=2, m++)
+        {
+            wavelets[m] = fabs(wIn[(k)*(eleOrder+1)*(eleOrder+1) + (j)*(eleOrder+1) + (i)] - wOut[(k)*(eleOrder+1)*(eleOrder+1) + (j)*(eleOrder+1) + (i)] )/pow(2,pp+1);
+            //std::cout<<" wIn: "<<wIn[(k)*(eleOrder+1)*(eleOrder+1) + (j)*(eleOrder+1) + (i)] <<" wOut: "<<wOut[(k)*(eleOrder+1)*(eleOrder+1) + (j)*(eleOrder+1) + (i)]//<<std::endl;  
+        }
+
+      
+    }else
+    { 
+      
+      // const unsigned int pp = ((eleOrder + 1)>>1u);
+      // if(isRefEleSetup  == 0)
+      // {
+      //   refEl = RefElement(1,pp);
+      //   wIn.resize((pp+1)*(pp+1)*(pp+1));
+      //   wOut.resize((2*pp+1)*(2*pp+1)*(2*pp+1));     isRefEleSetup =1;
+      //   isRefEleSetup =1;
+      
+      // }
+
+      // unsigned int m=0;
+      // for(unsigned int k = kb; k < ke; k+=2 )
+      //  for(unsigned int j = jb; j < je; j+=2 )
+      //   for(unsigned int i = ib; i < ie; i+=2, m++)
+      //     wIn[m] = unzippedVec[(eI[2]*eleOrder + k)*sz[0]*sz[1] + (eI[1]*eleOrder + j)*sz[0]  + (eI[0]*eleOrder + i) ];
+
+
+    }
+
+    return;
+
+
+}
+
+
+/**
+ * @brief generic function to compute wavelets for multiple element orders. (coarsenging version)
+ * @tparam T type of the vector
+ * @param unzippedVec : unzip vector
+ * @param eleOrder : order of the intepolation to the wavelets
+ * @param eI : element index
+ * @param pWidth : padding width
+ * @param sz : size of the 
+ * @param wavelets : wavelet coefficients. 
+ * @param szn : number of coefficients. 
+ * @param ws: allocated work spaces for wavelet compute interpoation in and out. 
+ */
+template<typename T>
+void coarsen_wavelets(const T* unzippedVec, const unsigned int eleOrder,const unsigned int *eI, const unsigned int pWidth, const unsigned int *sz , T* wavelets,unsigned int szn, T** ws)
+{
+    for(unsigned int w=0;w<szn;w++)
+        wavelets[w]=0.0;
+
+    //return;
+
+    unsigned int ib,ie,jb,je,kb,ke;
+    ib= (eI[0]*eleOrder + pWidth);  jb = (eI[1]*eleOrder + pWidth) ; kb = (eI[2]*eleOrder + pWidth);
+    ie = ib + (2*eleOrder + 1); je = jb + (2*eleOrder+1); ke = kb + (2*eleOrder+1);
+
+    if(eleOrder % 2  == 0 )
+    { 
+      const unsigned int pp = (eleOrder>>1u);
+      
+      if(isRefEleSetup  == 0)
+      {
+        refEl = RefElement(1,pp);
+        interpIn.resize((pp+1)*(pp+1)*(pp+1));
+        interpOut.resize((pp+1)*(pp+1)*(pp+1));
+        wIn.resize((2*pp+1)*(2*pp+1)*(2*pp+1));
+        wOut.resize((2*pp+1)*(2*pp+1)*(2*pp+1));
+        isRefEleSetup =1;
+      }
+
+      //   RefElement refEl = RefElement(1,pp);
+      //   std::vector<double>  wIn;
+      //   std::vector<double>  wOut;  
+      //   std::vector<double>  interpOut;
+      //   std::vector<double>  interpIn;
+
+      interpIn.resize((pp+1)*(pp+1)*(pp+1));
+      interpOut.resize((pp+1)*(pp+1)*(pp+1));
+      wIn.resize((2*pp+1)*(2*pp+1)*(2*pp+1));
+      wOut.resize((2*pp+1)*(2*pp+1)*(2*pp+1));
+
+      unsigned int m=0;
+      for(unsigned int k = kb; k < ke; k+=4 )
+       for(unsigned int j = jb; j < je; j+=4 )
+        for(unsigned int i = ib; i < ie; i+=4, m++)
+          interpIn[m] = unzippedVec[k*sz[0]*sz[1] + j*sz[0]  + i ];
+
+      //std::cout<<" m: in : "<<m<<std::endl;
+      unsigned char bit[3];
+      
+      for(unsigned int cnum = 0 ; cnum < NUM_CHILDREN; cnum++ )
+      {
+        refEl.I3D_Parent2Child(interpIn.data(),interpOut.data(),cnum);
+        
+        bit[0] = binOp::getBit(cnum,0);
+        bit[1] = binOp::getBit(cnum,1);
+        bit[2] = binOp::getBit(cnum,2);
+        
+        unsigned int m=0;
+        for(unsigned int k = (bit[2]*pp) ; k < ((bit[2] + 1)*pp) +1 ; k++)
+         for(unsigned int j = (bit[1]*pp) ; j < ((bit[1] + 1)*pp) +1 ; j++)
+          for(unsigned int i = (bit[0]*pp) ; i < ((bit[0] + 1)*pp) +1 ; i++ , m++)
+          { 
+              wIn [ (k)*(eleOrder+1)*(eleOrder+1) + (j)*(eleOrder+1) + (i) ] = unzippedVec[ (2*k+kb)*sz[0]*sz[1] + (2*j+jb)*sz[0]  + (2*i+ib) ] ;
+              wOut[ (k)*(eleOrder+1)*(eleOrder+1) + (j)*(eleOrder+1) + (i) ] = interpOut[m];
+          }
+           
+
+      }
+
+      m=0;
+      for(unsigned int k = 1; k < 2*pp+1; k+=2 )
+       for(unsigned int j = 1; j < 2*pp+1; j+=2 )
+        for(unsigned int i = 1; i < 2*pp+1; i+=2, m++)
+        {
+            wavelets[m] = fabs(wIn[(k)*(eleOrder+1)*(eleOrder+1) + (j)*(eleOrder+1) + (i)] - wOut[(k)*(eleOrder+1)*(eleOrder+1) + (j)*(eleOrder+1) + (i)] );
+            //std::cout<<" wIn: "<<wIn[(k)*(eleOrder+1)*(eleOrder+1) + (j)*(eleOrder+1) + (i)] <<" wOut: "<<wOut[(k)*(eleOrder+1)*(eleOrder+1) + (j)*(eleOrder+1) + (i)]<<std::endl;  
+        }
+    
+      
+
+      
+    }else
+    { 
+      
+      // const unsigned int pp = ((eleOrder + 1)>>1u);
+      // if(isRefEleSetup  == 0)
+      // {
+      //   refEl = RefElement(1,pp);
+      //   wIn.resize((pp+1)*(pp+1)*(pp+1));
+      //   wOut.resize((2*pp+1)*(2*pp+1)*(2*pp+1));     isRefEleSetup =1;
+      //   isRefEleSetup =1;
+      
+      // }
+
+      // unsigned int m=0;
+      // for(unsigned int k = kb; k < ke; k+=2 )
+      //  for(unsigned int j = jb; j < je; j+=2 )
+      //   for(unsigned int i = ib; i < ie; i+=2, m++)
+      //     wIn[m] = unzippedVec[(eI[2]*eleOrder + k)*sz[0]*sz[1] + (eI[1]*eleOrder + j)*sz[0]  + (eI[0]*eleOrder + i) ];
+
+
+    }
+
+    return;
+
+
+
+}
 
 
 

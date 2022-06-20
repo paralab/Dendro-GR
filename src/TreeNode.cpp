@@ -203,7 +203,7 @@ namespace ot
         } //end if
 
 #ifdef HILBERT_ORDERING
-#pragma message("===FIX ME===")
+//#pragma message("===FIX ME===")
         std::sort(children.begin(), children.end());
         /*std::vector<ot::TreeNode> tmp;
         ot::TreeNode root=ot::TreeNode(0,0,0,0,m_uiDim,m_uiMaxDepth);

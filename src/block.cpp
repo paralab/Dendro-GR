@@ -17,7 +17,7 @@ ot::Block::Block()
     m_uiLocalElementBegin=0;
     m_uiLocalElementEnd=0;
 
-    m_uiPaddingWidth=GHOST_WIDTH;
+    m_uiPaddingWidth=0;
 
     m_uiEleOrder=0;
     m_uiSize1D=0;
@@ -29,6 +29,7 @@ ot::Block::Block()
     m_uiBlkElem_1D=1u<<(m_uiRegGridLev-m_uiBlockNode.getLevel());
 
     m_uiIsInternal=false;
+    m_uiBlkType = BlockType::UNSPECIFIED;
 
 
 }
@@ -43,7 +44,7 @@ ot::Block::Block(ot::TreeNode pNode, unsigned int rotID ,unsigned int regLev, un
     m_uiLocalElementBegin=regEleBegin;
     m_uiLocalElementEnd=regEleEnd;
 
-    m_uiPaddingWidth=GHOST_WIDTH;
+    m_uiPaddingWidth=(eleOrder>>1u);//GHOST_WIDTH set to 1/2 of the element order (currently unzip mainly tested with even element orders);
 
     m_uiEleOrder=eleOrder;
     m_uiSize1D=m_uiEleOrder*(1u<<(m_uiRegGridLev-m_uiBlockNode.getLevel()))+1+2*m_uiPaddingWidth;
@@ -55,6 +56,7 @@ ot::Block::Block(ot::TreeNode pNode, unsigned int rotID ,unsigned int regLev, un
     m_uiBlkElem_1D=1u<<(m_uiRegGridLev-m_uiBlockNode.getLevel());
 
     m_uiIsInternal=false;
+    m_uiBlkType = BlockType::UNSPECIFIED;
 
 }
 
@@ -67,17 +69,17 @@ ot::Block::~Block()
 
 double ot::Block::computeGridDx() const
 {
-    return ((m_uiBlockNode.maxX()-m_uiBlockNode.minX()))/((1u<<(m_uiRegGridLev-m_uiBlockNode.getLevel()))*m_uiEleOrder);
+    return ((m_uiBlockNode.maxX()-m_uiBlockNode.minX()))/((double)((1u<<(m_uiRegGridLev-m_uiBlockNode.getLevel()))*m_uiEleOrder));
 }
 
 double ot::Block::computeGridDy() const
 {
-    return ((m_uiBlockNode.maxY()-m_uiBlockNode.minY()))/((1u<<(m_uiRegGridLev-m_uiBlockNode.getLevel()))*m_uiEleOrder);
+    return ((m_uiBlockNode.maxY()-m_uiBlockNode.minY()))/((double)((1u<<(m_uiRegGridLev-m_uiBlockNode.getLevel()))*m_uiEleOrder));
 }
 
 double ot::Block::computeGridDz() const
 {
-    return ((m_uiBlockNode.maxZ()-m_uiBlockNode.minZ()))/((1u<<(m_uiRegGridLev-m_uiBlockNode.getLevel()))*m_uiEleOrder);
+    return ((m_uiBlockNode.maxZ()-m_uiBlockNode.minZ()))/((double)((1u<<(m_uiRegGridLev-m_uiBlockNode.getLevel()))*m_uiEleOrder));
 }
 
 double ot::Block::computeDx(const Point & d_min,const Point & d_max) const
@@ -115,4 +117,24 @@ void ot::Block::initializeBlkVertexMap(const unsigned int value)
 {
     m_uiBLKVERTX.clear();
     m_uiBLKVERTX.resize(NUM_CHILDREN,value);
+}
+
+
+void ot::Block::computeEleIJK(ot::TreeNode pNode, unsigned int* eijk) const 
+{
+    eijk[0]=(pNode.getX()-m_uiBlockNode.getX())>>(m_uiMaxDepth-m_uiRegGridLev);
+    eijk[1]=(pNode.getY()-m_uiBlockNode.getY())>>(m_uiMaxDepth-m_uiRegGridLev);
+    eijk[2]=(pNode.getZ()-m_uiBlockNode.getZ())>>(m_uiMaxDepth-m_uiRegGridLev);
+
+}
+
+bool ot::Block::isBlockInternalEle(ot::TreeNode pNode) const 
+{
+    unsigned int eijk[3];
+    this->computeEleIJK(pNode,eijk);
+    // note that integer overflow if the element is out of the min bounds. hence give MAX number which is larger than m_uiBlkElem_1D;
+    bool s1 = ( (eijk[0] < (m_uiBlkElem_1D-1) ) && (eijk[1] < (m_uiBlkElem_1D-1) ) && (eijk[2] < (m_uiBlkElem_1D-1) ) );
+    bool s2 = ( (eijk[0] >  0 ) && (eijk[1] >  0 ) && (eijk[2] >  0 ) );
+
+    return (s1 && s2);
 }

@@ -1,0 +1,19 @@
+/**
+ * @file nrswsh.h.in*
+ * @brief: Contains the COG/SymPyGR (symbolic) code generation to perform gravitational wave (GW)
+ * extraction.
+ *
+ * The extraction method is based on "Extraction of Gravitational Waves in Numerical Relativity"
+ * https://arxiv.org/abs/1606.02532 : Chapter 2 , 3, 4.
+ *
+ * For Spin Weighted Spherical Harmonics (SWSH) we use the SphericalFunction module based on
+ * https://arxiv.org/pdf/1604.08140.pdf
+ * 
+*/
+
+/*[[[cog
+    import gw
+    gw1=gw.GWExtract(5,131,[2,3,4],2,[])
+    gw1.initVars(["LEBEDEV_NUM_PTS","LEBEDEV_THETA","LEBEDEV_PHI","LEBEDEV_W","LEBEDEV_SWSH"])
+]]]*/
+//[[[end]]]

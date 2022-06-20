@@ -17,9 +17,18 @@
 #include "TreeNode.h"
 #include <assert.h>
 #include <treenode2vtk.h>
-#define GHOST_WIDTH 3
+
+
 namespace ot
 {
+   /**
+    * @brief Block type 
+    * UNSPECIFIED : block flag type is not set
+    * UNZIP_INDEPENDENT: unzip operation does not depend on ghost nodes
+    * UNZIP_DEPENDENT: unzip operation does depend on at least one ghost node
+    * 
+    */
+   enum BlockType{UNSPECIFIED=0, UNZIP_INDEPENDENT, UNZIP_DEPENDENT};
 
    class Block
    {
@@ -30,8 +39,8 @@ namespace ot
      /**Coordinates of the block. */
      ot::TreeNode m_uiBlockNode;
 
-    /**rotation id of the block*/
-    unsigned int m_uiRotID;
+     /**rotation id of the block*/
+     unsigned int m_uiRotID;
 
      /** size of the regular grid inside the block. */
      unsigned int m_uiRegGridLev;
@@ -72,11 +81,11 @@ namespace ot
      /** number of elements per block. **/
      unsigned int m_uiBlkElem_1D;
 
-    /** set true after the perform block setpup if the block doesn't depend on the ghost region*/
-    bool m_uiIsInternal;
-
-
-
+     /** set true after the perform block setpup if the block doesn't depend on the ghost region*/
+     bool m_uiIsInternal;
+     
+     /** block type*/      
+     BlockType m_uiBlkType;
 
 
    public:
@@ -136,9 +145,13 @@ namespace ot
 
      inline void setIsInternal(bool isInternal){m_uiIsInternal=isInternal;}
 
+     inline void setBlkType(BlockType btype) { m_uiBlkType = btype; }
+
+     inline BlockType getBlockType() const {return m_uiBlkType;}
+
      inline bool isInternal(){return m_uiIsInternal;}
 
-    /**@brief set the blkFlag with the correct bdy*/
+     /**@brief set the blkFlag with the correct bdy*/
      inline void setBlkNodeFlag(unsigned int flag){m_uiBlockNode.setFlag(flag);};
 
      /**@brief set the blkFlag with the correct bdy*/
@@ -159,12 +172,33 @@ namespace ot
      /**@brief allocation length on Z direction*/
      inline unsigned int getAllocationSzZ() const {return m_uiSzZ;}
 
+     /**@brief align the total block size*/
+     inline unsigned int getAlignedBlockSz() const
+     {
+        // unsigned int tmp;
+        // ((m_uiSzX & ((1u<<DENDRO_BLOCK_ALIGN_FACTOR_LOG)-1))==0)? tmp=m_uiSzX : tmp=((m_uiSzX/(1u<<DENDRO_BLOCK_ALIGN_FACTOR_LOG))+1)*(1u<<DENDRO_BLOCK_ALIGN_FACTOR_LOG);
+        return m_uiSzX*m_uiSzY*m_uiSzZ;
+        // unsigned int ax=binOp::getNextHighestPowerOfTwo(m_uiSzX);
+        // unsigned int ay=binOp::getNextHighestPowerOfTwo(m_uiSzY);
+        // unsigned int az=binOp::getNextHighestPowerOfTwo(m_uiSzZ);
+        // return ax * ay * az;
+     }
+
 
      inline const unsigned int * getBlk2DiagMap() const {return &(*(m_uiBLK2DIAG.begin()));}
 
      inline const unsigned int * getBlk2VertexMap() const {return &(*(m_uiBLKVERTX.begin()));}
 
+     inline void setAllocationSzX(unsigned int sz) {m_uiSzX=sz;}
+     inline void setAllocationSzY(unsigned int sz) {m_uiSzY=sz;}
+     inline void setAllocationSzZ(unsigned int sz) {m_uiSzZ=sz;}
+     inline void setSiz1D(unsigned int sz){m_uiSize1D=sz;}
+
+     inline unsigned int getElemSz1D() const { return m_uiBlkElem_1D;}
+
+
      inline const std::vector<unsigned int >& getBlk2DiagMap_vec() const {return m_uiBLK2DIAG;}
+     inline const std::vector<unsigned int >& getBlk2VertexMap_vec() const {return m_uiBLKVERTX;}
 
      /**@brief computes and returns the space discretization (grid domain) */
      double computeGridDx () const;
@@ -187,6 +221,12 @@ namespace ot
 
      /*** @brief initialize the block vertex neighbour map. */
      void initializeBlkVertexMap(const unsigned int value);
+
+     /**@brief compute the eijk for an element inside the block.  */
+     void computeEleIJK(ot::TreeNode pNode, unsigned int* eijk) const;
+
+     /**@brief: returns true if the pNode is inside the current block*/
+     bool isBlockInternalEle(ot::TreeNode pNode) const ; 
 
 
 

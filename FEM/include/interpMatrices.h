@@ -43,6 +43,10 @@ static double IP_1D_Order_4_1 [] ={0.0, 0.0234375, 0.0, -0.03906245, 0.0,
                                    0.0, 0.46875, 1.0, 1.09375, 0.0,
                                    0.0, -0.0390625, 0.0, 0.2734375, 1.0 };
 
+// special intergrid transfer operator based on symetric stencil coefficients. 
+static double IP_1D_FD_Order_5[]={ 3.0/256.0 ,-25.0/256.0 , 75.0/128.0 , 75.0/128.0  , -25.0/256.0  , 3.0/256.0};
+
+static double IP_1D_FD_Order_4[]={ -1.0/16.0 ,9.0/16.0 , 9.0/16.0 , -1.0/16.0};
 
 
 

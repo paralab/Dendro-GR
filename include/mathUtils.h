@@ -193,6 +193,25 @@ template <typename T>
 T subt(const T* v1, const T*v2,const unsigned int n, T* out);
 
 
+/**
+ * @brief Kroneckor product of two matrices. 
+ * @tparam T data type
+ * @param M1 : matrix 1
+ * @param M2 : matrix 2
+ * @param out : result matrix
+ * @param r1 : rows in m1
+ * @param c1 : cols in m1
+ * @param r2 : rows in m2
+ * @param c2 : cols in m2
+ */
+template<typename T>
+void kron(const T* M1, const T* M2, T* out, unsigned int r1,unsigned int c1, unsigned int r2, unsigned int c2);
+
+/**@brief: min mean max of a scalar value. */
+template<typename T>
+void min_mean_max(T* stat, T* stat_g, MPI_Comm comm);
+
+
 
 #include "mathUtils.tcc"
 

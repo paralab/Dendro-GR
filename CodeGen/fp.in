@@ -1,0 +1,14 @@
+  /*[[[cog
+    import cog
+    import bssn
+    import dendro
+
+    outs = [bssn.a_rhs, bssn.b_rhs, bssn.gt_rhs, bssn.chi_rhs, bssn.At_rhs, bssn.K_rhs, bssn.Gt_rhs, bssn.B_rhs]
+    vnames = ['a_rhs', 'b_rhs', 'gt_rhs', 'chi_rhs', 'At_rhs', 'K_rhs', 'Gt_rhs', 'B_rhs']
+    
+    outs=outs[0:3]
+    vnames=vnames[0:3]
+    dendro.generate_fpcore(outs, vnames, '')
+
+    ]]]*/
+//[[[end]]]

@@ -43,4 +43,50 @@ namespace dendro
 
 }//end namespace dendro
 
+
+
+
+namespace dendro
+{
+
+    namespace  timer
+    {
+
+        namespace sfcmatvec
+        {
+
+            extern profiler_t t_computeIJK;
+            extern profiler_t t_parent_bucket;
+            extern profiler_t t_pts_bucket;
+                extern profiler_t t_pts_p1_count;
+                extern profiler_t t_pts_p2_count;
+                extern profiler_t t_pts_p1_cpy;
+                extern profiler_t t_pts_p2_cpy;
+                extern profiler_t t_pts_p1_accum;
+                extern profiler_t t_pts_p2_accum;
+
+
+
+
+            extern profiler_t t_p2cInterp;
+            extern profiler_t t_internCpy;
+            extern profiler_t t_elemMvec;
+            extern profiler_t t_c2pInterp;
+            extern profiler_t t_accum;
+            extern profiler_t t_malloc;
+
+
+            void initializeSFCMatvecTimers();
+
+            void consolePrint();
+
+
+        } // end of namespace sfcMatvec
+
+    }// end of namespace timer
+
+}// end of namespace dendro
+
+
+
 #endif //SFCSORTBENCH_PROF_PARAMS_H

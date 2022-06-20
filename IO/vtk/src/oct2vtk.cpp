@@ -18,42 +18,41 @@ namespace io
 
             if(!(pMesh->isActive())) return ;
 
-            unsigned int rank=pMesh->getMPIRank();
-            unsigned int npes=pMesh->getMPICommSize();
+            unsigned int rank = pMesh->getMPIRank();
+            unsigned int npes = pMesh->getMPICommSize();
 
             char fname[FNAME_LENGTH];
             sprintf(fname,"%s_%d_%d.vtk",fPrefix,rank,npes);
 
-            fp=fopen(fname,"w+");
+            fp = fopen(fname,"w+");
             if(fp==NULL) {
-                std::cout << "rank: " << rank << "[IO Error]: Could not open the vtk file. " << std::endl;
+                std:: cout << "rank: " << rank << "[IO Error]: Could not open the vtk file. " << std:: endl;
                 return ;
             }
 
-           const std::vector<ot::TreeNode> pElements=pMesh->getAllElements();
+           const std::vector<ot::TreeNode>& pElements = pMesh->getAllElements();
 
            write_vtu_header();
            fprintf(fp," DATASET UNSTRUCTURED_GRID\n");
 
-           unsigned int dim=m_uiDim;
-           unsigned int num_vertices=pMesh->getNumLocalMeshElements()*pMesh->getNumNodesPerElement();
-           unsigned int num_cells=pMesh->getNumLocalMeshElements();
-           int num_cells_elements = num_cells * NUM_CHILDREN + num_cells;
-           unsigned int nPe=pMesh->getNumNodesPerElement();
-           unsigned int eleOrder=pMesh->getElementOrder();
-           unsigned int sz;
+           unsigned int dim            = m_uiDim;
+           unsigned int num_vertices   = pMesh->getNumLocalMeshElements()*pMesh->getNumNodesPerElement();
+           unsigned int num_cells      = pMesh->getNumLocalMeshElements();
+           int      num_cells_elements = num_cells * NUM_CHILDREN + num_cells;
+           unsigned int nPe            = pMesh->getNumNodesPerElement();
+           unsigned int eleOrder       = pMesh->getElementOrder();
+           double sz;
 
            fprintf(fp,"POINTS %d float\n",num_vertices);
 
            for(unsigned int ele=pMesh->getElementLocalBegin();ele<pMesh->getElementLocalEnd();ele++)
            {
-               sz=1u<<(m_uiMaxDepth-pElements[ele].getLevel());
+               sz = 1u<<(m_uiMaxDepth-pElements[ele].getLevel());
 
                for(unsigned int k=0;k<(eleOrder+1);k++)
                  for(unsigned int j=0;j<(eleOrder+1);j++)
                    for(unsigned int i=0;i<(eleOrder+1);i++)
                    {
-                       assert((sz%eleOrder)==0);
                        fprintf(fp,"%f %f %f \n",(float)(pElements[ele].getX()+i*(sz/eleOrder)),(float)(pElements[ele].getY()+j*(sz/eleOrder)),(float)(pElements[ele].getZ()+k*(sz/eleOrder)));
 
                    }
@@ -97,48 +96,51 @@ namespace io
 
 
 
-        void mesh2vtu(const ot::Mesh *pMesh, const char *fPrefix,unsigned int numFieldData,const char** filedDataNames,const double * filedData,unsigned int numPointdata, const char **pointDataNames,const double **pointData)
+        void mesh2vtu(const ot::Mesh *pMesh, const char *fPrefix,unsigned int numFieldData,const char** filedDataNames,const double * filedData,unsigned int numPointdata, const char **pointDataNames,const double **pointData,bool isDGPData)
         {
 
 
             if(!(pMesh->isActive())) return ;
 
-            unsigned int rank=pMesh->getMPIRank();
-            unsigned int npes=pMesh->getMPICommSize();
+            unsigned int rank = pMesh->getMPIRank();
+            unsigned int npes = pMesh->getMPICommSize();
 
             unsigned int retval;
 
+            Point dmin = pMesh->getDomainMinPt();
+            Point dmax = pMesh->getDomainMaxPt();
+            const double invRg = 1.0/( (double) (1u<<m_uiMaxDepth));
 
             char fname[FNAME_LENGTH];
             char str[2048];
             sprintf(fname,"%s_%d_%d.vtu",fPrefix,rank,npes);
 
-            fp=fopen(fname,"w+");
+            fp = fopen(fname,"w+");
             if(fp==NULL) {
-                std::cout << "rank: " << rank << "[IO Error]: Could not open the vtk file. " << std::endl;
+                std:: cout << "rank: " << rank << "[IO Error]: Could not open the vtk file. " << std:: endl;
                 return ;
             }
 
-            const std::vector<ot::TreeNode> pElements=pMesh->getAllElements();
-            const std::vector<unsigned int> e2N=pMesh->getE2NMapping();
+            const std::vector<ot::TreeNode>& pElements = pMesh->getAllElements();
+            const std::vector<unsigned int>& e2N       = pMesh->getE2NMapping();
 
-            unsigned int dim=m_uiDim;
-            DendroIntL num_vertices=pMesh->getNumLocalMeshElements()*pMesh->getNumNodesPerElement();
-            unsigned int num_cells=pMesh->getNumLocalMeshElements();
+            unsigned   int dim       = m_uiDim;
+            DendroIntL num_vertices  = pMesh->getNumLocalMeshElements()*pMesh->getNumNodesPerElement();
+            unsigned   int num_cells = pMesh->getNumLocalMeshElements();
 
             //int num_cells_elements = num_cells * NUM_CHILDREN + num_cells;
-            unsigned int nPe=pMesh->getNumNodesPerElement();
-            unsigned int eleOrder=pMesh->getElementOrder();
-            unsigned int sz;
+            unsigned int nPe      = pMesh->getNumNodesPerElement();
+            unsigned int eleOrder = pMesh->getElementOrder();
+            double sz;
 
-            std::vector<double> nodalVal;
+            std:: vector<double> nodalVal;
             nodalVal.resize(nPe);
 
             fprintf(fp,"<?xml version=\"1.0\"?>\n");
             fprintf(fp,"<VTKFile type=\"UnstructuredGrid\" version=\"0.1\"");
-#ifdef DENDRO_VTU_ZLIB
+            #ifdef DENDRO_VTU_ZLIB
             fprintf(fp," compressor=\"vtkZLibDataCompressor\"");
-#endif
+            #endif
             fprintf(fp," byte_order=\"LittleEndian\">\n");
             fprintf(fp,"  <UnstructuredGrid>\n");
 
@@ -164,53 +166,51 @@ namespace io
 
             fprintf(fp,"      <Points>\n");
 
-#ifdef DENDRO_VTU_ASCII
+            #ifdef DENDRO_VTU_ASCII
             fprintf(fp,"        <DataArray type=\"%s\" Name=\"Position\" NumberOfComponents=\"3\" format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
-#else
+                        #else
             fprintf(fp,"        <DataArray type=\"%s\" Name=\"Position\" NumberOfComponents=\"3\" format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
-#endif
+            #endif
 
 
-#ifdef DENDRO_VTU_ASCII
+            #ifdef DENDRO_VTU_ASCII
             for(unsigned int ele=pMesh->getElementLocalBegin();ele<pMesh->getElementLocalEnd();ele++) {
                 sz = 1u << (m_uiMaxDepth - pElements[ele].getLevel());
-                assert((sz % eleOrder) == 0);
                 for (unsigned int k = 0; k < (eleOrder + 1); k++)
                     for (unsigned int j = 0; j < (eleOrder + 1); j++)
                         for (unsigned int i = 0; i < (eleOrder + 1); i++) {
 
 
-                            fprintf(fp, "          %d %d %d\n", (pElements[ele].getX() + i * (sz / eleOrder)),
-                                    (pElements[ele].getY() + j * (sz / eleOrder)),
-                                    (pElements[ele].getZ() + k * (sz / eleOrder)));
+                            fprintf(fp, "          %d %d %d\n", VTU_OCT_X_GRID_X(pElements[ele].getX() + i * (sz / eleOrder)),
+                                    VTU_OCT_Y_GRID_Y(pElements[ele].getY() + j * (sz / eleOrder)),
+                                    VTU_OCT_Z_GRID_Z(pElements[ele].getZ() + k * (sz / eleOrder)));
 
                         }
             }
-#else
+            #else
 
-            unsigned int* coord_data = new unsigned int[num_vertices*m_uiDim];
+            DENDRO_NODE_COORD_DTYPE* coord_data = new DENDRO_NODE_COORD_DTYPE[num_vertices*m_uiDim];
 
             for(unsigned int ele=pMesh->getElementLocalBegin();ele<pMesh->getElementLocalEnd();ele++) {
                 sz = 1u << (m_uiMaxDepth - pElements[ele].getLevel());
-                assert((sz % eleOrder) == 0);
                 for (unsigned int k = 0; k < (eleOrder + 1); k++)
                     for (unsigned int j = 0; j < (eleOrder + 1); j++)
                         for (unsigned int i = 0; i < (eleOrder + 1); i++) {
-                            coord_data[((ele-pMesh->getElementLocalBegin())*nPe+k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i)*m_uiDim + 0]=(pElements[ele].getX()+i*(sz/eleOrder));
-                            coord_data[((ele-pMesh->getElementLocalBegin())*nPe+k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i)*m_uiDim + 1]=(pElements[ele].getY()+j*(sz/eleOrder));
-                            coord_data[((ele-pMesh->getElementLocalBegin())*nPe+k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i)*m_uiDim + 2]=(pElements[ele].getZ()+k*(sz/eleOrder));
+                            coord_data[((ele-pMesh->getElementLocalBegin())*nPe+k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i)*m_uiDim + 0] = VTU_OCT_X_GRID_X(pElements[ele].getX()+i*(sz/eleOrder));
+                            coord_data[((ele-pMesh->getElementLocalBegin())*nPe+k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i)*m_uiDim + 1] = VTU_OCT_Y_GRID_Y(pElements[ele].getY()+j*(sz/eleOrder));
+                            coord_data[((ele-pMesh->getElementLocalBegin())*nPe+k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i)*m_uiDim + 2] = VTU_OCT_Z_GRID_Z(pElements[ele].getZ()+k*(sz/eleOrder));
                         }
             }
 
             retval = vtk_write_binary (fp, (char *) coord_data, sizeof (*coord_data) * m_uiDim * num_vertices);
             if (retval) {
 
-                  std::cout<<rank<<": [VTU Error]: "<<"base64 encode point data failed"<<std::endl;
+                  std:: cout<<rank<<": [VTU Error]: "<<"base64 encode point data failed"<<std:: endl;
                   fclose(fp);
 
             }
             delete [] coord_data;
-#endif
+               #endif
 
             fprintf(fp,"\n");
 
@@ -219,16 +219,16 @@ namespace io
             fprintf(fp,"      <Cells>\n");
 
 
-#ifdef  DENDRO_VTU_ASCII
+               #ifdef  DENDRO_VTU_ASCII
             fprintf(fp,"        <DataArray type=\"%s\" Name=\"connectivity\""  " format=\"%s\">\n",DENDRO_NODE_ID_TYPE,DENDRO_FORMAT_ASCII);
-#else
+               #else
             fprintf(fp,"        <DataArray type=\"%s\" Name=\"connectivity\""  " format=\"%s\">\n",DENDRO_NODE_ID_TYPE,DENDRO_FORMAT_BINARY);
-#endif
+               #endif
 
 
 
 
-#ifdef  DENDRO_VTU_ASCII
+            #ifdef  DENDRO_VTU_ASCII
             for (unsigned int i = 0 ; i < num_cells ; i++)
             {
                 fprintf(fp,"          %lld %lld %lld %lld %lld %lld %lld %lld\n",
@@ -242,30 +242,30 @@ namespace io
                         (DendroIntL)(i * nPe + eleOrder*(eleOrder+1)*(eleOrder+1)+eleOrder*(eleOrder+1)+0));
             }
 
-#else
-            DendroIntL * locidx_data =new DendroIntL [num_cells*NUM_CHILDREN];
+            #else
+            DendroIntL * locidx_data = new DendroIntL [num_cells*NUM_CHILDREN];
             for (unsigned int i = 0 ; i < num_cells ; i++)
             {
-                locidx_data[i*NUM_CHILDREN+0]=(DendroIntL)(i * nPe + 0*(eleOrder+1)*(eleOrder+1)+0*(eleOrder+1)+0);
-                locidx_data[i*NUM_CHILDREN+1]=(DendroIntL)(i * nPe + 0*(eleOrder+1)*(eleOrder+1)+0*(eleOrder+1)+eleOrder);
-                locidx_data[i*NUM_CHILDREN+2]=(DendroIntL)(i * nPe + 0*(eleOrder+1)*(eleOrder+1)+eleOrder*(eleOrder+1)+eleOrder);
-                locidx_data[i*NUM_CHILDREN+3]=(DendroIntL)(i * nPe + 0*(eleOrder+1)*(eleOrder+1)+eleOrder*(eleOrder+1)+0);
-                locidx_data[i*NUM_CHILDREN+4]=(DendroIntL)(i * nPe + eleOrder*(eleOrder+1)*(eleOrder+1)+0*(eleOrder+1)+0);
-                locidx_data[i*NUM_CHILDREN+5]=(DendroIntL)(i * nPe + eleOrder*(eleOrder+1)*(eleOrder+1)+0*(eleOrder+1)+eleOrder);
-                locidx_data[i*NUM_CHILDREN+6]=(DendroIntL)(i * nPe + eleOrder*(eleOrder+1)*(eleOrder+1)+eleOrder*(eleOrder+1)+eleOrder);
-                locidx_data[i*NUM_CHILDREN+7]=(DendroIntL)(i * nPe + eleOrder*(eleOrder+1)*(eleOrder+1)+eleOrder*(eleOrder+1)+0);
+                locidx_data[i*NUM_CHILDREN+0] = (DendroIntL)(i * nPe + 0*(eleOrder+1)*(eleOrder+1)+0*(eleOrder+1)+0);
+                locidx_data[i*NUM_CHILDREN+1] = (DendroIntL)(i * nPe + 0*(eleOrder+1)*(eleOrder+1)+0*(eleOrder+1)+eleOrder);
+                locidx_data[i*NUM_CHILDREN+2] = (DendroIntL)(i * nPe + 0*(eleOrder+1)*(eleOrder+1)+eleOrder*(eleOrder+1)+eleOrder);
+                locidx_data[i*NUM_CHILDREN+3] = (DendroIntL)(i * nPe + 0*(eleOrder+1)*(eleOrder+1)+eleOrder*(eleOrder+1)+0);
+                locidx_data[i*NUM_CHILDREN+4] = (DendroIntL)(i * nPe + eleOrder*(eleOrder+1)*(eleOrder+1)+0*(eleOrder+1)+0);
+                locidx_data[i*NUM_CHILDREN+5] = (DendroIntL)(i * nPe + eleOrder*(eleOrder+1)*(eleOrder+1)+0*(eleOrder+1)+eleOrder);
+                locidx_data[i*NUM_CHILDREN+6] = (DendroIntL)(i * nPe + eleOrder*(eleOrder+1)*(eleOrder+1)+eleOrder*(eleOrder+1)+eleOrder);
+                locidx_data[i*NUM_CHILDREN+7] = (DendroIntL)(i * nPe + eleOrder*(eleOrder+1)*(eleOrder+1)+eleOrder*(eleOrder+1)+0);
 
             }
             retval = vtk_write_binary (fp, (char *) locidx_data, sizeof (*locidx_data) * NUM_CHILDREN * num_cells);
             if (retval) {
 
-                std::cout<<rank<<": [VTU Error]: "<<"base64 encode connectivity data failed"<<std::endl;
+                std:: cout<<rank<<": [VTU Error]: "<<"base64 encode connectivity data failed"<<std:: endl;
                 fclose(fp);
 
             }
             delete [] locidx_data;
 
-#endif
+            #endif
 
 
 
@@ -274,7 +274,7 @@ namespace io
 
 
 
-#ifdef DENDRO_VTU_ASCII
+            #ifdef DENDRO_VTU_ASCII
             fprintf(fp,"        <DataArray type=\"%s\" Name=\"offsets\"" " format=\"%s\">\n",DENDRO_NODE_ID_TYPE,DENDRO_FORMAT_ASCII);
             fprintf(fp,"         ");
             for (unsigned int il = 1,sk = 1; il <= num_cells; ++il, ++sk) {
@@ -283,27 +283,27 @@ namespace io
                     fprintf(fp,"\n         ");
             }
             fprintf(fp,"\n");
-#else
+            #else
             fprintf(fp,"        <DataArray type=\"%s\" Name=\"offsets\"" " format=\"%s\">\n",DENDRO_NODE_ID_TYPE,DENDRO_FORMAT_BINARY);
-            DendroIntL * loc_offset=new DendroIntL [num_cells];
+            DendroIntL * loc_offset = new DendroIntL [num_cells];
             for (unsigned int il = 1; il <= (num_cells); il++)
-                loc_offset[il-1]=NUM_CHILDREN*il;
+                loc_offset[il-1] = NUM_CHILDREN*il;
 
             retval = vtk_write_binary (fp, (char *) loc_offset, sizeof (*loc_offset) *(num_cells));
             if (retval) {
 
-                std::cout<<rank<<": [VTU Error]: "<<"base64 encode offset data failed"<<std::endl;
+                std:: cout<<rank<<": [VTU Error]: "<<"base64 encode offset data failed"<<std:: endl;
                 fclose(fp);
             }
             delete [] loc_offset;
 
 
-#endif
+            #endif
 
             fprintf(fp,"\n        </DataArray>\n");
 
 
-#ifdef DENDRO_VTU_ASCII
+            #ifdef DENDRO_VTU_ASCII
             fprintf (fp, "        <DataArray type=\"UInt8\" Name=\"types\"" " format=\"%s\">\n", DENDRO_FORMAT_ASCII);
             fprintf(fp,"         ");
             for (unsigned int il = 0, sk = 1; il < num_cells; ++il, ++sk) {
@@ -312,22 +312,22 @@ namespace io
                     fprintf(fp,"\n         ");
             }
             fprintf(fp,"\n");
-#else
+            #else
             fprintf (fp, "        <DataArray type=\"UInt8\" Name=\"types\"" " format=\"%s\">\n", DENDRO_FORMAT_BINARY);
-            uint8_t  * loc_type=new uint8_t [num_cells];
+            uint8_t * loc_type = new uint8_t [num_cells];
             for (unsigned int il = 0; il < num_cells; ++il)
-                loc_type[il]=VTK_HEXAHEDRON;
+                loc_type[il] = VTK_HEXAHEDRON;
 
             retval = vtk_write_binary (fp, (char *) loc_type, sizeof (*loc_type) *num_cells);
             if (retval) {
 
-                std::cout<<rank<<": [VTU Error]: "<<"base64 encode element type data failed"<<std::endl;
+                std:: cout<<rank<<": [VTU Error]: "<<"base64 encode element type data failed"<<std:: endl;
                 fclose(fp);
             }
             delete [] loc_type;
 
 
-#endif
+               #endif
             fprintf (fp, "\n");
             fprintf(fp,"        </DataArray>\n");
             fprintf(fp,"      </Cells>\n");
@@ -335,58 +335,58 @@ namespace io
             // writing cell data
             fprintf(fp,"      <CellData>\n");
 
-#ifdef DENDRO_VTU_ASCII
-            fprintf(fp,"        <DataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
+            #ifdef DENDRO_VTU_ASCII
+            fprintf(fp,"        <DataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\">\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_ASCII);
             fprintf (fp,"         ");
             for (unsigned int il = 0; il < num_cells; ++il) {
                 fprintf(fp,"%d ",rank);
 
             }
             fprintf(fp,"\n");
-#else
-            fprintf(fp,"        <DataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
+            #else
+            fprintf(fp,"        <DataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\">\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_BINARY);
 
-            unsigned int * loc_rank=new unsigned int [num_cells];
+            unsigned int * loc_rank = new unsigned int [num_cells];
             for (unsigned int il = 0; il < num_cells; ++il)
-                loc_rank[il]=rank;
+                loc_rank[il] = rank;
 
             retval = vtk_write_binary (fp, (char *) loc_rank, sizeof (*loc_rank)*num_cells);
             if (retval) {
 
-                std::cout<<rank<<": [VTU Error]: "<<"base64 encode element rank data failed"<<std::endl;
+                std:: cout<<rank<<": [VTU Error]: "<<"base64 encode element rank data failed"<<std:: endl;
                 fclose(fp);
             }
             delete [] loc_rank;
 
 
-#endif
+            #endif
             fprintf (fp, "\n");
             fprintf(fp,"        </DataArray>\n");
 
 
-#ifdef DENDRO_VTU_ASCII
-            fprintf(fp,"        <DataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
+            #ifdef DENDRO_VTU_ASCII
+            fprintf(fp,"        <DataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\">\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_ASCII);
             fprintf(fp,"         ");
             for (unsigned int il = 0; il < num_cells; ++il) {
                 fprintf(fp,"%d ",pElements[il+pMesh->getElementLocalBegin()].getLevel());
             }
             fprintf(fp,"\n");
-#else
-            fprintf(fp,"        <DataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
+            #else
+            fprintf(fp,"        <DataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\">\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_BINARY);
 
-            unsigned int * loc_level=new unsigned int [num_cells];
+            unsigned int * loc_level = new unsigned int [num_cells];
             for (unsigned int il = 0; il < num_cells; ++il)
-                loc_level[il]=pElements[il+pMesh->getElementLocalBegin()].getLevel();
+                loc_level[il] = pElements[il+pMesh->getElementLocalBegin()].getLevel();
 
             retval = vtk_write_binary (fp, (char *) loc_level, sizeof (*loc_level)*num_cells);
             if (retval) {
 
-                std::cout<<rank<<": [VTU Error]: "<<"base64 encode element level data failed"<<std::endl;
+                std:: cout<<rank<<": [VTU Error]: "<<"base64 encode element level data failed"<<std:: endl;
                 fclose(fp);
             }
             delete [] loc_level;
 
-#endif
+            #endif
 
             fprintf (fp, "\n");
             fprintf(fp,"        </DataArray>\n");
@@ -398,39 +398,37 @@ namespace io
             {
                 fprintf(fp,"      <PointData>\n");
 
-#ifndef DENDRO_VTU_ASCII
-                double * nodalVal_binary=new double [num_cells*nPe];
-#endif
+                #ifndef DENDRO_VTU_ASCII
+                double * nodalVal_binary = new double [num_cells*nPe];
+                #endif
 
                 for(unsigned int pdata=0;pdata<numPointdata;pdata++)
                 {
 
-#ifdef DENDRO_VTU_ASCII
+                #ifdef DENDRO_VTU_ASCII
                   fprintf(fp,"        <DataArray type=\"%s\" Name=\"%s\"" " format=\"%s\">\n",DENDRO_NODE_VAR_DOUBLE,pointDataNames[pdata],DENDRO_FORMAT_ASCII);
-#else
+                #else
                   fprintf(fp,"        <DataArray type=\"%s\" Name=\"%s\"" " format=\"%s\">\n",DENDRO_NODE_VAR_DOUBLE,pointDataNames[pdata],DENDRO_FORMAT_BINARY);
-#endif
+                #endif
 
 
-                  const double *tmp_var=pointData[pdata];
+                  const double *tmp_var = pointData[pdata];
                   // note that size of tmp_var should be actual number of nodes in the mesh.
                   //std::cout<<"tmp_var: pdata: "<<pdata<<" var: "<<tmp_var[0]<<std::endl;
-#ifdef DENDRO_VTU_ASCII
+                  #ifdef DENDRO_VTU_ASCII
                     fprintf(fp,"         ");
                     for (unsigned int il = pMesh->getElementLocalBegin(); il < pMesh->getElementLocalEnd(); ++il) {
-                        pMesh->getElementNodalValues(tmp_var,&(*(nodalVal.begin())),il);
+                        pMesh->getElementNodalValues(tmp_var,&(*(nodalVal.begin())),il,isDGPData);
                         for(unsigned int node=0;node<nPe;node++)
                             fprintf(fp,"%f ",nodalVal[node]);
                     }
                     fprintf(fp,"\n");
-#else
+                  #else
 
-
-
-                    for (unsigned int il = pMesh->getElementLocalBegin(); il < pMesh->getElementLocalEnd(); ++il) {
-                        pMesh->getElementNodalValues(tmp_var,&(*(nodalVal.begin())),il);
+                  for (unsigned int il = pMesh->getElementLocalBegin(); il < pMesh->getElementLocalEnd(); ++il) {
+                        pMesh->getElementNodalValues(tmp_var,&(*(nodalVal.begin())),il,isDGPData);
                         for(unsigned int node=0;node<nPe;node++)
-                            nodalVal_binary[(il-pMesh->getElementLocalBegin())*nPe+node]=nodalVal[node];
+                            nodalVal_binary[(il-pMesh->getElementLocalBegin())*nPe+node] = nodalVal[node];
                     }
 
 
@@ -438,21 +436,22 @@ namespace io
 
                     if (retval) {
 
-                        std::cout<<rank<<": [VTU Error]: "<<"base64 encode point vars data failed"<<std::endl;
+                        std:: cout<<rank<<": [VTU Error]: "<<"base64 encode point vars data failed"<<std:: endl;
                         fclose(fp);
                     }
 
 
-#endif
+                #endif
                     fprintf (fp, "\n");
                     fprintf(fp,"        </DataArray>\n");
+                
                 }
                 fprintf(fp,"      </PointData>\n");
 
 
-#ifndef DENDRO_VTU_ASCII
-                delete [] nodalVal_binary;
-#endif
+                #ifndef DENDRO_VTU_ASCII
+                 delete [] nodalVal_binary;
+                #endif
             }
 
 
@@ -463,24 +462,24 @@ namespace io
             fprintf(fp,"</VTKFile>\n");
 
             fclose(fp);
-            fp=NULL;
+            fp = NULL;
 
             if(!rank)
             {
                 sprintf(fname,"%s.pvtu",fPrefix);
 
-                fp=fopen(fname,"w+");
+                fp = fopen(fname,"w+");
                 if(fp==NULL) {
-                    std::cout << "rank: " << rank << "[IO Error]: Could not open the pvtu file. " << std::endl;
+                    std:: cout << "rank: " << rank << "[IO Error]: Could not open the pvtu file. " << std:: endl;
                     return ;
                 }
 
 
                 fprintf(fp,"<?xml version=\"1.0\"?>\n");
                 fprintf(fp,"<VTKFile type=\"PUnstructuredGrid\" version=\"0.1\"");
-#ifdef DENDRO_VTU_ZLIB
+                #ifdef DENDRO_VTU_ZLIB
                 fprintf(fp," compressor=\"vtkZLibDataCompressor\"");
-#endif
+                #endif
                 fprintf(fp," byte_order=\"LittleEndian\">\n");
 
                 fprintf(fp,"  <PUnstructuredGrid GhostLevel=\"0\">\n");
@@ -498,30 +497,30 @@ namespace io
 
                 fprintf(fp,"    <PPoints>\n");
 
-#ifdef DENDRO_VTU_ASCII
+                #ifdef DENDRO_VTU_ASCII
                 fprintf(fp,"      <PDataArray type=\"%s\" Name=\"Position\""" NumberOfComponents=\"3\" format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
-#else
+                #else
                 fprintf(fp,"      <PDataArray type=\"%s\" Name=\"Position\""" NumberOfComponents=\"3\" format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
-#endif
+                #endif
 
 
 
                 fprintf(fp,"    </PPoints>\n");
                 fprintf(fp,"    <PCellData>\n");
 
-#ifdef DENDRO_VTU_ASCII
-                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
-#else
-                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
-#endif
+                #ifdef DENDRO_VTU_ASCII
+                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_ASCII);
+                #else
+                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_BINARY);
+                #endif
 
 
 
-#ifdef DENDRO_VTU_ASCII
-                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
-#else
-                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
-#endif
+                #ifdef DENDRO_VTU_ASCII
+                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_ASCII);
+                #else
+                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_BINARY);
+                #endif
 
                 fprintf(fp,"    </PCellData>\n");
 
@@ -534,18 +533,18 @@ namespace io
                     for(unsigned int pdata=0;pdata<numPointdata;pdata++)
                     {
 
-#ifdef DENDRO_VTU_ASCII
+                #ifdef DENDRO_VTU_ASCII
                         fprintf(fp,"        <PDataArray type=\"%s\" Name=\"%s\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_DOUBLE,pointDataNames[pdata],DENDRO_FORMAT_ASCII);
-#else
+                #else
                         fprintf(fp,"        <PDataArray type=\"%s\" Name=\"%s\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_DOUBLE,pointDataNames[pdata],DENDRO_FORMAT_BINARY);
-#endif
+                #endif
 
                     }
 
                     fprintf(fp,"      </PPointData>\n");
 
                 }
-                std::string vtuName=getFileName(std::string(fPrefix));
+                std::string vtuName = getFileName(std::string(fPrefix));
                 for(unsigned int proc=0;proc<npes;proc++)
                 {
                     fprintf(fp,"<Piece Source=\"%s_%d_%d.vtu\"/>\n",vtuName.c_str(),proc,npes);
@@ -556,7 +555,7 @@ namespace io
 
 
                 fclose(fp);
-                fp=NULL;
+                fp = NULL;
 
 
 
@@ -568,13 +567,17 @@ namespace io
 
 
 
-        void mesh2vtuCoarse(const ot::Mesh *pMesh, const char *fPrefix,unsigned int numFieldData,const char** filedDataNames,const double * filedData,unsigned int numPointdata, const char **pointDataNames, const double **pointData)
+        void mesh2vtuCoarse(const ot::Mesh *pMesh, const char *fPrefix,unsigned int numFieldData,const char** filedDataNames,const double * filedData,unsigned int numPointdata, const char **pointDataNames, const double **pointData, bool isDGPData)
         {
 
             if(!(pMesh->isActive())) return ;
 
-            unsigned int rank=pMesh->getMPIRank();
-            unsigned int npes=pMesh->getMPICommSize();
+            unsigned int rank = pMesh->getMPIRank();
+            unsigned int npes = pMesh->getMPICommSize();
+
+            Point dmin = pMesh->getDomainMinPt();
+            Point dmax = pMesh->getDomainMaxPt();
+            const double invRg = 1.0/( (double) (1u<<m_uiMaxDepth));
 
             int retval;
 
@@ -582,34 +585,35 @@ namespace io
             char str[2048];
             sprintf(fname,"%s_%d_%d.vtu",fPrefix,rank,npes);
 
-            fp=fopen(fname,"w+");
+            fp = fopen(fname,"w+");
             if(fp==NULL) {
-                std::cout << "rank: " << rank << "[IO Error]: Could not open the vtk file. " << std::endl;
+                std:: cout << "rank: " << rank << "[IO Error]: Could not open the vtk file. " << std:: endl;
                 return ;
             }
 
-            const std::vector<ot::TreeNode> pElements=pMesh->getAllElements();
-            const std::vector<unsigned int> e2N=pMesh->getE2NMapping();
+            const std::vector<ot::TreeNode>& pElements = pMesh->getAllElements();
+            const std::vector<unsigned int>& e2N       = pMesh->getE2NMapping();
 
-            unsigned int dim=m_uiDim;
-            DendroIntL num_vertices=pMesh->getNumLocalMeshElements()*NUM_CHILDREN;
-            unsigned int num_cells=pMesh->getNumLocalMeshElements();
-            unsigned int nPe=pMesh->getNumNodesPerElement();
-            unsigned int eleOrder=pMesh->getElementOrder();
-            unsigned int sz;
+            unsigned   int dim       = m_uiDim;
+            DendroIntL num_vertices  = pMesh->getNumLocalMeshElements()*NUM_CHILDREN;
+            unsigned   int num_cells = pMesh->getNumLocalMeshElements();
+            unsigned   int nPe       = pMesh->getNumNodesPerElement();
+            unsigned   int eleOrder  = pMesh->getElementOrder();
+            double sz;
 
-            std::vector<double> nodalVal;
+            std:: vector<double> nodalVal;
             nodalVal.resize(nPe);
 
-            const unsigned int nx=2;
-            const unsigned int ny=2;
-            const unsigned int nz=2;
+            const unsigned int nx = 2;
+            const unsigned int ny = 2;
+            const unsigned int nz = 2;
 
             fprintf(fp,"<?xml version=\"1.0\"?>\n");
             fprintf(fp,"<VTKFile type=\"UnstructuredGrid\" version=\"0.1\"");
-#ifdef DENDRO_VTU_ZLIB
+            
+            #ifdef DENDRO_VTU_ZLIB
             fprintf(fp," compressor=\"vtkZLibDataCompressor\"");
-#endif
+            #endif
             fprintf(fp," byte_order=\"LittleEndian\">\n");
             fprintf(fp,"  <UnstructuredGrid>\n");
 
@@ -634,55 +638,53 @@ namespace io
 
             fprintf(fp,"      <Points>\n");
 
-#ifdef DENDRO_VTU_ASCII
+            #ifdef DENDRO_VTU_ASCII
             fprintf(fp,"        <DataArray type=\"%s\" Name=\"Position\""" NumberOfComponents=\"3\" format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
-#else
+            #else
             fprintf(fp,"        <DataArray type=\"%s\" Name=\"Position\""" NumberOfComponents=\"3\" format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
-#endif
+            #endif
 
 
             fprintf(fp,"          ");
 
-#ifdef DENDRO_VTU_ASCII
+            #ifdef DENDRO_VTU_ASCII
             for(unsigned int ele=pMesh->getElementLocalBegin();ele<pMesh->getElementLocalEnd();ele++) {
                 sz = 1u << (m_uiMaxDepth - pElements[ele].getLevel());
-                assert((sz % eleOrder) == 0);
                 for (unsigned int k = 0; k < (eleOrder + 1); k+=eleOrder)
                     for (unsigned int j = 0; j < (eleOrder + 1); j+=eleOrder)
                         for (unsigned int i = 0; i < (eleOrder + 1); i+=eleOrder) {
 
 
-                            fprintf(fp, "          %d %d %d\n", (pElements[ele].getX() + i * (sz / eleOrder)),
-                                    (pElements[ele].getY() + j * (sz / eleOrder)),
-                                    (pElements[ele].getZ() + k * (sz / eleOrder)));
+                            fprintf(fp, "          %d %d %d\n", VTU_OCT_X_GRID_X(pElements[ele].getX() + i * (sz / eleOrder)),
+                                    VTU_OCT_Y_GRID_Y(pElements[ele].getY() + j * (sz / eleOrder)),
+                                    VTU_OCT_Z_GRID_Z(pElements[ele].getZ() + k * (sz / eleOrder)));
 
                         }
             }
-#else
-
-            unsigned int* coord_data = new unsigned int[num_vertices*m_uiDim];
+            #else
+            
+            DENDRO_NODE_COORD_DTYPE* coord_data = new DENDRO_NODE_COORD_DTYPE[num_vertices*m_uiDim];
 
             for(unsigned int ele=pMesh->getElementLocalBegin();ele<pMesh->getElementLocalEnd();ele++) {
                 sz = 1u << (m_uiMaxDepth - pElements[ele].getLevel());
-                assert((sz % eleOrder) == 0);
                 for (unsigned int k = 0; k < (eleOrder + 1); k+=eleOrder)
                     for (unsigned int j = 0; j < (eleOrder + 1); j+=eleOrder)
                         for (unsigned int i = 0; i < (eleOrder + 1); i+=eleOrder) {
-                            coord_data[((ele-pMesh->getElementLocalBegin())*NUM_CHILDREN+(k/eleOrder)*ny*nx+(j/eleOrder)*nx+(i/eleOrder))*m_uiDim + 0]=(pElements[ele].getX()+i*(sz/eleOrder));
-                            coord_data[((ele-pMesh->getElementLocalBegin())*NUM_CHILDREN+(k/eleOrder)*ny*nx+(j/eleOrder)*nx+(i/eleOrder))*m_uiDim + 1]=(pElements[ele].getY()+j*(sz/eleOrder));
-                            coord_data[((ele-pMesh->getElementLocalBegin())*NUM_CHILDREN+(k/eleOrder)*ny*nx+(j/eleOrder)*nx+(i/eleOrder))*m_uiDim + 2]=(pElements[ele].getZ()+k*(sz/eleOrder));
+                            coord_data[((ele-pMesh->getElementLocalBegin())*NUM_CHILDREN+(k/eleOrder)*ny*nx+(j/eleOrder)*nx+(i/eleOrder))*m_uiDim + 0] = VTU_OCT_X_GRID_X(pElements[ele].getX()+i*(sz/eleOrder));
+                            coord_data[((ele-pMesh->getElementLocalBegin())*NUM_CHILDREN+(k/eleOrder)*ny*nx+(j/eleOrder)*nx+(i/eleOrder))*m_uiDim + 1] = VTU_OCT_Y_GRID_Y(pElements[ele].getY()+j*(sz/eleOrder));
+                            coord_data[((ele-pMesh->getElementLocalBegin())*NUM_CHILDREN+(k/eleOrder)*ny*nx+(j/eleOrder)*nx+(i/eleOrder))*m_uiDim + 2] = VTU_OCT_Z_GRID_Z(pElements[ele].getZ()+k*(sz/eleOrder));
                         }
             }
 
             retval = vtk_write_binary (fp, (char *) coord_data, sizeof (*coord_data) * m_uiDim * num_vertices);
             if (retval) {
 
-                std::cout<<rank<<": [VTU Error]: "<<"base64 encode point data failed"<<std::endl;
+                std:: cout<<rank<<": [VTU Error]: "<<"base64 encode point data failed"<<std:: endl;
                 fclose(fp);
 
             }
             delete [] coord_data;
-#endif
+            #endif
 
             fprintf(fp,"\n");
 
@@ -691,11 +693,11 @@ namespace io
             fprintf(fp,"      <Cells>\n");
 
 
-#ifdef  DENDRO_VTU_ASCII
+            #ifdef  DENDRO_VTU_ASCII
             fprintf(fp,"        <DataArray type=\"%s\" Name=\"connectivity\""  " format=\"%s\">\n",DENDRO_NODE_ID_TYPE,DENDRO_FORMAT_ASCII);
-#else
+            #else
             fprintf(fp,"        <DataArray type=\"%s\" Name=\"connectivity\""  " format=\"%s\">\n",DENDRO_NODE_ID_TYPE,DENDRO_FORMAT_BINARY);
-#endif
+            #endif
 
 
 
@@ -703,7 +705,7 @@ namespace io
             {
 
 
-#ifdef  DENDRO_VTU_ASCII
+                #ifdef  DENDRO_VTU_ASCII
                 fprintf(fp,"          %lld %lld %lld %lld %lld %lld %lld %lld\n",
                         (DendroIntL)(i * nx*ny*nz + 0*ny*nx+0*nx+0),
                         (DendroIntL)(i * nx*ny*nz + 0*ny*nx+0*nx+1),
@@ -714,33 +716,33 @@ namespace io
                         (DendroIntL)(i * nx*ny*nz + 1*ny*nx+1*nx+1),
                         (DendroIntL)(i * nx*ny*nz + 1*ny*nx+1*nx+0));
 
-#else
+               #else
 
 
-                DendroIntL * locidx_data =new DendroIntL [num_cells*NUM_CHILDREN];
+                DendroIntL * locidx_data = new DendroIntL [num_cells*NUM_CHILDREN];
                 for (unsigned int i = 0 ; i < num_cells ; i++)
                 {
-                    locidx_data[i*NUM_CHILDREN+0]=(DendroIntL)(i * nx*ny*nz + 0*ny*nx+0*nx+0);
-                    locidx_data[i*NUM_CHILDREN+1]=(DendroIntL)(i * nx*ny*nz + 0*ny*nx+0*nx+1);
-                    locidx_data[i*NUM_CHILDREN+2]=(DendroIntL)(i * nx*ny*nz + 0*ny*nx+1*nx+1);
-                    locidx_data[i*NUM_CHILDREN+3]=(DendroIntL)(i * nx*ny*nz + 0*ny*nx+1*nx+0);
-                    locidx_data[i*NUM_CHILDREN+4]=(DendroIntL)(i * nx*ny*nz + 1*ny*nx+0*nx+0);
-                    locidx_data[i*NUM_CHILDREN+5]=(DendroIntL)(i * nx*ny*nz + 1*ny*nx+0*nx+1);
-                    locidx_data[i*NUM_CHILDREN+6]=(DendroIntL)(i * nx*ny*nz + 1*ny*nx+1*nx+1);
-                    locidx_data[i*NUM_CHILDREN+7]=(DendroIntL)(i * nx*ny*nz + 1*ny*nx+1*nx+0);
+                    locidx_data[i*NUM_CHILDREN+0] = (DendroIntL)(i * nx*ny*nz + 0*ny*nx+0*nx+0);
+                    locidx_data[i*NUM_CHILDREN+1] = (DendroIntL)(i * nx*ny*nz + 0*ny*nx+0*nx+1);
+                    locidx_data[i*NUM_CHILDREN+2] = (DendroIntL)(i * nx*ny*nz + 0*ny*nx+1*nx+1);
+                    locidx_data[i*NUM_CHILDREN+3] = (DendroIntL)(i * nx*ny*nz + 0*ny*nx+1*nx+0);
+                    locidx_data[i*NUM_CHILDREN+4] = (DendroIntL)(i * nx*ny*nz + 1*ny*nx+0*nx+0);
+                    locidx_data[i*NUM_CHILDREN+5] = (DendroIntL)(i * nx*ny*nz + 1*ny*nx+0*nx+1);
+                    locidx_data[i*NUM_CHILDREN+6] = (DendroIntL)(i * nx*ny*nz + 1*ny*nx+1*nx+1);
+                    locidx_data[i*NUM_CHILDREN+7] = (DendroIntL)(i * nx*ny*nz + 1*ny*nx+1*nx+0);
 
                 }
                 retval = vtk_write_binary (fp, (char *) locidx_data, sizeof (*locidx_data) * NUM_CHILDREN * num_cells);
                 if (retval) {
 
-                    std::cout<<rank<<": [VTU Error]: "<<"base64 encode connectivity data failed"<<std::endl;
+                    std:: cout<<rank<<": [VTU Error]: "<<"base64 encode connectivity data failed"<<std:: endl;
                     fclose(fp);
 
                 }
                 delete [] locidx_data;
 
 
-#endif
+               #endif
 
             }
 
@@ -749,7 +751,7 @@ namespace io
 
 
 
-#ifdef DENDRO_VTU_ASCII
+            #ifdef DENDRO_VTU_ASCII
             fprintf(fp,"        <DataArray type=\"%s\" Name=\"offsets\"" " format=\"%s\">\n",DENDRO_NODE_ID_TYPE,DENDRO_FORMAT_ASCII);
             fprintf(fp,"         ");
             for (unsigned int il = 1,sk = 1; il <= num_cells; ++il, ++sk) {
@@ -758,22 +760,22 @@ namespace io
                     fprintf(fp,"\n         ");
             }
             fprintf(fp,"\n");
-#else
+            #else
             fprintf(fp,"        <DataArray type=\"%s\" Name=\"offsets\"" " format=\"%s\">\n",DENDRO_NODE_ID_TYPE,DENDRO_FORMAT_BINARY);
 
-            DendroIntL * loc_offset=new DendroIntL [num_cells];
+            DendroIntL * loc_offset = new DendroIntL [num_cells];
             for (unsigned int il = 1; il <= (num_cells); il++)
-                loc_offset[il-1]=NUM_CHILDREN*il;
+                loc_offset[il-1] = NUM_CHILDREN*il;
 
             retval = vtk_write_binary (fp, (char *) loc_offset, sizeof (*loc_offset) *(num_cells));
             if (retval) {
 
-                std::cout<<rank<<": [VTU Error]: "<<"base64 encode offset data failed"<<std::endl;
+                std:: cout<<rank<<": [VTU Error]: "<<"base64 encode offset data failed"<<std:: endl;
                 fclose(fp);
             }
             delete [] loc_offset;
 
-#endif
+            #endif
 
 
 
@@ -781,7 +783,7 @@ namespace io
 
 
 
-#ifdef DENDRO_VTU_ASCII
+            #ifdef DENDRO_VTU_ASCII
             fprintf (fp, "        <DataArray type=\"UInt8\" Name=\"types\"" " format=\"%s\">\n", DENDRO_FORMAT_ASCII);
             fprintf(fp,"         ");
             for (unsigned int il = 0, sk = 1; il < num_cells; ++il, ++sk) {
@@ -790,21 +792,21 @@ namespace io
                     fprintf(fp,"\n         ");
             }
             fprintf(fp,"\n");
-#else
+            #else
             fprintf (fp, "        <DataArray type=\"UInt8\" Name=\"types\"" " format=\"%s\">\n", DENDRO_FORMAT_BINARY);
-            uint8_t  * loc_type=new uint8_t [num_cells];
+            uint8_t * loc_type = new uint8_t [num_cells];
             for (unsigned int il = 0; il < num_cells; ++il)
-                loc_type[il]=VTK_HEXAHEDRON;
+                loc_type[il] = VTK_HEXAHEDRON;
 
             retval = vtk_write_binary (fp, (char *) loc_type, sizeof (*loc_type) *num_cells);
             if (retval) {
 
-                std::cout<<rank<<": [VTU Error]: "<<"base64 encode element type data failed"<<std::endl;
+                std:: cout<<rank<<": [VTU Error]: "<<"base64 encode element type data failed"<<std:: endl;
                 fclose(fp);
             }
             delete [] loc_type;
 
-#endif
+            #endif
 
             fprintf(fp,"        </DataArray>\n");
             fprintf(fp,"      </Cells>\n");
@@ -812,54 +814,54 @@ namespace io
             // writing cell data
             fprintf(fp,"      <CellData>\n");
 
-#ifdef DENDRO_VTU_ASCII
-            fprintf(fp,"        <DataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
+            #ifdef DENDRO_VTU_ASCII
+            fprintf(fp,"        <DataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\">\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_ASCII);
             fprintf (fp,"         ");
             for (unsigned int il = 0; il < num_cells; ++il) {
                 fprintf(fp,"%d ",rank);
             }
             fprintf(fp,"\n");
-#else
-            fprintf(fp,"        <DataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
+            #else
+            fprintf(fp,"        <DataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\">\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_BINARY);
 
-            unsigned int * loc_rank=new unsigned int [num_cells];
+            unsigned int * loc_rank = new unsigned int [num_cells];
             for (unsigned int il = 0; il < num_cells; ++il)
-                loc_rank[il]=rank;
+                loc_rank[il] = rank;
 
             retval = vtk_write_binary (fp, (char *) loc_rank, sizeof (*loc_rank)*num_cells);
             if (retval) {
 
-                std::cout<<rank<<": [VTU Error]: "<<"base64 encode element rank data failed"<<std::endl;
+                std:: cout<<rank<<": [VTU Error]: "<<"base64 encode element rank data failed"<<std:: endl;
                 fclose(fp);
             }
             delete [] loc_rank;
-#endif
+            #endif
 
             fprintf(fp,"        </DataArray>\n");
 
 
-#ifdef DENDRO_VTU_ASCII
-            fprintf(fp,"        <DataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
+            #ifdef DENDRO_VTU_ASCII
+            fprintf(fp,"        <DataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\">\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_ASCII);
             fprintf(fp,"         ");
             for (unsigned int il = 0; il < num_cells; ++il) {
                 fprintf(fp,"%d ",pElements[il+pMesh->getElementLocalBegin()].getLevel());
             }
             fprintf(fp,"\n");
-#else
-            fprintf(fp,"        <DataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
+            #else
+            fprintf(fp,"        <DataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\">\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_BINARY);
 
-            unsigned int * loc_level=new unsigned int [num_cells];
+            unsigned int * loc_level = new unsigned int [num_cells];
             for (unsigned int il = 0; il < num_cells; ++il)
-                loc_level[il]=pElements[il+pMesh->getElementLocalBegin()].getLevel();
+                loc_level[il] = pElements[il+pMesh->getElementLocalBegin()].getLevel();
 
             retval = vtk_write_binary (fp, (char *) loc_level, sizeof (*loc_level)*num_cells);
             if (retval) {
 
-                std::cout<<rank<<": [VTU Error]: "<<"base64 encode element level data failed"<<std::endl;
+                std:: cout<<rank<<": [VTU Error]: "<<"base64 encode element level data failed"<<std:: endl;
                 fclose(fp);
             }
             delete [] loc_level;
-#endif
+            #endif
 
 
             fprintf(fp,"        </DataArray>\n");
@@ -873,43 +875,43 @@ namespace io
             {
                 fprintf(fp,"      <PointData>\n");
 
-#ifndef DENDRO_VTU_ASCII
-                double * nodalVal_binary=new double [num_vertices];
-#endif
+                #ifndef DENDRO_VTU_ASCII
+                double * nodalVal_binary = new double [num_vertices];
+                #endif
 
                 for(unsigned int pdata=0;pdata<numPointdata;pdata++)
                 {
 
-#ifdef DENDRO_VTU_ASCII
-                    fprintf(fp,"        <DataArray type=\"%s\" Name=\"%s\"" " format=\"%s\">\n",DENDRO_NODE_VAR_DOUBLE,pointDataNames[pdata],DENDRO_FORMAT_ASCII);
-#else
-                    fprintf(fp,"        <DataArray type=\"%s\" Name=\"%s\"" " format=\"%s\">\n",DENDRO_NODE_VAR_DOUBLE,pointDataNames[pdata],DENDRO_FORMAT_BINARY);
-#endif
+                    #ifdef DENDRO_VTU_ASCII
+                     fprintf(fp,"        <DataArray type=\"%s\" Name=\"%s\"" " format=\"%s\">\n",DENDRO_NODE_VAR_DOUBLE,pointDataNames[pdata],DENDRO_FORMAT_ASCII);
+                    #else
+                     fprintf(fp,"        <DataArray type=\"%s\" Name=\"%s\"" " format=\"%s\">\n",DENDRO_NODE_VAR_DOUBLE,pointDataNames[pdata],DENDRO_FORMAT_BINARY);
+                    #endif
 
 
-                    const double *tmp_var=pointData[pdata];
+                    const double *tmp_var = pointData[pdata];
                     // note that size of tmp_var should be actual number of nodes in the mesh.
                     //std::cout<<"tmp_var: pdata: "<<pdata<<" var: "<<tmp_var[0]<<std::endl;
-#ifdef DENDRO_VTU_ASCII
+                    #ifdef DENDRO_VTU_ASCII
                     fprintf(fp,"         ");
                     for (unsigned int il = pMesh->getElementLocalBegin(); il < pMesh->getElementLocalEnd(); ++il) {
-                        pMesh->getElementNodalValues(tmp_var, &(*(nodalVal.begin())), il);
+                        pMesh->getElementNodalValues(tmp_var, &(*(nodalVal.begin())), il,isDGPData);
                         for (unsigned int k = 0; k < (eleOrder + 1); k += eleOrder)
                             for (unsigned int j = 0; j < (eleOrder + 1); j += eleOrder)
                                 for (unsigned int i = 0; i < (eleOrder + 1); i += eleOrder)
                                     fprintf(fp,"%f ",nodalVal[k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i]);
                     }
                     fprintf(fp,"\n");
-#else
+                    #else
 
 
 
                     for (unsigned int il = pMesh->getElementLocalBegin(); il < pMesh->getElementLocalEnd(); ++il) {
-                        pMesh->getElementNodalValues(tmp_var,&(*(nodalVal.begin())),il);
+                        pMesh->getElementNodalValues(tmp_var,&(*(nodalVal.begin())),il,isDGPData);
                         for (unsigned int k = 0; k < (eleOrder + 1); k += eleOrder)
                             for (unsigned int j = 0; j < (eleOrder + 1); j += eleOrder)
                                 for (unsigned int i = 0; i < (eleOrder + 1); i += eleOrder)
-                                    nodalVal_binary[(il-pMesh->getElementLocalBegin())*NUM_CHILDREN+(k/eleOrder)*ny*nx+(j/eleOrder)*nx+(i/eleOrder)]=nodalVal[k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i];
+                                    nodalVal_binary[(il-pMesh->getElementLocalBegin())*NUM_CHILDREN+(k/eleOrder)*ny*nx+(j/eleOrder)*nx+(i/eleOrder)] = nodalVal[k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i];
                     }
 
 
@@ -917,21 +919,21 @@ namespace io
 
                     if (retval) {
 
-                        std::cout<<rank<<": [VTU Error]: "<<"base64 encode point vars data failed"<<std::endl;
+                        std:: cout<<rank<<": [VTU Error]: "<<"base64 encode point vars data failed"<<std:: endl;
                         fclose(fp);
                     }
 
 
-#endif
+                    #endif
                     fprintf (fp, "\n");
                     fprintf(fp,"        </DataArray>\n");
                 }
                 fprintf(fp,"      </PointData>\n");
 
 
-#ifndef DENDRO_VTU_ASCII
+                #ifndef DENDRO_VTU_ASCII
                 delete [] nodalVal_binary;
-#endif
+                #endif
             }
 
 
@@ -941,24 +943,24 @@ namespace io
             fprintf(fp,"</VTKFile>\n");
 
             fclose(fp);
-            fp=NULL;
+            fp = NULL;
 
             if(!rank)
             {
                 sprintf(fname,"%s.pvtu",fPrefix);
 
-                fp=fopen(fname,"w+");
+                fp = fopen(fname,"w+");
                 if(fp==NULL) {
-                    std::cout << "rank: " << rank << "[IO Error]: Could not open the pvtu file. " << std::endl;
+                    std:: cout << "rank: " << rank << "[IO Error]: Could not open the pvtu file. " << std:: endl;
                     return ;
                 }
 
 
                 fprintf(fp,"<?xml version=\"1.0\"?>\n");
                 fprintf(fp,"<VTKFile type=\"PUnstructuredGrid\" version=\"0.1\"");
-#ifdef DENDRO_VTU_ZLIB
+                #ifdef DENDRO_VTU_ZLIB
                 fprintf(fp," compressor=\"vtkZLibDataCompressor\"");
-#endif
+                #endif
                 fprintf(fp," byte_order=\"LittleEndian\">\n");
 
                 fprintf(fp,"  <PUnstructuredGrid GhostLevel=\"0\">\n");
@@ -976,30 +978,30 @@ namespace io
 
                 fprintf(fp,"    <PPoints>\n");
 
-#ifdef DENDRO_VTU_ASCII
+                #ifdef DENDRO_VTU_ASCII
                 fprintf(fp,"      <PDataArray type=\"%s\" Name=\"Position\""" NumberOfComponents=\"3\" format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
-#else
+                #else
                 fprintf(fp,"      <PDataArray type=\"%s\" Name=\"Position\""" NumberOfComponents=\"3\" format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
-#endif
+                #endif
 
 
 
                 fprintf(fp,"    </PPoints>\n");
                 fprintf(fp,"    <PCellData>\n");
 
-#ifdef DENDRO_VTU_ASCII
-                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
-#else
-                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
-#endif
+                #ifdef DENDRO_VTU_ASCII
+                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_ASCII);
+                #else
+                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_BINARY);
+                #endif
 
 
 
-#ifdef DENDRO_VTU_ASCII
-                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
-#else
-                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
-#endif
+                #ifdef DENDRO_VTU_ASCII
+                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_ASCII);
+                #else
+                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_BINARY);
+                #endif
 
                 fprintf(fp,"    </PCellData>\n");
 
@@ -1012,18 +1014,18 @@ namespace io
                     for(unsigned int pdata=0;pdata<numPointdata;pdata++)
                     {
 
-#ifdef DENDRO_VTU_ASCII
+                #ifdef DENDRO_VTU_ASCII
                         fprintf(fp,"        <PDataArray type=\"%s\" Name=\"%s\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_DOUBLE,pointDataNames[pdata],DENDRO_FORMAT_ASCII);
-#else
+                #else
                         fprintf(fp,"        <PDataArray type=\"%s\" Name=\"%s\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_DOUBLE,pointDataNames[pdata],DENDRO_FORMAT_BINARY);
-#endif
+                #endif
 
                     }
 
                     fprintf(fp,"      </PPointData>\n");
 
                 }
-                std::string vtuName=getFileName(std::string(fPrefix));
+                std::string vtuName = getFileName(std::string(fPrefix));
                 for(unsigned int proc=0;proc<npes;proc++)
                 {
                     fprintf(fp,"<Piece Source=\"%s_%d_%d.vtu\"/>\n",vtuName.c_str(),proc,npes);
@@ -1034,7 +1036,7 @@ namespace io
 
 
                 fclose(fp);
-                fp=NULL;
+                fp = NULL;
 
 
 
@@ -1045,13 +1047,17 @@ namespace io
         }
 
 
-        void mesh2vtuFine(const ot::Mesh *pMesh, const char *fPrefix,unsigned int numFieldData,const char** filedDataNames,const double * filedData,unsigned int numPointdata, const char **pointDataNames, const double **pointData)
+        void mesh2vtuFine(const ot::Mesh *pMesh, const char *fPrefix,unsigned int numFieldData,const char** filedDataNames,const double * filedData,unsigned int numPointdata, const char **pointDataNames, const double **pointData, unsigned int nCellData, const char** cellDNames, const double** cellData, bool isDGPdata)
         {
 
             if(!(pMesh->isActive())) return ;
 
-            unsigned int rank=pMesh->getMPIRank();
-            unsigned int npes=pMesh->getMPICommSize();
+            unsigned int rank = pMesh->getMPIRank();
+            unsigned int npes = pMesh->getMPICommSize();
+
+            Point dmin = pMesh->getDomainMinPt();
+            Point dmax = pMesh->getDomainMaxPt();
+            const double invRg = 1.0/( (double) (1u<<m_uiMaxDepth));
 
             int retval;
 
@@ -1059,32 +1065,33 @@ namespace io
             char str[2048];
             sprintf(fname,"%s_%d_%d.vtu",fPrefix,rank,npes);
 
-            fp=fopen(fname,"w+");
+            fp = fopen(fname,"w+");
             if(fp==NULL) {
-                std::cout << "rank: " << rank << "[IO Error]: Could not open the vtk file. " << std::endl;
+                std:: cout << "rank: " << rank << "[IO Error]: Could not open the vtk file. " << std:: endl;
                 return ;
             }
 
-            const std::vector<ot::TreeNode> pElements=pMesh->getAllElements();
-            const std::vector<unsigned int> e2N=pMesh->getE2NMapping();
+            const std::vector<ot::TreeNode>& pElements = pMesh->getAllElements();
+            const std::vector<unsigned int>& e2N       = pMesh->getE2NMapping();
 
             // note this works only for the 3D grids.
-            const unsigned int dim=m_uiDim;
-            const unsigned int nPe=pMesh->getNumNodesPerElement();
-            const unsigned int eleOrder=pMesh->getElementOrder();
-            const unsigned int ePe=eleOrder*eleOrder*eleOrder;
-            const unsigned int num_cells=pMesh->getNumLocalMeshElements()*ePe;
-            const DendroIntL num_vertices=pMesh->getNumLocalMeshElements()*nPe;
-            unsigned int sz;
+            const unsigned int dim        = m_uiDim;
+            const unsigned int nPe        = pMesh->getNumNodesPerElement();
+            const unsigned int eleOrder   = pMesh->getElementOrder();
+            const unsigned int ePe        = eleOrder*eleOrder*eleOrder;
+            const unsigned int num_cells  = pMesh->getNumLocalMeshElements()*ePe;
+            const DendroIntL num_vertices = pMesh->getNumLocalMeshElements()*nPe;
+            double sz;
 
-            std::vector<double> nodalVal;
+            std:: vector<double> nodalVal;
             nodalVal.resize(nPe);
 
             fprintf(fp,"<?xml version=\"1.0\"?>\n");
             fprintf(fp,"<VTKFile type=\"UnstructuredGrid\" version=\"0.1\"");
-#ifdef DENDRO_VTU_ZLIB
+            
+            #ifdef DENDRO_VTU_ZLIB
             fprintf(fp," compressor=\"vtkZLibDataCompressor\"");
-#endif
+            #endif
             fprintf(fp," byte_order=\"LittleEndian\">\n");
             fprintf(fp,"  <UnstructuredGrid>\n");
 
@@ -1110,53 +1117,51 @@ namespace io
 
             fprintf(fp,"      <Points>\n");
 
-#ifdef DENDRO_VTU_ASCII
+            #ifdef DENDRO_VTU_ASCII
             fprintf(fp,"        <DataArray type=\"%s\" Name=\"Position\" NumberOfComponents=\"3\" format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
-#else
+            #else
             fprintf(fp,"        <DataArray type=\"%s\" Name=\"Position\" NumberOfComponents=\"3\" format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
-#endif
+            #endif
 
 
-#ifdef DENDRO_VTU_ASCII
+            #ifdef DENDRO_VTU_ASCII
             for(unsigned int ele=pMesh->getElementLocalBegin();ele<pMesh->getElementLocalEnd();ele++) {
                 sz = 1u << (m_uiMaxDepth - pElements[ele].getLevel());
-                assert((sz % eleOrder) == 0);
                 for (unsigned int k = 0; k < (eleOrder + 1); k++)
                     for (unsigned int j = 0; j < (eleOrder + 1); j++)
                         for (unsigned int i = 0; i < (eleOrder + 1); i++) {
 
 
-                            fprintf(fp, "          %d %d %d\n", (pElements[ele].getX() + i * (sz / eleOrder)),
-                                    (pElements[ele].getY() + j * (sz / eleOrder)),
-                                    (pElements[ele].getZ() + k * (sz / eleOrder)));
+                            fprintf(fp, "          %d %d %d\n", VTU_OCT_X_GRID_X(pElements[ele].getX() + i * (sz / eleOrder)),
+                                    VTU_OCT_Y_GRID_Y(pElements[ele].getY() + j * (sz / eleOrder)),
+                                    VTU_OCT_Z_GRID_Z(pElements[ele].getZ() + k * (sz / eleOrder)));
 
                         }
             }
-#else
+            #else
 
-            unsigned int* coord_data = new unsigned int[num_vertices*m_uiDim];
+            DENDRO_NODE_COORD_DTYPE* coord_data = new DENDRO_NODE_COORD_DTYPE[num_vertices*m_uiDim];
 
             for(unsigned int ele=pMesh->getElementLocalBegin();ele<pMesh->getElementLocalEnd();ele++) {
                 sz = 1u << (m_uiMaxDepth - pElements[ele].getLevel());
-                assert((sz % eleOrder) == 0);
                 for (unsigned int k = 0; k < (eleOrder + 1); k++)
                     for (unsigned int j = 0; j < (eleOrder + 1); j++)
                         for (unsigned int i = 0; i < (eleOrder + 1); i++) {
-                            coord_data[((ele-pMesh->getElementLocalBegin())*nPe+k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i)*m_uiDim + 0]=(pElements[ele].getX()+i*(sz/eleOrder));
-                            coord_data[((ele-pMesh->getElementLocalBegin())*nPe+k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i)*m_uiDim + 1]=(pElements[ele].getY()+j*(sz/eleOrder));
-                            coord_data[((ele-pMesh->getElementLocalBegin())*nPe+k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i)*m_uiDim + 2]=(pElements[ele].getZ()+k*(sz/eleOrder));
+                            coord_data[((ele-pMesh->getElementLocalBegin())*nPe+k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i)*m_uiDim + 0] = VTU_OCT_X_GRID_X(pElements[ele].getX()+i*(sz/eleOrder));
+                            coord_data[((ele-pMesh->getElementLocalBegin())*nPe+k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i)*m_uiDim + 1] = VTU_OCT_Y_GRID_Y(pElements[ele].getY()+j*(sz/eleOrder));
+                            coord_data[((ele-pMesh->getElementLocalBegin())*nPe+k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i)*m_uiDim + 2] = VTU_OCT_Z_GRID_Z(pElements[ele].getZ()+k*(sz/eleOrder));
                         }
             }
 
             retval = vtk_write_binary (fp, (char *) coord_data, sizeof (*coord_data) * m_uiDim * num_vertices);
             if (retval) {
 
-                std::cout<<rank<<": [VTU Error]: "<<"base64 encode point data failed"<<std::endl;
+                std:: cout<<rank<<": [VTU Error]: "<<"base64 encode point data failed"<<std:: endl;
                 fclose(fp);
 
             }
             delete [] coord_data;
-#endif
+            #endif
 
 
             fprintf(fp,"\n");
@@ -1167,9 +1172,9 @@ namespace io
 
 
 
-#ifdef  DENDRO_VTU_ASCII
+            #ifdef  DENDRO_VTU_ASCII
 
-   fprintf(fp,"        <DataArray type=\"%s\" Name=\"connectivity\""  " format=\"%s\">\n",DENDRO_NODE_ID_TYPE,DENDRO_FORMAT_ASCII);
+            fprintf(fp,"        <DataArray type=\"%s\" Name=\"connectivity\""  " format=\"%s\">\n",DENDRO_NODE_ID_TYPE,DENDRO_FORMAT_ASCII);
 
             for (unsigned int ele = 0 ; ele < pMesh->getNumLocalMeshElements() ; ele++) {
                 for(unsigned int ek=0;ek<(eleOrder);ek++)
@@ -1191,10 +1196,10 @@ namespace io
 
              }
 
-#else
+            #else
             fprintf(fp,"        <DataArray type=\"%s\" Name=\"connectivity\""  " format=\"%s\">\n",DENDRO_NODE_ID_TYPE,DENDRO_FORMAT_BINARY);
 
-                DendroIntL * locidx_data =new DendroIntL [num_cells*NUM_CHILDREN];
+                DendroIntL * locidx_data = new DendroIntL [num_cells*NUM_CHILDREN];
                 for (unsigned int ele = 0 ; ele < pMesh->getNumLocalMeshElements() ; ele++)
                 {
                     for(unsigned int ek=0;ek<(eleOrder);ek++)
@@ -1202,14 +1207,14 @@ namespace io
                             for(unsigned int ei=0;ei<(eleOrder);ei++)
                             {
 
-                                locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+0]=(DendroIntL)(ele * nPe + ek*(eleOrder+1)*(eleOrder+1)+ej*(eleOrder+1)+ei);
-                                locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+1]=(DendroIntL)(ele * nPe + ek*(eleOrder+1)*(eleOrder+1)+ej*(eleOrder+1)+(ei+1));
-                                locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+2]=(DendroIntL)(ele * nPe + ek*(eleOrder+1)*(eleOrder+1)+(ej+1)*(eleOrder+1)+(ei+1));
-                                locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+3]=(DendroIntL)(ele * nPe + ek*(eleOrder+1)*(eleOrder+1)+(ej+1)*(eleOrder+1)+ei);
-                                locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+4]=(DendroIntL)(ele * nPe + (ek+1)*(eleOrder+1)*(eleOrder+1)+ej*(eleOrder+1)+ei);
-                                locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+5]=(DendroIntL)(ele * nPe + (ek+1)*(eleOrder+1)*(eleOrder+1)+ej*(eleOrder+1)+(ei+1));
-                                locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+6]=(DendroIntL)(ele * nPe + (ek+1)*(eleOrder+1)*(eleOrder+1)+(ej+1)*(eleOrder+1)+(ei+1));
-                                locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+7]=(DendroIntL)(ele * nPe + (ek+1)*(eleOrder+1)*(eleOrder+1)+(ej+1)*(eleOrder+1)+ei);
+                                locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+0] = (DendroIntL)(ele * nPe + ek*(eleOrder+1)*(eleOrder+1)+ej*(eleOrder+1)+ei);
+                                locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+1] = (DendroIntL)(ele * nPe + ek*(eleOrder+1)*(eleOrder+1)+ej*(eleOrder+1)+(ei+1));
+                                locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+2] = (DendroIntL)(ele * nPe + ek*(eleOrder+1)*(eleOrder+1)+(ej+1)*(eleOrder+1)+(ei+1));
+                                locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+3] = (DendroIntL)(ele * nPe + ek*(eleOrder+1)*(eleOrder+1)+(ej+1)*(eleOrder+1)+ei);
+                                locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+4] = (DendroIntL)(ele * nPe + (ek+1)*(eleOrder+1)*(eleOrder+1)+ej*(eleOrder+1)+ei);
+                                locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+5] = (DendroIntL)(ele * nPe + (ek+1)*(eleOrder+1)*(eleOrder+1)+ej*(eleOrder+1)+(ei+1));
+                                locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+6] = (DendroIntL)(ele * nPe + (ek+1)*(eleOrder+1)*(eleOrder+1)+(ej+1)*(eleOrder+1)+(ei+1));
+                                locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+7] = (DendroIntL)(ele * nPe + (ek+1)*(eleOrder+1)*(eleOrder+1)+(ej+1)*(eleOrder+1)+ei);
                             }
 
 
@@ -1219,13 +1224,13 @@ namespace io
                 retval = vtk_write_binary (fp, (char *) locidx_data, sizeof (*locidx_data) * NUM_CHILDREN * num_cells);
                 if (retval) {
 
-                    std::cout<<rank<<": [VTU Error]: "<<"base64 encode connectivity data failed"<<std::endl;
+                    std:: cout<<rank<<": [VTU Error]: "<<"base64 encode connectivity data failed"<<std:: endl;
                     fclose(fp);
 
                 }
                 delete [] locidx_data;
 
-#endif
+            #endif
 
 
 
@@ -1235,7 +1240,7 @@ namespace io
 
 
 
-#ifdef DENDRO_VTU_ASCII
+            #ifdef DENDRO_VTU_ASCII
             fprintf(fp,"        <DataArray type=\"%s\" Name=\"offsets\"" " format=\"%s\">\n",DENDRO_NODE_ID_TYPE,DENDRO_FORMAT_ASCII);
             fprintf(fp,"         ");
             for (unsigned int il = 1,sk = 1; il <= num_cells; ++il, ++sk) {
@@ -1244,27 +1249,28 @@ namespace io
                     fprintf(fp,"\n         ");
             }
             fprintf(fp,"\n");
-#else
+            
+            #else
             fprintf(fp,"        <DataArray type=\"%s\" Name=\"offsets\"" " format=\"%s\">\n",DENDRO_NODE_ID_TYPE,DENDRO_FORMAT_BINARY);
-            DendroIntL * loc_offset=new DendroIntL [num_cells];
+            DendroIntL * loc_offset = new DendroIntL [num_cells];
             for (unsigned int il = 1; il <= (num_cells); il++)
-                loc_offset[il-1]=NUM_CHILDREN*il;
+                loc_offset[il-1] = NUM_CHILDREN*il;
 
             retval = vtk_write_binary (fp, (char *) loc_offset, sizeof (*loc_offset) *(num_cells));
             if (retval) {
 
-                std::cout<<rank<<": [VTU Error]: "<<"base64 encode offset data failed"<<std::endl;
+                std:: cout<<rank<<": [VTU Error]: "<<"base64 encode offset data failed"<<std:: endl;
                 fclose(fp);
             }
             delete [] loc_offset;
-#endif
+            #endif
 
 
 
             fprintf(fp,"\n        </DataArray>\n");
 
 
-#ifdef DENDRO_VTU_ASCII
+            #ifdef DENDRO_VTU_ASCII
             fprintf (fp, "        <DataArray type=\"UInt8\" Name=\"types\"" " format=\"%s\">\n", DENDRO_FORMAT_ASCII);
             fprintf(fp,"         ");
             for (unsigned int il = 0, sk = 1; il < num_cells; ++il, ++sk) {
@@ -1273,20 +1279,21 @@ namespace io
                     fprintf(fp,"\n         ");
             }
             fprintf(fp,"\n");
-#else
+            #else
             fprintf (fp, "        <DataArray type=\"UInt8\" Name=\"types\"" " format=\"%s\">\n", DENDRO_FORMAT_BINARY);
-            uint8_t  * loc_type=new uint8_t [num_cells];
+            uint8_t * loc_type = new uint8_t [num_cells];
             for (unsigned int il = 0; il < num_cells; ++il)
-                loc_type[il]=VTK_HEXAHEDRON;
+                loc_type[il] = VTK_HEXAHEDRON;
 
             retval = vtk_write_binary (fp, (char *) loc_type, sizeof (*loc_type) *num_cells);
             if (retval) {
 
-                std::cout<<rank<<": [VTU Error]: "<<"base64 encode element type data failed"<<std::endl;
+                std:: cout<<rank<<": [VTU Error]: "<<"base64 encode element type data failed"<<std:: endl;
                 fclose(fp);
             }
             delete [] loc_type;
-#endif
+            
+            #endif
             fprintf(fp,"\n");
             fprintf(fp,"        </DataArray>\n");
             fprintf(fp,"      </Cells>\n");
@@ -1294,60 +1301,113 @@ namespace io
             // writing cell data
             fprintf(fp,"      <CellData>\n");
 
-#ifdef DENDRO_VTU_ASCII
-            fprintf(fp,"        <DataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
+            #ifndef DENDRO_VTU_ASCII
+                unsigned int * cell_tmp = new unsigned int [num_cells];
+                double * cell_dtmp =NULL;
+                
+                if(nCellData>0 && cellData!=NULL) 
+                    cell_dtmp=new double[num_cells];
+            #endif
+
+            #ifdef DENDRO_VTU_ASCII
+            fprintf(fp,"        <DataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\">\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_ASCII);
             fprintf (fp,"         ");
             for (unsigned int il = 0; il < num_cells; ++il) {
                 fprintf(fp,"%d ",rank);
             }
             fprintf(fp,"\n");
-#else
-            fprintf(fp,"        <DataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
+            #else
+            fprintf(fp,"        <DataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\">\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_BINARY);
 
-            unsigned int * loc_rank=new unsigned int [num_cells];
+            
             for (unsigned int il = 0; il < num_cells; ++il)
-                loc_rank[il]=rank;
+                cell_tmp[il] = rank;
 
-            retval = vtk_write_binary (fp, (char *) loc_rank, sizeof (*loc_rank)*num_cells);
+            retval = vtk_write_binary (fp, (char *) cell_tmp, sizeof (*cell_tmp)*num_cells);
             if (retval) {
 
-                std::cout<<rank<<": [VTU Error]: "<<"base64 encode element rank data failed"<<std::endl;
+                std:: cout<<rank<<": [VTU Error]: "<<"base64 encode element rank data failed"<<std:: endl;
                 fclose(fp);
             }
-            delete [] loc_rank;
-#endif
+            #endif
             fprintf(fp,"\n");
             fprintf(fp,"        </DataArray>\n");
 
 
-#ifdef DENDRO_VTU_ASCII
-            fprintf(fp,"        <DataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
+            #ifdef DENDRO_VTU_ASCII
+            fprintf(fp,"        <DataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\">\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_ASCII);
             fprintf(fp,"         ");
             for (unsigned int il = pMesh->getElementLocalBegin(); il < pMesh->getElementLocalEnd(); ++il) {
                for(unsigned int w=0;w<ePe;w++)
-                  fprintf(fp,"%d ",(pElements[il].getLevel() + (eleOrder>>1u)));
+                  fprintf(fp,"%d ",(pElements[il].getLevel()));
             }
 
             fprintf(fp,"\n");
-#else
-            fprintf(fp,"        <DataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
-            unsigned int * loc_level=new unsigned int [num_cells];
+            #else
+            fprintf(fp,"        <DataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\">\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_BINARY);
             for (unsigned int il = pMesh->getElementLocalBegin(); il < pMesh->getElementLocalEnd(); ++il) {
                 for(unsigned int w=0;w<ePe;w++)
-                    loc_level[(il-pMesh->getElementLocalBegin())*ePe+w]=pElements[il].getLevel()+(eleOrder>>1u);
+                    cell_tmp[(il-pMesh->getElementLocalBegin())*ePe+w] = pElements[il].getLevel();
             }
 
-            retval = vtk_write_binary (fp, (char *) loc_level, sizeof (*loc_level)*num_cells);
+            retval = vtk_write_binary (fp, (char *) cell_tmp, sizeof (*cell_tmp)*num_cells);
             if (retval) {
 
-                std::cout<<rank<<": [VTU Error]: "<<"base64 encode element level data failed"<<std::endl;
+                std:: cout<<rank<<": [VTU Error]: "<<"base64 encode element level data failed"<<std:: endl;
                 fclose(fp);
             }
-            delete [] loc_level;
-#endif
+            #endif
 
             fprintf(fp,"\n");
             fprintf(fp,"        </DataArray>\n");
+
+            if(nCellData > 0 && cellData!=NULL) 
+            {
+
+                for(unsigned int v=0; v < nCellData; v++)
+                {
+
+                    #ifdef DENDRO_VTU_ASCII
+                        fprintf(fp,"        <DataArray type=\"%s\" Name=\"%s\"" " format=\"%s\">\n",DENDRO_NODE_VAR_DOUBLE, cellDNames[v], DENDRO_FORMAT_ASCII);
+                        fprintf(fp,"         ");
+                        for (unsigned int il = pMesh->getElementLocalBegin(); il < pMesh->getElementLocalEnd(); ++il) {
+                        for(unsigned int w=0;w<ePe;w++)
+                            fprintf(fp,"%f ", cellData[v][il] );
+                        }
+
+                        fprintf(fp,"\n");
+                    #else
+                        fprintf(fp,"        <DataArray type=\"%s\" Name=\"%s\"" " format=\"%s\">\n",DENDRO_NODE_VAR_DOUBLE,cellDNames[v],DENDRO_FORMAT_BINARY);
+
+                        for (unsigned int il = pMesh->getElementLocalBegin(); il < pMesh->getElementLocalEnd(); ++il) {
+                            for(unsigned int w=0;w<ePe;w++)    
+                             cell_dtmp[(il-pMesh->getElementLocalBegin())*ePe+w] = cellData[v][il];
+                        }
+
+                        retval = vtk_write_binary (fp, (char *) (cell_dtmp), sizeof (*cell_dtmp)*num_cells);
+                        if (retval) {
+                            std:: cout<<rank<<": [VTU Error]: "<<"base64 encode element level data failed"<<std:: endl;
+                            fclose(fp);
+                        }
+
+                    #endif
+
+                    fprintf(fp,"\n");
+                    fprintf(fp,"        </DataArray>\n");
+
+                }
+
+            }
+
+
+            #ifndef DENDRO_VTU_ASCII
+                delete [] cell_tmp;
+                
+                if(nCellData>0 && cellData!=NULL) 
+                    delete [] cell_dtmp;
+            #endif
+
+            
             fprintf(fp,"      </CellData>\n");
 
 
@@ -1357,39 +1417,39 @@ namespace io
             {
                 fprintf(fp,"      <PointData>\n");
 
-#ifndef DENDRO_VTU_ASCII
-                double * nodalVal_binary=new double [num_vertices];
-#endif
+                #ifndef DENDRO_VTU_ASCII
+                double * nodalVal_binary = new double [num_vertices];
+                #endif
 
                 for(unsigned int pdata=0;pdata<numPointdata;pdata++)
                 {
 
-#ifdef DENDRO_VTU_ASCII
+                    #ifdef DENDRO_VTU_ASCII
                     fprintf(fp,"        <DataArray type=\"%s\" Name=\"%s\"" " format=\"%s\">\n",DENDRO_NODE_VAR_DOUBLE,pointDataNames[pdata],DENDRO_FORMAT_ASCII);
-#else
+                    #else
                     fprintf(fp,"        <DataArray type=\"%s\" Name=\"%s\"" " format=\"%s\">\n",DENDRO_NODE_VAR_DOUBLE,pointDataNames[pdata],DENDRO_FORMAT_BINARY);
-#endif
+                    #endif
 
 
-                    const double *tmp_var=pointData[pdata];
+                    const double *tmp_var = pointData[pdata];
                     // note that size of tmp_var should be actual number of nodes in the mesh.
                     //std::cout<<"tmp_var: pdata: "<<pdata<<" var: "<<tmp_var[0]<<std::endl;
-#ifdef DENDRO_VTU_ASCII
+                    #ifdef DENDRO_VTU_ASCII
                     fprintf(fp,"         ");
                     for (unsigned int il = pMesh->getElementLocalBegin(); il < pMesh->getElementLocalEnd(); ++il) {
-                        pMesh->getElementNodalValues(tmp_var,&(*(nodalVal.begin())),il);
+                        pMesh->getElementNodalValues(tmp_var,&(*(nodalVal.begin())),il,isDGPdata);
                         for(unsigned int node=0;node<nPe;node++)
                             fprintf(fp,"%f ",nodalVal[node]);
                     }
                     fprintf(fp,"\n");
-#else
+                    #else
 
 
 
                     for (unsigned int il = pMesh->getElementLocalBegin(); il < pMesh->getElementLocalEnd(); ++il) {
-                        pMesh->getElementNodalValues(tmp_var,&(*(nodalVal.begin())),il);
+                        pMesh->getElementNodalValues(tmp_var,&(*(nodalVal.begin())),il,isDGPdata);
                         for(unsigned int node=0;node<nPe;node++)
-                            nodalVal_binary[(il-pMesh->getElementLocalBegin())*nPe+node]=nodalVal[node];
+                            nodalVal_binary[(il-pMesh->getElementLocalBegin())*nPe+node] = nodalVal[node];
                     }
 
 
@@ -1397,21 +1457,21 @@ namespace io
 
                     if (retval) {
 
-                        std::cout<<rank<<": [VTU Error]: "<<"base64 encode point vars data failed"<<std::endl;
+                        std:: cout<<rank<<": [VTU Error]: "<<"base64 encode point vars data failed"<<std:: endl;
                         fclose(fp);
                     }
 
 
-#endif
+                    #endif
                     fprintf (fp, "\n");
                     fprintf(fp,"        </DataArray>\n");
                 }
                 fprintf(fp,"      </PointData>\n");
 
 
-#ifndef DENDRO_VTU_ASCII
+                #ifndef DENDRO_VTU_ASCII
                 delete [] nodalVal_binary;
-#endif
+                #endif
             }
 
             fprintf (fp, "\n");
@@ -1420,24 +1480,24 @@ namespace io
             fprintf(fp,"</VTKFile>\n");
 
             fclose(fp);
-            fp=NULL;
+            fp = NULL;
 
             if(!rank)
             {
                 sprintf(fname,"%s.pvtu",fPrefix);
 
-                fp=fopen(fname,"w+");
+                fp = fopen(fname,"w+");
                 if(fp==NULL) {
-                    std::cout << "rank: " << rank << "[IO Error]: Could not open the pvtu file. " << std::endl;
+                    std:: cout << "rank: " << rank << "[IO Error]: Could not open the pvtu file. " << std:: endl;
                     return ;
                 }
 
 
                 fprintf(fp,"<?xml version=\"1.0\"?>\n");
                 fprintf(fp,"<VTKFile type=\"PUnstructuredGrid\" version=\"0.1\"");
-#ifdef DENDRO_VTU_ZLIB
+                #ifdef DENDRO_VTU_ZLIB
                 fprintf(fp," compressor=\"vtkZLibDataCompressor\"");
-#endif
+                #endif
                 fprintf(fp," byte_order=\"LittleEndian\">\n");
 
                 fprintf(fp,"  <PUnstructuredGrid GhostLevel=\"0\">\n");
@@ -1455,30 +1515,44 @@ namespace io
 
                 fprintf(fp,"    <PPoints>\n");
 
-#ifdef DENDRO_VTU_ASCII
+                #ifdef DENDRO_VTU_ASCII
                 fprintf(fp,"      <PDataArray type=\"%s\" Name=\"Position\""" NumberOfComponents=\"3\" format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
-#else
+                #else
                 fprintf(fp,"      <PDataArray type=\"%s\" Name=\"Position\""" NumberOfComponents=\"3\" format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
-#endif
+                #endif
 
 
 
                 fprintf(fp,"    </PPoints>\n");
                 fprintf(fp,"    <PCellData>\n");
 
-#ifdef DENDRO_VTU_ASCII
-                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
-#else
-                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
-#endif
+                #ifdef DENDRO_VTU_ASCII
+                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_ASCII);
+                #else
+                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_BINARY);
+                #endif
 
 
 
-#ifdef DENDRO_VTU_ASCII
-                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
-#else
-                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
-#endif
+                #ifdef DENDRO_VTU_ASCII
+                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_ASCII);
+                #else
+                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_BINARY);
+                #endif
+
+                if(nCellData>0 && cellData!=NULL)
+                {
+                    
+                    for(unsigned int v=0; v < nCellData; v++)
+                    {
+                        #ifdef DENDRO_VTU_ASCII
+                            fprintf(fp,"        <PDataArray type=\"%s\" Name=\"%s\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_DOUBLE,cellDNames[v],DENDRO_FORMAT_ASCII);
+                        #else
+                            fprintf(fp,"        <PDataArray type=\"%s\" Name=\"%s\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_DOUBLE,cellDNames[v],DENDRO_FORMAT_BINARY);
+                        #endif
+                    }
+
+                }
 
                 fprintf(fp,"    </PCellData>\n");
 
@@ -1491,18 +1565,22 @@ namespace io
                     for(unsigned int pdata=0;pdata<numPointdata;pdata++)
                     {
 
-#ifdef DENDRO_VTU_ASCII
+                        #ifdef DENDRO_VTU_ASCII
                         fprintf(fp,"        <PDataArray type=\"%s\" Name=\"%s\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_DOUBLE,pointDataNames[pdata],DENDRO_FORMAT_ASCII);
-#else
+                        #else
                         fprintf(fp,"        <PDataArray type=\"%s\" Name=\"%s\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_DOUBLE,pointDataNames[pdata],DENDRO_FORMAT_BINARY);
-#endif
+                        #endif
 
                     }
 
                     fprintf(fp,"      </PPointData>\n");
 
                 }
-                std::string vtuName=getFileName(std::string(fPrefix));
+
+                
+
+
+                std::string vtuName = getFileName(std::string(fPrefix));
                 for(unsigned int proc=0;proc<npes;proc++)
                 {
                     fprintf(fp,"<Piece Source=\"%s_%d_%d.vtu\"/>\n",vtuName.c_str(),proc,npes);
@@ -1513,7 +1591,7 @@ namespace io
 
 
                 fclose(fp);
-                fp=NULL;
+                fp = NULL;
 
 
 
@@ -1529,29 +1607,32 @@ namespace io
             MPI_Comm_size(comm,&npes);
 
             unsigned int retval;
+            unsigned int eleOrder = 1;
 
 
             char fname[FNAME_LENGTH];
             char str[2048];
             sprintf(fname,"%s_%d_%d.vtu",fPrefix,rank,npes);
 
-            fp=fopen(fname,"w+");
+            fp = fopen(fname,"w+");
             if(fp==NULL) {
-                std::cout << "rank: " << rank << "[IO Error]: Could not open the vtk file. " << std::endl;
+                std:: cout << "rank: " << rank << "[IO Error]: Could not open the vtk file. " << std:: endl;
                 return ;
             }
 
 
-            unsigned int dim=m_uiDim;
-            DendroIntL num_vertices=nSize*NUM_CHILDREN;
-            unsigned int num_cells=nSize;
-            unsigned int sz;
+            unsigned   int dim       = m_uiDim;
+            DendroIntL num_vertices  = nSize*NUM_CHILDREN;
+            unsigned   int num_cells = nSize;
+            double sz;
 
             fprintf(fp,"<?xml version=\"1.0\"?>\n");
             fprintf(fp,"<VTKFile type=\"UnstructuredGrid\" version=\"0.1\"");
-#ifdef DENDRO_VTU_ZLIB
+            
+            #ifdef DENDRO_VTU_ZLIB
             fprintf(fp," compressor=\"vtkZLibDataCompressor\"");
-#endif
+            #endif
+            
             fprintf(fp," byte_order=\"LittleEndian\">\n");
             fprintf(fp,"  <UnstructuredGrid>\n");
 
@@ -1561,31 +1642,30 @@ namespace io
             fprintf(fp,"      <Points>\n");
 
 
-#ifdef DENDRO_VTU_ASCII
+            #ifdef DENDRO_VTU_ASCII
             fprintf(fp,"        <DataArray type=\"%s\" Name=\"Position\""" NumberOfComponents=\"3\" format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
-#else
+            #else
             fprintf(fp,"        <DataArray type=\"%s\" Name=\"Position\""" NumberOfComponents=\"3\" format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
-#endif
+            #endif
 
 
             fprintf(fp,"          ");
 
-            const unsigned int nx=2;
-            const unsigned int ny=2;
-            const unsigned int nz=2;
+            const unsigned int nx = 2;
+            const unsigned int ny = 2;
+            const unsigned int nz = 2;
 
 
-#ifdef DENDRO_VTU_ASCII
+            #ifdef DENDRO_VTU_ASCII
             for(unsigned int ele=0;ele<nSize;ele++) {
                 sz = 1u << (m_uiMaxDepth - pNodes[ele].getLevel());
-                assert((sz % eleOrder) == 0);
                 for(unsigned int k=0;k<nz;k++)
                    for(unsigned int j=0;j<ny;j++)
                      for(unsigned int i=0;i<nx;i++) {
                             fprintf(fp, "          %d %d %d\n", (pNodes[ele].getX() + i * sz), (pNodes[ele].getY() + j * sz), (pNodes[ele].getZ() + k * sz));
                         }
             }
-#else
+            #else
 
             unsigned int* coord_data = new unsigned int[num_vertices*m_uiDim];
 
@@ -1598,9 +1678,9 @@ namespace io
                    for(unsigned int j=0;j<ny;j++)
                      for(unsigned int i=0;i<nx;i++)
                      {
-                         coord_data[((ele)*NUM_CHILDREN+k*ny*nx+j*nx+i)*m_uiDim + 0]=(pNodes[ele].getX()+i*sz);
-                         coord_data[((ele)*NUM_CHILDREN+k*ny*nx+j*nx+i)*m_uiDim + 1]=(pNodes[ele].getY()+j*sz);
-                         coord_data[((ele)*NUM_CHILDREN+k*ny*nx+j*nx+i)*m_uiDim + 2]=(pNodes[ele].getZ()+k*sz);
+                         coord_data[((ele)*NUM_CHILDREN+k*ny*nx+j*nx+i)*m_uiDim + 0] = (pNodes[ele].getX()+i*sz);
+                         coord_data[((ele)*NUM_CHILDREN+k*ny*nx+j*nx+i)*m_uiDim + 1] = (pNodes[ele].getY()+j*sz);
+                         coord_data[((ele)*NUM_CHILDREN+k*ny*nx+j*nx+i)*m_uiDim + 2] = (pNodes[ele].getZ()+k*sz);
                      }
 
 
@@ -1609,12 +1689,12 @@ namespace io
             retval = vtk_write_binary (fp, (char *) coord_data, sizeof (*coord_data) * m_uiDim * num_vertices);
             if (retval) {
 
-                std::cout<<rank<<": [VTU Error]: "<<"base64 encode point data failed"<<std::endl;
+                std:: cout<<rank<<": [VTU Error]: "<<"base64 encode point data failed"<<std:: endl;
                 fclose(fp);
 
             }
             delete [] coord_data;
-#endif
+            #endif
 
             fprintf(fp,"\n");
 
@@ -1623,11 +1703,11 @@ namespace io
             fprintf(fp,"      <Cells>\n");
 
 
-#ifdef  DENDRO_VTU_ASCII
+            #ifdef  DENDRO_VTU_ASCII
             fprintf(fp,"        <DataArray type=\"%s\" Name=\"connectivity\""  " format=\"%s\">\n",DENDRO_NODE_ID_TYPE,DENDRO_FORMAT_ASCII);
-#else
+            #else
             fprintf(fp,"        <DataArray type=\"%s\" Name=\"connectivity\""  " format=\"%s\">\n",DENDRO_NODE_ID_TYPE,DENDRO_FORMAT_BINARY);
-#endif
+            #endif
 
 
 
@@ -1635,7 +1715,7 @@ namespace io
             {
 
 
-#ifdef  DENDRO_VTU_ASCII
+               #ifdef  DENDRO_VTU_ASCII
                 fprintf(fp,"          %lld %lld %lld %lld %lld %lld %lld %lld\n",
                         (DendroIntL)(i * nx*ny*nz + 0*ny*nx+0*nx+0),
                         (DendroIntL)(i * nx*ny*nz + 0*ny*nx+0*nx+1),
@@ -1646,33 +1726,33 @@ namespace io
                         (DendroIntL)(i * nx*ny*nz + 1*ny*nx+1*nx+1),
                         (DendroIntL)(i * nx*ny*nz + 1*ny*nx+1*nx+0));
 
-#else
+               #else
 
 
-                DendroIntL * locidx_data =new DendroIntL [num_cells*NUM_CHILDREN];
+                DendroIntL * locidx_data = new DendroIntL [num_cells*NUM_CHILDREN];
                 for (unsigned int i = 0 ; i < num_cells ; i++)
                 {
-                    locidx_data[i*NUM_CHILDREN+0]=(DendroIntL)(i * nx*ny*nz + 0*ny*nx+0*nx+0);
-                    locidx_data[i*NUM_CHILDREN+1]=(DendroIntL)(i * nx*ny*nz + 0*ny*nx+0*nx+1);
-                    locidx_data[i*NUM_CHILDREN+2]=(DendroIntL)(i * nx*ny*nz + 0*ny*nx+1*nx+1);
-                    locidx_data[i*NUM_CHILDREN+3]=(DendroIntL)(i * nx*ny*nz + 0*ny*nx+1*nx+0);
-                    locidx_data[i*NUM_CHILDREN+4]=(DendroIntL)(i * nx*ny*nz + 1*ny*nx+0*nx+0);
-                    locidx_data[i*NUM_CHILDREN+5]=(DendroIntL)(i * nx*ny*nz + 1*ny*nx+0*nx+1);
-                    locidx_data[i*NUM_CHILDREN+6]=(DendroIntL)(i * nx*ny*nz + 1*ny*nx+1*nx+1);
-                    locidx_data[i*NUM_CHILDREN+7]=(DendroIntL)(i * nx*ny*nz + 1*ny*nx+1*nx+0);
+                    locidx_data[i*NUM_CHILDREN+0] = (DendroIntL)(i * nx*ny*nz + 0*ny*nx+0*nx+0);
+                    locidx_data[i*NUM_CHILDREN+1] = (DendroIntL)(i * nx*ny*nz + 0*ny*nx+0*nx+1);
+                    locidx_data[i*NUM_CHILDREN+2] = (DendroIntL)(i * nx*ny*nz + 0*ny*nx+1*nx+1);
+                    locidx_data[i*NUM_CHILDREN+3] = (DendroIntL)(i * nx*ny*nz + 0*ny*nx+1*nx+0);
+                    locidx_data[i*NUM_CHILDREN+4] = (DendroIntL)(i * nx*ny*nz + 1*ny*nx+0*nx+0);
+                    locidx_data[i*NUM_CHILDREN+5] = (DendroIntL)(i * nx*ny*nz + 1*ny*nx+0*nx+1);
+                    locidx_data[i*NUM_CHILDREN+6] = (DendroIntL)(i * nx*ny*nz + 1*ny*nx+1*nx+1);
+                    locidx_data[i*NUM_CHILDREN+7] = (DendroIntL)(i * nx*ny*nz + 1*ny*nx+1*nx+0);
 
                 }
                 retval = vtk_write_binary (fp, (char *) locidx_data, sizeof (*locidx_data) * NUM_CHILDREN * num_cells);
                 if (retval) {
 
-                    std::cout<<rank<<": [VTU Error]: "<<"base64 encode connectivity data failed"<<std::endl;
+                    std:: cout<<rank<<": [VTU Error]: "<<"base64 encode connectivity data failed"<<std:: endl;
                     fclose(fp);
 
                 }
                 delete [] locidx_data;
 
 
-#endif
+               #endif
 
             }
 
@@ -1681,7 +1761,7 @@ namespace io
 
 
 
-#ifdef DENDRO_VTU_ASCII
+            #ifdef DENDRO_VTU_ASCII
             fprintf(fp,"        <DataArray type=\"%s\" Name=\"offsets\"" " format=\"%s\">\n",DENDRO_NODE_ID_TYPE,DENDRO_FORMAT_ASCII);
             fprintf(fp,"         ");
             for (unsigned int il = 1,sk = 1; il <= num_cells; ++il, ++sk) {
@@ -1690,22 +1770,22 @@ namespace io
                     fprintf(fp,"\n         ");
             }
             fprintf(fp,"\n");
-#else
+            #else
             fprintf(fp,"        <DataArray type=\"%s\" Name=\"offsets\"" " format=\"%s\">\n",DENDRO_NODE_ID_TYPE,DENDRO_FORMAT_BINARY);
 
-            DendroIntL * loc_offset=new DendroIntL [num_cells];
+            DendroIntL * loc_offset = new DendroIntL [num_cells];
             for (unsigned int il = 1; il <= (num_cells); il++)
-                loc_offset[il-1]=NUM_CHILDREN*il;
+                loc_offset[il-1] = NUM_CHILDREN*il;
 
             retval = vtk_write_binary (fp, (char *) loc_offset, sizeof (*loc_offset) *(num_cells));
             if (retval) {
 
-                std::cout<<rank<<": [VTU Error]: "<<"base64 encode offset data failed"<<std::endl;
+                std:: cout<<rank<<": [VTU Error]: "<<"base64 encode offset data failed"<<std:: endl;
                 fclose(fp);
             }
             delete [] loc_offset;
 
-#endif
+            #endif
 
 
 
@@ -1713,7 +1793,7 @@ namespace io
 
 
 
-#ifdef DENDRO_VTU_ASCII
+            #ifdef DENDRO_VTU_ASCII
             fprintf (fp, "        <DataArray type=\"UInt8\" Name=\"types\"" " format=\"%s\">\n", DENDRO_FORMAT_ASCII);
             fprintf(fp,"         ");
             for (unsigned int il = 0, sk = 1; il < num_cells; ++il, ++sk) {
@@ -1722,21 +1802,21 @@ namespace io
                     fprintf(fp,"\n         ");
             }
             fprintf(fp,"\n");
-#else
+            #else
             fprintf (fp, "        <DataArray type=\"UInt8\" Name=\"types\"" " format=\"%s\">\n", DENDRO_FORMAT_BINARY);
-            uint8_t  * loc_type=new uint8_t [num_cells];
+            uint8_t * loc_type = new uint8_t [num_cells];
             for (unsigned int il = 0; il < num_cells; ++il)
-                loc_type[il]=VTK_HEXAHEDRON;
+                loc_type[il] = VTK_HEXAHEDRON;
 
             retval = vtk_write_binary (fp, (char *) loc_type, sizeof (*loc_type) *num_cells);
             if (retval) {
 
-                std::cout<<rank<<": [VTU Error]: "<<"base64 encode element type data failed"<<std::endl;
+                std:: cout<<rank<<": [VTU Error]: "<<"base64 encode element type data failed"<<std:: endl;
                 fclose(fp);
             }
             delete [] loc_type;
 
-#endif
+            #endif
 
             fprintf(fp,"        </DataArray>\n");
             fprintf(fp,"      </Cells>\n");
@@ -1744,54 +1824,54 @@ namespace io
             // writing cell data
             fprintf(fp,"      <CellData>\n");
 
-#ifdef DENDRO_VTU_ASCII
-            fprintf(fp,"        <DataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
+            #ifdef DENDRO_VTU_ASCII
+            fprintf(fp,"        <DataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\">\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_ASCII);
             fprintf (fp,"         ");
             for (unsigned int il = 0; il < num_cells; ++il) {
                 fprintf(fp,"%d ",rank);
             }
             fprintf(fp,"\n");
-#else
-            fprintf(fp,"        <DataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
+            #else
+            fprintf(fp,"        <DataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\">\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_BINARY);
 
-            unsigned int * loc_rank=new unsigned int [num_cells];
+            unsigned int * loc_rank = new unsigned int [num_cells];
             for (unsigned int il = 0; il < num_cells; ++il)
-                loc_rank[il]=rank;
+                loc_rank[il] = rank;
 
             retval = vtk_write_binary (fp, (char *) loc_rank, sizeof (*loc_rank)*num_cells);
             if (retval) {
 
-                std::cout<<rank<<": [VTU Error]: "<<"base64 encode element rank data failed"<<std::endl;
+                std:: cout<<rank<<": [VTU Error]: "<<"base64 encode element rank data failed"<<std:: endl;
                 fclose(fp);
             }
             delete [] loc_rank;
-#endif
+            #endif
 
             fprintf(fp,"        </DataArray>\n");
 
 
-#ifdef DENDRO_VTU_ASCII
-            fprintf(fp,"        <DataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
+            #ifdef DENDRO_VTU_ASCII
+            fprintf(fp,"        <DataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\">\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_ASCII);
             fprintf(fp,"         ");
             for (unsigned int il = 0; il < num_cells; ++il) {
                 fprintf(fp,"%d ",pNodes[il].getLevel());
             }
             fprintf(fp,"\n");
-#else
-            fprintf(fp,"        <DataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
+            #else
+            fprintf(fp,"        <DataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\">\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_BINARY);
 
-            unsigned int * loc_level=new unsigned int [num_cells];
+            unsigned int * loc_level = new unsigned int [num_cells];
             for (unsigned int il = 0; il < num_cells; ++il)
-                loc_level[il]=pNodes[il].getLevel();
+                loc_level[il] = pNodes[il].getLevel();
 
             retval = vtk_write_binary (fp, (char *) loc_level, sizeof (*loc_level)*num_cells);
             if (retval) {
 
-                std::cout<<rank<<": [VTU Error]: "<<"base64 encode element level data failed"<<std::endl;
+                std:: cout<<rank<<": [VTU Error]: "<<"base64 encode element level data failed"<<std:: endl;
                 fclose(fp);
             }
             delete [] loc_level;
-#endif
+            #endif
 
 
             fprintf(fp,"        </DataArray>\n");
@@ -1801,23 +1881,23 @@ namespace io
             fprintf(fp,"</VTKFile>\n");
 
             fclose(fp);
-            fp=NULL;
+            fp = NULL;
 
             if(!rank) {
                 sprintf(fname, "%s.pvtu", fPrefix);
 
                 fp = fopen(fname, "w+");
                 if (fp == NULL) {
-                    std::cout << "rank: " << rank << "[IO Error]: Could not open the pvtu file. " << std::endl;
+                    std:: cout << "rank: " << rank << "[IO Error]: Could not open the pvtu file. " << std:: endl;
                     return;
                 }
 
 
                 fprintf(fp,"<?xml version=\"1.0\"?>\n");
                 fprintf(fp,"<VTKFile type=\"PUnstructuredGrid\" version=\"0.1\"");
-#ifdef DENDRO_VTU_ZLIB
+               #ifdef DENDRO_VTU_ZLIB
                 fprintf(fp," compressor=\"vtkZLibDataCompressor\"");
-#endif
+               #endif
                 fprintf(fp," byte_order=\"LittleEndian\">\n");
 
                 fprintf(fp,"  <PUnstructuredGrid GhostLevel=\"0\">\n");
@@ -1825,33 +1905,33 @@ namespace io
 
                 fprintf(fp,"    <PPoints>\n");
 
-#ifdef DENDRO_VTU_ASCII
+               #ifdef DENDRO_VTU_ASCII
                 fprintf(fp,"      <PDataArray type=\"%s\" Name=\"Position\""" NumberOfComponents=\"3\" format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
-#else
+               #else
                 fprintf(fp,"      <PDataArray type=\"%s\" Name=\"Position\""" NumberOfComponents=\"3\" format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
-#endif
+               #endif
 
 
 
                 fprintf(fp,"    </PPoints>\n");
                 fprintf(fp,"    <PCellData>\n");
 
-#ifdef DENDRO_VTU_ASCII
-                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
-#else
-                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
-#endif
+               #ifdef DENDRO_VTU_ASCII
+                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_ASCII);
+               #else
+                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_BINARY);
+               #endif
 
 
 
-#ifdef DENDRO_VTU_ASCII
-                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
-#else
-                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
-#endif
+               #ifdef DENDRO_VTU_ASCII
+                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_ASCII);
+               #else
+                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_BINARY);
+               #endif
 
                 fprintf(fp,"    </PCellData>\n");
-                std::string vtuName=getFileName(std::string(fPrefix));
+                std::string vtuName = getFileName(std::string(fPrefix));
                 for(unsigned int proc=0;proc<npes;proc++)
                 {
                     fprintf(fp,"<Piece Source=\"%s_%d_%d.vtu\"/>\n",vtuName.c_str(),proc,npes);
@@ -1862,7 +1942,7 @@ namespace io
 
 
                 fclose(fp);
-                fp=NULL;
+                fp = NULL;
 
 
             }
@@ -1872,139 +1952,519 @@ namespace io
         }
 
 
-        void waveletsToVTU(ot::Mesh* mesh,const double ** zippedVec, const double **unzippedVec,const unsigned int * varIds,const unsigned int numVars,const char* fileName)
+        void mesh2vtu_slice(const ot::Mesh *pMesh, unsigned int s_val[], unsigned int s_normal[], const char *fPrefix,unsigned int numFieldData,const char** filedDataNames,const double * filedData,unsigned int numPointdata, const char **pointDataNames, const double **pointData,bool isDGPData)
         {
-    
-            if(mesh->isActive())
+             if(!(pMesh->isActive())) return ;
+
+            unsigned int rank = pMesh->getMPIRank();
+            unsigned int npes = pMesh->getMPICommSize();
+            MPI_Comm activeComm = pMesh->getMPICommunicator();
+
+            Point dmin = pMesh->getDomainMinPt();
+            Point dmax = pMesh->getDomainMaxPt();
+            const double invRg = 1.0/( (double) (1u<<m_uiMaxDepth));
+
+            int retval;
+
+            char fname[FNAME_LENGTH];
+            char str[2048];
+            sprintf(fname,"%s_%d_%d.vtu",fPrefix,rank,npes);
+
+            std::vector<unsigned int> sids;
+            ot::slice_mesh(pMesh,s_val,s_normal,sids);
+
+            bool sid_empty = sids.empty();
+            bool* sid_empty_g = new bool[npes];
+
+            
+           
+            
+            if(!sid_empty)
             {
-                ot::TreeNode blkNode;
-                unsigned int sz[3];
-                double dh[3];
-                unsigned int bflag,offset;
-                unsigned int regLev;
-                unsigned int eIndex[3];
-                double *  waveletR=new double[NUM_REFINE_WAVELET_COEF];
-                //double *  waveletC=new double[NUM_COARSE_WAVELET_COEF]; 
+
+                fp = fopen(fname,"w+");
+                if(fp==NULL) {
+                    std:: cout << "rank: " << rank << "[IO Error]: Could not open the vtk file. " << std:: endl;
+                    return ;
+                }
+
+                const std::vector<ot::TreeNode>& pElements = pMesh->getAllElements();
+                const std::vector<unsigned int>& e2N       = pMesh->getE2NMapping();
+
+                // note this works only for the 3D grids.
+                const unsigned int dim        = m_uiDim;
+                const unsigned int nPe        = pMesh->getNumNodesPerElement();
+                const unsigned int eleOrder   = pMesh->getElementOrder();
+                const unsigned int ePe        = eleOrder*eleOrder*eleOrder;
+                const unsigned int num_cells  = sids.size()*ePe;
+                const DendroIntL num_vertices = sids.size()*nPe;
+                double sz;
+
+                std:: vector<double> nodalVal;
+                nodalVal.resize(nPe);
+
+            
+
                 
+
+                fprintf(fp,"<?xml version=\"1.0\"?>\n");
+                fprintf(fp,"<VTKFile type=\"UnstructuredGrid\" version=\"0.1\"");
                 
-                const unsigned int paddWidth=3;
-                unsigned int eleIndexMin=0,eleIndexMax=0;
-                const std::vector<ot::Block> localBlockList=mesh->getLocalBlockList();
-                const std::vector<ot::TreeNode> allElements=mesh->getAllElements();
-                const unsigned int eleOrder=mesh->getElementOrder();
-                const unsigned int * e2n_cg=&(*(mesh->getE2NMapping().begin()));
-                const unsigned int * e2n_dg=&(*(mesh->getE2NMapping_DG().begin()));
-                const unsigned int nPe=mesh->getNumNodesPerElement();
-                
-                
-                
-                const unsigned int nodeLocalBegin=mesh->getNodeLocalBegin();
-                const unsigned int nodeLocalEnd=mesh->getNodeLocalEnd();
-                unsigned int nodeLookup_cg,nodeLookup_dg;
-                unsigned int ownerID,ii_x,jj_y,kk_z;
-                // allocate memory for wavelets
-                double ** refineWavelets=new double*[numVars];
-                for(unsigned int var=0;var<numVars;var++)
-                    refineWavelets[var]=mesh->createVector<double>(100.0);
-                
-//                  for(unsigned int var=0;var<numVars;var++)
-//                      for(unsigned int node=mesh->getNodeLocalBegin();node<mesh->getNodeLocalEnd();node++)
-//                          refineWavelets[var][node]=zippedVec[varIds[var]][node];
-               
-                
-                for(unsigned blk=0;blk<localBlockList.size();blk++)
+                #ifdef DENDRO_VTU_ZLIB
+                fprintf(fp," compressor=\"vtkZLibDataCompressor\"");
+                #endif
+                fprintf(fp," byte_order=\"LittleEndian\">\n");
+                fprintf(fp,"  <UnstructuredGrid>\n");
+
+
+                fprintf(fp,"    <Piece NumberOfPoints=\"%lld\" NumberOfCells=\"%d\">\n",(long long) num_vertices,num_cells);
+
+
+                if(numFieldData>0 && filedData!=NULL)
                 {
-                    blkNode=localBlockList[blk].getBlockNode();
-                    sz[0]=localBlockList[blk].getAllocationSzX();
-                    sz[1]=localBlockList[blk].getAllocationSzY();
-                    sz[2]=localBlockList[blk].getAllocationSzZ();
+                    fprintf(fp,"      <FieldData>\n");
 
-                    bflag=localBlockList[blk].getBlkNodeFlag();
-                    offset=localBlockList[blk].getOffset();
-
-                    regLev=localBlockList[blk].getRegularGridLev();
-                    eleIndexMax=(1u<<(regLev-blkNode.getLevel()))-1;
-
-                    //if(bflag!=0) continue;
-                        
-                    
-                    for(unsigned int ele=localBlockList[blk].getLocalElementBegin();ele<localBlockList[blk].getLocalElementEnd();ele++)
+                    for(unsigned int fdata=0;fdata<numFieldData;fdata++)
                     {
+                        fprintf(fp,"        <DataArray type=\"%s\" Name=\"%s\" format=\"%s\">\n",DENDRO_NODE_VAR_FLOAT,filedDataNames[fdata],DENDRO_FORMAT_ASCII);
+                        fprintf(fp,"%f\n",filedData[fdata]);
+                        fprintf(fp,"      </DataArray>\n");
+                    }
 
-                        if((allElements[ele].getLevel()+MAXDEAPTH_LEVEL_DIFF+1)>=m_uiMaxDepth) continue;
-                        
-                        eIndex[0]=(allElements[ele].getX()-blkNode.getX())>>(m_uiMaxDepth-regLev);
-                        eIndex[1]=(allElements[ele].getY()-blkNode.getY())>>(m_uiMaxDepth-regLev);
-                        eIndex[2]=(allElements[ele].getZ()-blkNode.getZ())>>(m_uiMaxDepth-regLev);
+                    fprintf(fp,"      </FieldData>\n");
+                }
 
-                        if((bflag &(1u<<OCT_DIR_LEFT)) && eIndex[0]==eleIndexMin)   continue;
-                        if((bflag &(1u<<OCT_DIR_DOWN)) && eIndex[1]==eleIndexMin)   continue;
-                        if((bflag &(1u<<OCT_DIR_BACK)) && eIndex[2]==eleIndexMin)   continue;
 
-                        if((bflag &(1u<<OCT_DIR_RIGHT)) && eIndex[0]==eleIndexMax)  continue;
-                        if((bflag &(1u<<OCT_DIR_UP)) && eIndex[1]==eleIndexMax)     continue;
-                        if((bflag &(1u<<OCT_DIR_FRONT)) && eIndex[2]==eleIndexMax)  continue;
 
-                        for(unsigned int var=0;var<numVars;var++)
-                        {
-                            computeRefineWavelets(unzippedVec[varIds[var]],offset,eleOrder,eIndex,paddWidth,sz,waveletR);
-                            
-//                             for(unsigned int k=0;k<(eleOrder+1);k++)
-//                                for(unsigned int j=0;j<(eleOrder+1);j++)
-//                                   for(unsigned int i=0;i<(eleOrder+1);i++)
-//                                       if(!mesh->isNodeHanging(ele,i,j,k))refineWavelets[var][e2n[ele*nPe+k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i]]=normL2(waveletR,8);//normLInfty(waveletR,8);
-                                  
-                            /*refineWavelets[var][e2n_cg[ele*nPe+1*(eleOrder+1)*(eleOrder+1)+1*(eleOrder+1)+1]]=waveletR[0];
-                            refineWavelets[var][e2n_cg[ele*nPe+1*(eleOrder+1)*(eleOrder+1)+1*(eleOrder+1)+3]]=waveletR[1];
-                            
-                            refineWavelets[var][e2n_cg[ele*nPe+1*(eleOrder+1)*(eleOrder+1)+3*(eleOrder+1)+1]]=waveletR[2];
-                            refineWavelets[var][e2n_cg[ele*nPe+1*(eleOrder+1)*(eleOrder+1)+3*(eleOrder+1)+3]]=waveletR[3];
-                            
-                            refineWavelets[var][e2n_cg[ele*nPe+3*(eleOrder+1)*(eleOrder+1)+1*(eleOrder+1)+1]]=waveletR[4];
-                            refineWavelets[var][e2n_cg[ele*nPe+3*(eleOrder+1)*(eleOrder+1)+1*(eleOrder+1)+3]]=waveletR[5];
-                            
-                            refineWavelets[var][e2n_cg[ele*nPe+3*(eleOrder+1)*(eleOrder+1)+3*(eleOrder+1)+1]]=waveletR[6];
-                            refineWavelets[var][e2n_cg[ele*nPe+3*(eleOrder+1)*(eleOrder+1)+3*(eleOrder+1)+3]]=waveletR[7];*/
-                            
-                            //std::cout<<"waveletR[0]: "<<waveletR[0]<<std::endl;
-                            
-                        }
+                fprintf(fp,"      <Points>\n");
+
+                #ifdef DENDRO_VTU_ASCII
+                fprintf(fp,"        <DataArray type=\"%s\" Name=\"Position\" NumberOfComponents=\"3\" format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
+                #else
+                fprintf(fp,"        <DataArray type=\"%s\" Name=\"Position\" NumberOfComponents=\"3\" format=\"%s\">\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
+                #endif
+
+
+                #ifdef DENDRO_VTU_ASCII
+                for(unsigned int s = 0 ; s < sids.size(); s++) {
+                    const unsigned int ele = sids[s];
+                    sz = 1u << (m_uiMaxDepth - pElements[ele].getLevel());
+                    for (unsigned int k = 0; k < (eleOrder + 1); k++)
+                        for (unsigned int j = 0; j < (eleOrder + 1); j++)
+                            for (unsigned int i = 0; i < (eleOrder + 1); i++) {
+
+
+                                fprintf(fp, "          %d %d %d\n", VTU_OCT_X_GRID_X(pElements[ele].getX() + i * (sz / eleOrder)),
+                                        VTU_OCT_Y_GRID_Y(pElements[ele].getY() + j * (sz / eleOrder)),
+                                        VTU_OCT_Z_GRID_Z(pElements[ele].getZ() + k * (sz / eleOrder)));
+
+                            }
+                }
+                #else
+
+                DENDRO_NODE_COORD_DTYPE* coord_data = new DENDRO_NODE_COORD_DTYPE[num_vertices*m_uiDim];
+
+                for(unsigned int s = 0 ; s < sids.size(); s++) {
+                    const unsigned int ele = sids[s];
+                    sz = 1u << (m_uiMaxDepth - pElements[ele].getLevel());
+                    for (unsigned int k = 0; k < (eleOrder + 1); k++)
+                        for (unsigned int j = 0; j < (eleOrder + 1); j++)
+                            for (unsigned int i = 0; i < (eleOrder + 1); i++) {
+                                coord_data[((s)*nPe+k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i)*m_uiDim + 0] = VTU_OCT_X_GRID_X(pElements[ele].getX()+i*(sz/eleOrder));
+                                coord_data[((s)*nPe+k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i)*m_uiDim + 1] = VTU_OCT_Y_GRID_Y(pElements[ele].getY()+j*(sz/eleOrder));
+                                coord_data[((s)*nPe+k*(eleOrder+1)*(eleOrder+1)+j*(eleOrder+1)+i)*m_uiDim + 2] = VTU_OCT_Z_GRID_Z(pElements[ele].getZ()+k*(sz/eleOrder));
+                            }
+                }
+
+                retval = vtk_write_binary (fp, (char *) coord_data, sizeof (*coord_data) * m_uiDim * num_vertices);
+                if (retval) {
+
+                    std:: cout<<rank<<": [VTU Error]: "<<"base64 encode point data failed"<<std:: endl;
+                    fclose(fp);
+
+                }
+                delete [] coord_data;
+                #endif
+
+
+                fprintf(fp,"\n");
+
+                fprintf(fp,"        </DataArray>\n");
+                fprintf(fp,"      </Points>\n");
+                fprintf(fp,"      <Cells>\n");
+
+
+
+                #ifdef  DENDRO_VTU_ASCII
+
+                fprintf(fp,"        <DataArray type=\"%s\" Name=\"connectivity\""  " format=\"%s\">\n",DENDRO_NODE_ID_TYPE,DENDRO_FORMAT_ASCII);
+
+                for (unsigned int ele = 0 ; ele < sids.size() ; ele++) {
+                    for(unsigned int ek=0;ek<(eleOrder);ek++)
+                        for(unsigned int ej=0;ej<(eleOrder);ej++)
+                            for(unsigned int ei=0;ei<(eleOrder);ei++)
+                            {
+                                fprintf(fp,"          %lld %lld %lld %lld %lld %lld %lld %lld\n",
+                                        (DendroIntL)(ele * nPe + ek*(eleOrder+1)*(eleOrder+1)+ej*(eleOrder+1)+ei),
+                                        (DendroIntL)(ele * nPe + ek*(eleOrder+1)*(eleOrder+1)+ej*(eleOrder+1)+(ei+1)),
+                                        (DendroIntL)(ele * nPe + ek*(eleOrder+1)*(eleOrder+1)+(ej+1)*(eleOrder+1)+(ei+1)),
+                                        (DendroIntL)(ele * nPe + ek*(eleOrder+1)*(eleOrder+1)+(ej+1)*(eleOrder+1)+ei),
+                                        (DendroIntL)(ele * nPe + (ek+1)*(eleOrder+1)*(eleOrder+1)+ej*(eleOrder+1)+ei),
+                                        (DendroIntL)(ele * nPe + (ek+1)*(eleOrder+1)*(eleOrder+1)+ej*(eleOrder+1)+(ei+1)),
+                                        (DendroIntL)(ele * nPe + (ek+1)*(eleOrder+1)*(eleOrder+1)+(ej+1)*(eleOrder+1)+(ei+1)),
+                                        (DendroIntL)(ele * nPe + (ek+1)*(eleOrder+1)*(eleOrder+1)+(ej+1)*(eleOrder+1)+ei));
+
+                            }
+
+
+                }
+
+                #else
+                fprintf(fp,"        <DataArray type=\"%s\" Name=\"connectivity\""  " format=\"%s\">\n",DENDRO_NODE_ID_TYPE,DENDRO_FORMAT_BINARY);
+
+                    DendroIntL * locidx_data = new DendroIntL [num_cells*NUM_CHILDREN];
+                    for (unsigned int ele = 0 ; ele < sids.size() ; ele++)
+                    {
+                        for(unsigned int ek=0;ek<(eleOrder);ek++)
+                            for(unsigned int ej=0;ej<(eleOrder);ej++)
+                                for(unsigned int ei=0;ei<(eleOrder);ei++)
+                                {
+                                    locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+0] = (DendroIntL)(ele * nPe + ek*(eleOrder+1)*(eleOrder+1)+ej*(eleOrder+1)+ei);
+                                    locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+1] = (DendroIntL)(ele * nPe + ek*(eleOrder+1)*(eleOrder+1)+ej*(eleOrder+1)+(ei+1));
+                                    locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+2] = (DendroIntL)(ele * nPe + ek*(eleOrder+1)*(eleOrder+1)+(ej+1)*(eleOrder+1)+(ei+1));
+                                    locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+3] = (DendroIntL)(ele * nPe + ek*(eleOrder+1)*(eleOrder+1)+(ej+1)*(eleOrder+1)+ei);
+                                    locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+4] = (DendroIntL)(ele * nPe + (ek+1)*(eleOrder+1)*(eleOrder+1)+ej*(eleOrder+1)+ei);
+                                    locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+5] = (DendroIntL)(ele * nPe + (ek+1)*(eleOrder+1)*(eleOrder+1)+ej*(eleOrder+1)+(ei+1));
+                                    locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+6] = (DendroIntL)(ele * nPe + (ek+1)*(eleOrder+1)*(eleOrder+1)+(ej+1)*(eleOrder+1)+(ei+1));
+                                    locidx_data[(ele*ePe+ek*(eleOrder)*(eleOrder)+ej*(eleOrder)+ei)*NUM_CHILDREN+7] = (DendroIntL)(ele * nPe + (ek+1)*(eleOrder+1)*(eleOrder+1)+(ej+1)*(eleOrder+1)+ei);
+                                }
 
                     }
-                    
+
+                    retval = vtk_write_binary (fp, (char *) locidx_data, sizeof (*locidx_data) * NUM_CHILDREN * num_cells);
+                    if (retval) {
+
+                        std:: cout<<rank<<": [VTU Error]: "<<"base64 encode connectivity data failed"<<std:: endl;
+                        fclose(fp);
+
+                    }
+                    delete [] locidx_data;
+
+                #endif
+
+
+
+
+                fprintf(fp,"\n");
+                fprintf(fp,"        </DataArray>\n");
+
+
+
+                #ifdef DENDRO_VTU_ASCII
+                fprintf(fp,"        <DataArray type=\"%s\" Name=\"offsets\"" " format=\"%s\">\n",DENDRO_NODE_ID_TYPE,DENDRO_FORMAT_ASCII);
+                fprintf(fp,"         ");
+                for (unsigned int il = 1,sk = 1; il <= num_cells; ++il, ++sk) {
+                    fprintf(fp," %lld",(NUM_CHILDREN*il));
+                    if (!(sk % 8) && il != num_cells)
+                        fprintf(fp,"\n         ");
                 }
+                fprintf(fp,"\n");
                 
+                #else
+                fprintf(fp,"        <DataArray type=\"%s\" Name=\"offsets\"" " format=\"%s\">\n",DENDRO_NODE_ID_TYPE,DENDRO_FORMAT_BINARY);
+                DendroIntL * loc_offset = new DendroIntL [num_cells];
+                for (unsigned int il = 1; il <= (num_cells); il++)
+                    loc_offset[il-1] = NUM_CHILDREN*il;
+
+                retval = vtk_write_binary (fp, (char *) loc_offset, sizeof (*loc_offset) *(num_cells));
+                if (retval) {
+
+                    std:: cout<<rank<<": [VTU Error]: "<<"base64 encode offset data failed"<<std:: endl;
+                    fclose(fp);
+                }
+                delete [] loc_offset;
+                #endif
+
+
+
+                fprintf(fp,"\n        </DataArray>\n");
+
+
+                #ifdef DENDRO_VTU_ASCII
+                fprintf (fp, "        <DataArray type=\"UInt8\" Name=\"types\"" " format=\"%s\">\n", DENDRO_FORMAT_ASCII);
+                fprintf(fp,"         ");
+                for (unsigned int il = 0, sk = 1; il < num_cells; ++il, ++sk) {
+                    fprintf (fp, " %d",VTK_HEXAHEDRON);
+                    if (!(sk % 20) && il != (num_cells - 1))
+                        fprintf(fp,"\n         ");
+                }
+                fprintf(fp,"\n");
+                #else
+                fprintf (fp, "        <DataArray type=\"UInt8\" Name=\"types\"" " format=\"%s\">\n", DENDRO_FORMAT_BINARY);
+                uint8_t * loc_type = new uint8_t [num_cells];
+                for (unsigned int il = 0; il < num_cells; ++il)
+                    loc_type[il] = VTK_HEXAHEDRON;
+
+                retval = vtk_write_binary (fp, (char *) loc_type, sizeof (*loc_type) *num_cells);
+                if (retval) {
+
+                    std:: cout<<rank<<": [VTU Error]: "<<"base64 encode element type data failed"<<std:: endl;
+                    fclose(fp);
+                }
+                delete [] loc_type;
                 
-//                 for(unsigned int var=0;var<numVars;var++)
-//                     for(unsigned int node=mesh->getNodeLocalBegin();node<mesh->getNodeLocalEnd();node++)
-//                         refineWavelets[var][node]-=zippedVec[varIds[var]][node];
-                
-                for(unsigned int var=0;var<numVars;var++)
-                    mesh->performGhostExchange(refineWavelets[var]);
-                
-                char** pDataNames=new char*[numVars];
-                char *  pDataNamesAll[]={"U_ALPHA_WC","U_CHI_WC","U_K_WC","U_GT0_WC","U_GT1_WC","U_GT2_WC","U_BETA0_WC","U_BETA1_WC","U_BETA2_WC","U_B0_WC","U_B1_WC","U_B2_WC","U_SYMGT0_WC","U_SYMGT1_WC","U_SYMGT2_WC","U_SYMGT3_WC","U_SYMGT4_WC","U_SYMGT5_WC","U_SYMAT0_WC","U_SYMAT1_WC","U_SYMAT2_WC","U_SYMAT3_WC","U_SYMAT4_WC","U_SYMAT5_WC"};
-                for(unsigned int var=0;var<numVars;var++)
-                {
-                    pDataNames[var]=pDataNamesAll[varIds[var]];
+                #endif
+                fprintf(fp,"\n");
+                fprintf(fp,"        </DataArray>\n");
+                fprintf(fp,"      </Cells>\n");
+
+                // writing cell data
+                fprintf(fp,"      <CellData>\n");
+
+                #ifdef DENDRO_VTU_ASCII
+                fprintf(fp,"        <DataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\">\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_ASCII);
+                fprintf (fp,"         ");
+                for (unsigned int il = 0; il < num_cells; ++il) {
+                    fprintf(fp,"%d ",rank);
+                }
+                fprintf(fp,"\n");
+                #else
+                fprintf(fp,"        <DataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\">\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_BINARY);
+
+                unsigned int * loc_rank = new unsigned int [num_cells];
+                for (unsigned int il = 0; il < num_cells; ++il)
+                    loc_rank[il] = rank;
+
+                retval = vtk_write_binary (fp, (char *) loc_rank, sizeof (*loc_rank)*num_cells);
+                if (retval) {
+
+                    std:: cout<<rank<<": [VTU Error]: "<<"base64 encode element rank data failed"<<std:: endl;
+                    fclose(fp);
+                }
+                delete [] loc_rank;
+                #endif
+                fprintf(fp,"\n");
+                fprintf(fp,"        </DataArray>\n");
+
+
+                #ifdef DENDRO_VTU_ASCII
+                fprintf(fp,"        <DataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\">\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_ASCII);
+                fprintf(fp,"         ");
+                for(unsigned int s = 0 ; s < sids.size(); s++) {
+                const unsigned int il = sids[s];
+                for(unsigned int w=0;w<ePe;w++)
+                    fprintf(fp,"%d ",(pElements[il].getLevel() + (eleOrder>>1u)));
                 }
 
-                io::vtk::mesh2vtuFine(mesh,fileName,0,NULL,NULL,numVars,(const char **)pDataNames,(const double **)refineWavelets);
-                
-                for(unsigned int var=0;var<numVars;var++)
-                {
-                   delete [] refineWavelets[var]; 
+                fprintf(fp,"\n");
+                #else
+                fprintf(fp,"        <DataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\">\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_BINARY);
+                unsigned int * loc_level = new unsigned int [num_cells];
+                for(unsigned int s = 0 ; s < sids.size(); s++) {
+                    const unsigned int il = sids[s];
+                    for(unsigned int w=0;w<ePe;w++)
+                        loc_level[(s)*ePe+w] = pElements[il].getLevel();
                 }
-                   
-                
-                delete [] refineWavelets;
-                delete [] waveletR;
-                delete [] pDataNames;
-            
-                
-                
+
+                retval = vtk_write_binary (fp, (char *) loc_level, sizeof (*loc_level)*num_cells);
+                if (retval) {
+
+                    std:: cout<<rank<<": [VTU Error]: "<<"base64 encode element level data failed"<<std:: endl;
+                    fclose(fp);
+                }
+                delete [] loc_level;
+                #endif
+
+                fprintf(fp,"\n");
+                fprintf(fp,"        </DataArray>\n");
+                fprintf(fp,"      </CellData>\n");
+
+
+
+
+                if(numPointdata>0 && pointData!=NULL)
+                {
+                    fprintf(fp,"      <PointData>\n");
+
+                    #ifndef DENDRO_VTU_ASCII
+                    double * nodalVal_binary = new double [num_vertices];
+                    #endif
+
+                    for(unsigned int pdata=0;pdata<numPointdata;pdata++)
+                    {
+
+                        #ifdef DENDRO_VTU_ASCII
+                        fprintf(fp,"        <DataArray type=\"%s\" Name=\"%s\"" " format=\"%s\">\n",DENDRO_NODE_VAR_DOUBLE,pointDataNames[pdata],DENDRO_FORMAT_ASCII);
+                        #else
+                        fprintf(fp,"        <DataArray type=\"%s\" Name=\"%s\"" " format=\"%s\">\n",DENDRO_NODE_VAR_DOUBLE,pointDataNames[pdata],DENDRO_FORMAT_BINARY);
+                        #endif
+
+
+                        const double *tmp_var = pointData[pdata];
+                        // note that size of tmp_var should be actual number of nodes in the mesh.
+                        //std::cout<<"tmp_var: pdata: "<<pdata<<" var: "<<tmp_var[0]<<std::endl;
+                        #ifdef DENDRO_VTU_ASCII
+                        fprintf(fp,"         ");
+                        for(unsigned int s = 0 ; s < sids.size(); s++) {
+                            const unsigned int il = sids[s];
+                            pMesh->getElementNodalValues(tmp_var,&(*(nodalVal.begin())),il,isDGPData);
+                            for(unsigned int node=0;node<nPe;node++)
+                                fprintf(fp,"%f ",nodalVal[node]);
+                        }
+                        fprintf(fp,"\n");
+                        #else
+
+
+
+                        for(unsigned int s = 0 ; s < sids.size(); s++) {
+                            const unsigned int il = sids[s];
+                            pMesh->getElementNodalValues(tmp_var,&(*(nodalVal.begin())),il,isDGPData);
+                            for(unsigned int node=0;node<nPe;node++)
+                                nodalVal_binary[(s)*nPe+node] = nodalVal[node];
+                        }
+
+
+                        retval = vtk_write_binary (fp, (char *) nodalVal_binary, sizeof (*nodalVal_binary)*num_vertices);
+
+                        if (retval) {
+
+                            std:: cout<<rank<<": [VTU Error]: "<<"base64 encode point vars data failed"<<std:: endl;
+                            fclose(fp);
+                        }
+
+
+                        #endif
+                        fprintf (fp, "\n");
+                        fprintf(fp,"        </DataArray>\n");
+                    }
+                    fprintf(fp,"      </PointData>\n");
+
+
+                    #ifndef DENDRO_VTU_ASCII
+                    delete [] nodalVal_binary;
+                    #endif
+                }
+
+                fprintf (fp, "\n");
+                fprintf(fp,"</Piece>\n");
+                fprintf(fp,"</UnstructuredGrid>\n");
+                fprintf(fp,"</VTKFile>\n");
+
+                fclose(fp);
+                fp = NULL;
+
             }
             
+            
+            par::Mpi_Gather(&sid_empty,sid_empty_g,1,0,activeComm);
+            
+            
+
+            if(!rank)
+            {
+                sprintf(fname,"%s.pvtu",fPrefix);
+
+                fp = fopen(fname,"w+");
+                if(fp==NULL) {
+                    std:: cout << "rank: " << rank << "[IO Error]: Could not open the pvtu file. " << std:: endl;
+                    return ;
+                }
+
+
+                fprintf(fp,"<?xml version=\"1.0\"?>\n");
+                fprintf(fp,"<VTKFile type=\"PUnstructuredGrid\" version=\"0.1\"");
+                #ifdef DENDRO_VTU_ZLIB
+                fprintf(fp," compressor=\"vtkZLibDataCompressor\"");
+                #endif
+                fprintf(fp," byte_order=\"LittleEndian\">\n");
+
+                fprintf(fp,"  <PUnstructuredGrid GhostLevel=\"0\">\n");
+
+                if(numFieldData>0 && filedData!=NULL)
+                {
+                    fprintf(fp,"    <PFieldData>\n");
+                    for(unsigned int fdata=0;fdata<numFieldData;fdata++)
+                    {
+                        fprintf(fp,"        <PDataArray type=\"%s\" Name=\"%s\" format=\"%s\"/>\n",DENDRO_NODE_VAR_FLOAT,filedDataNames[fdata],DENDRO_FORMAT_ASCII);
+
+                    }
+                    fprintf(fp,"    </PFieldData>\n");
+                }
+
+                fprintf(fp,"    <PPoints>\n");
+
+                #ifdef DENDRO_VTU_ASCII
+                fprintf(fp,"      <PDataArray type=\"%s\" Name=\"Position\""" NumberOfComponents=\"3\" format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_ASCII);
+                #else
+                fprintf(fp,"      <PDataArray type=\"%s\" Name=\"Position\""" NumberOfComponents=\"3\" format=\"%s\"/>\n",DENDRO_NODE_COORD_TYPE,DENDRO_FORMAT_BINARY);
+                #endif
+
+
+
+                fprintf(fp,"    </PPoints>\n");
+                fprintf(fp,"    <PCellData>\n");
+
+                #ifdef DENDRO_VTU_ASCII
+                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_ASCII);
+                #else
+                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"mpi_rank\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_BINARY);
+                #endif
+
+
+
+                #ifdef DENDRO_VTU_ASCII
+                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_ASCII);
+                #else
+                fprintf(fp,"        <PDataArray type=\"%s\" Name=\"cell_level\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_INT,DENDRO_FORMAT_BINARY);
+                #endif
+
+                fprintf(fp,"    </PCellData>\n");
+
+
+                // writing point data
+                if(numPointdata>0 && pointData!=NULL)
+                {
+                    fprintf(fp,"      <PPointData>\n");
+
+                    for(unsigned int pdata=0;pdata<numPointdata;pdata++)
+                    {
+
+                        #ifdef DENDRO_VTU_ASCII
+                        fprintf(fp,"        <PDataArray type=\"%s\" Name=\"%s\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_DOUBLE,pointDataNames[pdata],DENDRO_FORMAT_ASCII);
+                        #else
+                        fprintf(fp,"        <PDataArray type=\"%s\" Name=\"%s\"" " format=\"%s\"/>\n",DENDRO_NODE_VAR_DOUBLE,pointDataNames[pdata],DENDRO_FORMAT_BINARY);
+                        #endif
+
+                    }
+
+                    fprintf(fp,"      </PPointData>\n");
+
+                }
+                std::string vtuName = getFileName(std::string(fPrefix));
+                for(unsigned int proc=0;proc<npes;proc++)
+                {
+                    if(!sid_empty_g[proc])
+                        fprintf(fp,"<Piece Source=\"%s_%d_%d.vtu\"/>\n",vtuName.c_str(),proc,npes);
+
+                }
+                fprintf(fp,"</PUnstructuredGrid>\n");
+                fprintf(fp,"</VTKFile>\n");
+
+
+                fclose(fp);
+                fp = NULL;
+
+
+
+
+            }
+
+            delete [] sid_empty_g;
+
+
+
+
+
         }
         
         

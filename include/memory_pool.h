@@ -24,59 +24,129 @@
  *
  */
 
-#ifndef MEMORY_POOL_H
-#define MEMORY_POOL_H
-
-
+#pragma once
 #include <vector>
 
-struct mem_blk {
-public:
-  unsigned int  size;
-  bool          free;
-  double*       data;
+namespace mem
+{
+  /**
+   * @brief simple structure to keep the mem blocks
+   * 
+   * @tparam T 
+   */
+  template<typename T>
+  struct mem_blk {
+    
+    public:
+      /**@brief : size of the block */
+      unsigned int  size;
+      /**@brief: true if currently in use false otherwise*/
+      bool          free;
+      /**@brief: pointer to the current block. */
+      T*       data;
   
-  mem_blk(unsigned int sz) {
-    size = sz;
-    free = true;
-    data = NULL;
-  }
-  
-  ~mem_blk() {
-    if (data != NULL) { 
-      delete [] data;
+    mem_blk(unsigned int sz) {
+      size = sz;
+      free = true;
       data = NULL;
     }
-  }
-}; 
+  
+    ~mem_blk() {}
+  };
 
-class memory_pool
-{
-private:
-  unsigned long                       m_ulCount;
-  
-  unsigned int                        m_uiAlignment;
-  unsigned int                        m_uiPadding;
-  
-  // for the entries ...
-  // need, address, size, is_available. 
-  std::vector<mem_blk>                m_vecBlocks; 
-  
-  
-public:
-  memory_pool(unsigned int pad = 3, unsigned int align = 32);
-  
-  ~memory_pool();
-  
-  // basic ops. block based only. of size (sz +2*pad)^3 
-  double* allocate(unsigned int sz);
-  void    free(double* buf);
-  
-  // how much memory is currently used by the pool
-  unsigned long used();
-  
-  // delete all allocated blocks.
-  void purge();
-};
+  template<typename T>
+  class memory_pool
+  {
+    private:
+      unsigned long                       m_ulCount;
+      unsigned int                        m_uiAlignment;
+      unsigned int                        m_uiPadding;
+      std::vector<mem_blk<T>>             m_vecBlocks; 
+    
+    public:
+      memory_pool(unsigned int pad = 3, unsigned int align = 32)
+      {
+        m_uiPadding = pad;
+        m_uiAlignment = align;
 
-#endif // MEMORY_POOL_H
+      }
+
+      ~memory_pool()
+      {
+        this->purge();        
+      }
+    
+    /**
+     * @brief allocate memory
+     * 
+     * @param sz 
+     * @return T* 
+     */
+    T* allocate(unsigned int sz)
+    {
+
+      #if 1
+        // if want allocatations without the memeory pool. 
+        return new T[sz];
+      #endif
+
+      for(unsigned int i=0; i < m_vecBlocks.size(); i++) {
+        if (m_vecBlocks[i].free && m_vecBlocks[i].size == sz) {
+          m_vecBlocks[i].free = false;
+          return m_vecBlocks[i].data;
+        }
+      }
+      
+      // 2. did not find a free block, create a new one.
+      mem_blk<T> blk(sz);
+      T *buf; 
+      unsigned long len = sz;//(sz+m_uiPadding)*(sz+m_uiPadding)*(sz+m_uiPadding);
+  
+      // todo @hari @milinda allocate properly to be aligned in 3d
+      const int st=posix_memalign((void **)&buf, m_uiAlignment, (len)*sizeof(T)); 
+      blk.data = buf;
+      blk.free = false;
+      m_vecBlocks.push_back(blk);
+      m_ulCount += len*sizeof(T);
+      return buf;
+    }
+
+    void free(T* buf)
+    {
+
+      #if 1 
+        delete [] buf;
+        return;
+      #endif
+
+      for(unsigned int i=0; i < m_vecBlocks.size(); i++) {
+        if (m_vecBlocks[i].data == buf) {
+          m_vecBlocks[i].free = true;
+          unsigned long len = m_vecBlocks[i].size;//(x.size+m_uiPadding)*(x.size+m_uiPadding)*(x.size+m_uiPadding);
+          m_ulCount -= len*sizeof(T);
+          return;
+        }
+      }
+     
+      std::cout << "memory_pool error: trying to free block not allocated by mempool."<<std::endl;
+    }
+    
+    /**@brief how much memory is currently used by the pool*/
+    unsigned long used(){ return m_ulCount;}
+    
+    /**
+     * @brief delete all allocated blocks.
+     */
+    void purge()
+    {
+      for(unsigned int i=0; i < m_vecBlocks.size(); i++) {
+          if (m_vecBlocks[i].data != NULL) {
+            delete [] m_vecBlocks[i].data;
+            m_vecBlocks[i].data = NULL;
+          }
+        }
+      m_vecBlocks.clear();
+    }
+  };
+
+} // end of namespace mem. 

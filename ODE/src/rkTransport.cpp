@@ -60,7 +60,7 @@ namespace ode
 
             if(fprefix==NULL)
             {
-                m_uiFilePrefix={"sol_step"};
+                m_uiFilePrefix=(char*)"sol_step";
             }else
                 m_uiFilePrefix=(char *)fprefix;
 
@@ -334,7 +334,7 @@ namespace ode
 
             const double* varPtr []={&(*(m_uiPrevU.begin()))};
             double wTol=m_uiWaveletTol;
-            std::function<double(double,double,double)> waveletTolFunc =[wTol](double x,double y, double z){ return wTol;};
+            std::function<double(double,double,double,double* hx)> waveletTolFunc =[wTol](double x,double y, double z,double *hx){ return wTol;};
 
             for(double t=m_uiCurrentTime;t<m_uiTimeEnd;t=t+m_uiT_h)
             {
@@ -350,7 +350,7 @@ namespace ode
                     sprintf(fPrefix,"%s_%d",m_uiFilePrefix,m_uiCurrentStep);
 
                     const char * fDataNames[]={"Time","Cyvle"};
-                    const double fData[]={m_uiCurrentTime,m_uiCurrentStep};
+                    const double fData[]={m_uiCurrentTime,(double)m_uiCurrentStep};
                     m_uiMesh->performGhostExchange(m_uiPrevU);
                     const char * pDataNames[]={"U(x,t)"};
                     const double * pData[]={&(*(m_uiPrevU.begin()))};
@@ -501,7 +501,7 @@ namespace ode
 
             }
 
-
+            return 0;
 
         }
 
