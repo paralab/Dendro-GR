@@ -1,16 +1,14 @@
-<img src="https://github.com/paralab/Dendro-5.01/blob/master/docs/fig/dendro.png" alt="Dendro" width="400"/>
+<img src="https://github.com/paralab/Dendro-5.01/blob/master/docs/fig/dendro.png" alt="Dendro" width="100"/><span style="font-family:Papyrus; font-size:4em;">-GR</span>
 
-## What is Dendro ?
+## What is Dendro-GR ?
 
-"Dendro" in Greek language means tree. The Dendro library is a large scale (262K cores on ORNL's Titan) distributed memory 
-adaptive octree framework. The main goal of Dendro is to perform large scale multiphysics simulations efficeiently in mordern supercomputers. Dendro consists of efficient parallel data structures and algorithms to perform variational ( finite element) methods and finite difference mthods on 2:1 balanced arbitary adaptive octrees which enables the users to perform simulations raning from black holes (binary black hole mergers) to blood flow in human body, where applications ranging from relativity, astrophysics to biomedical engineering.  
+Dendro-GR is a highly-scalable framework that targets problems of interest to the numerical relativity and broader astrophysics communities. This framework combines a parallel octree-refined adaptive mesh (i.e., Dendro libarary) with a wavelet adaptive multiresolution and a physics module to solve the Einstein equations of general relativity. The goal of this work is to perform advanced, massively parallel numerical simulations of binary black holes with mass ratios on the order of 100:1. These studies will be used to generate waveforms as used in LIGO data analysis and to calibrate semi-analytical approximate methods. Our framework consists of a distributed memory octree-based adaptive meshing framework in conjunction
+with a node-local code generator. Dendro-GR framework achieve excellent performance and scalability on modern leadership architectures. Dendro-GR also has tested strong scalability up to 8 A100s and weak scaling up to [229,376](https://www.tacc.utexas.edu/-/texascale-days-pushing-scientific-software-to-new-heights) x86 cores on the Texas Advanced Computing Center’s Frontera system. To the best of our knowledge, Dendro-GR work is the first highly scalable, adaptive, multi-GPU numerical relativity code performing binary black hole mergers.
+
 
 ***
-
 ## Get Dendro
-
-You can clone the repository using , `git clone https://github.com/paralab/Dendro-5.0.git`
-
+Dendro framework is an open-source scalable octree algorithms suite, designed to solve partial differential equations using Galerkin, finite difference, finite volume discretization methods. If you are interested in using Dendro please let us know how can we help. You can clone the repository using , `git clone https://github.com/paralab/Dendro-5.0.git`
 
 ## Code generation dependancies
 pip3 install --user sympy numpy numba git+https://github.com/moble/quaternion git+https://github.com/moble/spherical_functions cogapp quadpy
@@ -25,22 +23,55 @@ To build Dendro-5.0, you need following externeral packages,
 * Pyhton packages for code generation, `pip3 install --user sympy numpy numba git+https://github.com/moble/quaternion git+https://github.com/moble/spherical_functions cogapp quadpy`
 * PETSc if building with FEM (CG/DG) support. 
 
+To build the code please use the following commands. 
 
-## Finite Element (variational form) computations: 
-Dendro supports finite element computations, currently Continous Galerkin (CG) Methods, but in future we will support Discontinous Galerkin (DG) Methods. 
+```
+$cd <path to root source dir >
+$ mkdir build
+$ cd build
+$ cmake ../
+$ make all -j4
+```
+## Singularity container
 
-All FEM related code are in `FEM` folder, you can write, allplications using the `feMatrix.h` and `feVector.h` classes, to represent left and right hand sides
-of the variational formulations. `oda.h` contains the interface class which enables easy integration with petsc matrix based and matrix free methods.  
+The singularity container definition file is provided in the repository under the folder `container`. The following command can be used to build the Dendro-GR container which installs all the required dependencies and compile the Dendro-GR code.
 
-Simple Laplace equation using FEM can be found in `FEM/examples/src/heatEq.cpp` file. 
+```
+sudo singularity build --sandbox dgr-cuda dgr.def
+singularity run dgr-cuda dgr.def
+```
+The main Dendro-GR solver can be initiated by executing the following command.
+```
+singularity exec dgr-cuda sc22-dgr/build_gpu/BSSN_GR/./bssnSolverCtx sc22-dgr/build_gpu/q1.par.json 1
+```
 
-## Finite Difference computations: Nonlinear Sigma Model (NLSigma)
+## BSSNOK formulation
 
+Dendro-GR consists of sympy based code generation framework ([SympyGR](https://github.com/paralab/SymPyGR)) that supports efficient code generaton for both CPUs and GPUs. You can find the sympy BSSNOK file [here](https://github.com/paralab/sc22-dgr/blob/main/CodeGen/bssn.py). Numerical relativity application can be quite overwhelmed for a newcomer for Dendro-GR, hence we provide a simpler `NLSigma` computation here. Note that the overall workflow of the computational is ideantial to the solving the GR equation but with much simpler set of equations.  
+
+The following executables are built in Dendro-GR (note that the paths are relative to build directory).
+* `BSSN GR/bssnSolverCUDA` - GPU BSSN solver
+* `BSSN GR/bssnSolverCtx` - CPU BSSN solver
+* `BSSN GR/tpid` - Two puncture initial condition solver, (i.e., initial condition for the binary system)
+
+The parameter files used to perform the runs can be found in BSSN GR/pars folder. For each parameter file, first run tpid to solver the initial conditions followed by the bssnSolverCUDA or bssnSolverCtx for GPU and CPU versions respectively.
+
+```
+$./BSSN_GR/tpid q1.par.json <number of threads to use>
+$ ibrun -np <number of GPUs> ./BSSN_GR/bssnSolverCUDA q1.par.json 1
+```
+### Parameter files
+You can use the sample parameter files, to make new parameter files, for higher mass ratio binaries. 
+
+* BSSN GR/pars/q1.par.json : q=1 binary black hole merger
+* BSSN GR/pars/q2.par.json : q=2 binary black hole merger
+* BSSN GR/pars/q4.par.json : q=4 binary black hole merger
+
+
+## Simple Example: Nonlinear Sigma Model (NLSigma)
 NlSigma folder consists of simple, non lineat wave equation with adaptive mesh refinement (AMR). You can copy the parameter file from `NLSigma/par` folder and simply run `mpirun -np 8 ./NLSigma/nlsmSolver nlsm.par.json`, on  your lattop to large supercomputer with higher resolution. 
 
-
 |<img src="https://github.com/paralab/Dendro-5.01/blob/master/docs/fig/nlsmB7.png" alt="nlsm" width="200"/> |<img src="https://github.com/paralab/Dendro-5.01/blob/master/docs/fig/nlsmB11.png" alt="nlsm" width="200"/> | <img src="https://github.com/paralab/Dendro-5.01/blob/master/docs/fig/nlsmB16.png" alt="nlsm" width="200"/> | <img src="https://github.com/paralab/Dendro-5.01/blob/master/docs/fig/nlsmB44.png" alt="nlsm" width="200"/> |
-
 
 You can write the equations in symbolic python which generate the C compute kernel. Look at `nlsm.py` 
 
@@ -135,13 +166,11 @@ chi_rhs[pp] = phi[pp];
 
 ***
 
-## Scalability on octree generation and partitioning. 
 
-We have performed octree generation and partitioning up to 262144 cores in ORNL's titan super computer. We have managed to partition 1.3x10^12 octants among 262144 processors with in 4 seconds.
+## Galerkin approximations (i.e., Finite element approaces): 
+Dendro supports finite element computations, currently Continous Galerkin (CG) Methods, but in future we will support Discontinous Galerkin (DG) Methods. All FEM related code are in `FEM` folder, you can write, allplications using the `feMatrix.h` and `feVector.h` classes, to represent left and right hand sidesof the variational formulations. `oda.h` contains the interface class which enables easy integration with petsc matrix based and matrix free methods.  
 
-<img src="https://github.com/paralab/Dendro-5.01/blob/master/docs/fig/titan_ws.png" alt="weak scaling on octrees" width="800"/>
-<img src="https://github.com/paralab/Dendro-5.01/blob/master/docs/fig/titan_ss.png" alt="strong scaling on octrees" width="800"/>
-
+Simple Laplace equation using FEM can be found in `FEM/examples/src/heatEq.cpp` file. 
 
 ## Publications
 * Milinda Fernando, David Neilsen, Hyun Lim, Eric Hirschmann, Hari Sundar, ”Massively Parallel Simulations of Binary Black Hole Intermediate-Mass-Ratio Inspirals” SIAM Journal on Scientific Computing 2019. 'https://doi.org/10.1137/18M1196972'
