@@ -1,4 +1,4 @@
-<img src="https://github.com/paralab/Dendro-5.01/blob/master/docs/fig/dendro.png" alt="Dendro" width="100"/><span style="font-family:Papyrus; font-size:4em;">-GR</span>
+<img src="https://github.com/paralab/Dendro-GR/blob/master/fig/dendro.png" alt="Dendro" width="100"/><span style="font-family:Papyrus; font-size:4em;">-GR</span>
 
 ## What is Dendro-GR ?
 
@@ -7,13 +7,16 @@ with a node-local code generator. Dendro-GR framework achieve excellent performa
 
 
 ***
-## Get Dendro
-Dendro framework is an open-source scalable octree algorithms suite, designed to solve partial differential equations using Galerkin, finite difference, finite volume discretization methods. If you are interested in using Dendro please let us know how can we help. You can clone the repository using , `git clone https://github.com/paralab/Dendro-5.0.git`
+## Get Dendro-GR
+Dendro framework is an open-source scalable octree algorithms suite, designed to solve partial differential equations using Galerkin, finite difference, finite volume discretization methods. If you are interested in using Dendro please let us know how can we help. You can clone the repository using , 
+
+* Get Dendro-5.01 : `git clone https://github.com/paralab/Dendro-5.01.git`
+* Get Dendro-GR  : `git cline https://github.com/paralab/Dendro-GR.git` 
 
 ## Code generation dependancies
 pip3 install --user sympy numpy numba git+https://github.com/moble/quaternion git+https://github.com/moble/spherical_functions cogapp quadpy
 
-## How to build Dendro-5.0 ?
+## How to build Dendro-GR ?
 
 To build Dendro-5.0, you need following externeral packages, 
 * C/C++11 or higher, (tested with GNU and Intel compilers)
@@ -30,8 +33,12 @@ $cd <path to root source dir >
 $ mkdir build
 $ cd build
 $ cmake ../
-$ make all -j4
+$ make bssnSolverCtx bssnSolverCUDA tpid -j4
 ```
+
+* Note that that, `-DWITH CUDA=ON` build code for both CPU and GPU, while `-DWITH CUDA=OFF` compilation only happens for the CPU code.
+* The above will build three targets in <build dir>/BSSN GR/ folder these corresponds to CPU BSSN Solver, GPU BSSN Solver and two punctures initial condition solver for the binary black hole problem.
+
 ## Singularity container
 
 The singularity container definition file is provided in the repository under the folder `container`. The following command can be used to build the Dendro-GR container which installs all the required dependencies and compile the Dendro-GR code.
@@ -40,33 +47,53 @@ The singularity container definition file is provided in the repository under th
 sudo singularity build --sandbox dgr-cuda dgr.def
 singularity run dgr-cuda dgr.def
 ```
-The main Dendro-GR solver can be initiated by executing the following command.
+## Running experiemnts
+
+### Binary mergers and GWs
+* The parameters for the applications has to be provided with .json file. Example parameter files for mass ratios 1, 2, and 4 can be found in BSSN GR/pars folder.
+   * `BSSN GR/pars/q1.par.json` : q=1 binary black hole merger
+   * `BSSN GR/pars/q2.par.json` : q=2 binary black hole merger
+   * `BSSN GR/pars/q4.par.json` : q=4 binary black hole merger
+   
+* Create the following folders in the relative path to the BSSN executable.
+   * `vtu` - VTU folder where the solution is written with parallel VTU file format, in the frequency specified by the parameter file (i.e., BSSN IO OUTPUT FREQ).
+   * `cp` - checkpoint folder where the checkpoints are stored in the frequency specified by the parameter file (i.e., BSSN CHECKPT FREQ).
+   * `dat` - dat - Data files, diagnostics data on the binary. Requested modes (i.e., "BSSN GW L MODES": [2,3,4]) of the gravitational waves are extracted by the observers specified by "BSSN GW RADAII": [50,60,70,80,90,100]
+   
+* `tpid`: First run the tpid solver with the chosen parameter file. The above will solve for the initial condition for the binary using Two puncture gauge.
+* Once the tpid solver is finished, user can launch the BSSN solver bssnSolverCUDA or bssnSolverCtx for GPU and CPU versions respectively.
+
 ```
-singularity exec dgr-cuda sc22-dgr/build_gpu/BSSN_GR/./bssnSolverCtx sc22-dgr/build_gpu/q1.par.json 1
+$ ./BSSN_GR/tpid q1.par.json <number of threads to use>
+$ mpirun -np <number of GPUs> ./BSSN_GR/bssnSolverCUDA q1.par.json 1
+```
+
+### GPU and CPU experiments
+
+Additional scripts files for conducted experiments are presented in the `<source dir>/BSSN GR/experiment_scripts/ls6` folder.
+*  `q1-ss` : GPU/CPU strong scaling experimental scripts.
+*  `q1-ws` : GPU weak scaling experimental scripts.
+*  Weak scaling: make bssnWSTestCUDA and use bssnWTestCUDA for weak scaling on GPUs. Use `mpirun -np <number of GPUs> ./BSSN GR/bssnWSTestCUDA q1 ws.par.json 1`
+*  Strong scaling: Use the parameter file in `BSSN GR/pars/scaling/q1_r2.2.par.json`. 
+   * CPU : `mpirun -np <number of CPUs> ./BSSN GR/bssnSolverCtx q1_r2.2.par.json 1`
+   * GPU : `mpirun -np <number of GPUs> ./BSSN GR/bssnSolverCUDA q1 r2.2.par.json 1`
+   
+* Experiments on `Octant to Patch` and `Patch to Octant` : `make run meshgpu tests` to build the benchmark for padding zone computation. Note that this will built the executable in `<source dir>/build` folder. The parameters should be specified in the order and corresponds to, 
+   *  maximum allowed depth of the octree, tolerance value for refinement, partition tolerance (recommend to keep it at 0.1), order of interpola tion for each octant (all the experiments used 6 order interpolations in the paper), flag 0 for CPU padding zone computations, flag 1 for GPU padding zone computations.
+   *  CPU tests `mpirun -np <number of CPUs> ./run meshgpu tests 8 1e-3 0.1 6 0`
+   *  GPU tests `mpirun -np <number of CPUs> ./run meshgpu tests 8 1e-3 0.1 6 1`
+   
+### Running experiments with Singularity
+If you built Dendro-GR with Singularity, the following command can be used to launch the main BSSN solver and other benchmarks. 
+
+```
+singularity exec dgr-cuda \
+sc22-dgr/build_gpu/BSSN_GR/./bssnSolverCtx sc22-dgr/build_gpu/q1.par.json 1
 ```
 
 ## BSSNOK formulation
 
 Dendro-GR consists of sympy based code generation framework ([SympyGR](https://github.com/paralab/SymPyGR)) that supports efficient code generaton for both CPUs and GPUs. You can find the sympy BSSNOK file [here](https://github.com/paralab/sc22-dgr/blob/main/CodeGen/bssn.py). Numerical relativity application can be quite overwhelmed for a newcomer for Dendro-GR, hence we provide a simpler `NLSigma` computation here. Note that the overall workflow of the computational is ideantial to the solving the GR equation but with much simpler set of equations.  
-
-The following executables are built in Dendro-GR (note that the paths are relative to build directory).
-* `BSSN GR/bssnSolverCUDA` - GPU BSSN solver
-* `BSSN GR/bssnSolverCtx` - CPU BSSN solver
-* `BSSN GR/tpid` - Two puncture initial condition solver, (i.e., initial condition for the binary system)
-
-The parameter files used to perform the runs can be found in BSSN GR/pars folder. For each parameter file, first run tpid to solver the initial conditions followed by the bssnSolverCUDA or bssnSolverCtx for GPU and CPU versions respectively.
-
-```
-$./BSSN_GR/tpid q1.par.json <number of threads to use>
-$ ibrun -np <number of GPUs> ./BSSN_GR/bssnSolverCUDA q1.par.json 1
-```
-### Parameter files
-You can use the sample parameter files, to make new parameter files, for higher mass ratio binaries. 
-
-* BSSN GR/pars/q1.par.json : q=1 binary black hole merger
-* BSSN GR/pars/q2.par.json : q=2 binary black hole merger
-* BSSN GR/pars/q4.par.json : q=4 binary black hole merger
-
 
 ## Simple Example: Nonlinear Sigma Model (NLSigma)
 NlSigma folder consists of simple, non lineat wave equation with adaptive mesh refinement (AMR). You can copy the parameter file from `NLSigma/par` folder and simply run `mpirun -np 8 ./NLSigma/nlsmSolver nlsm.par.json`, on  your lattop to large supercomputer with higher resolution. 
