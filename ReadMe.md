@@ -200,8 +200,11 @@ Dendro supports finite element computations, currently Continous Galerkin (CG) M
 Simple Laplace equation using FEM can be found in `FEM/examples/src/heatEq.cpp` file. 
 
 ## Publications
+* Fernando, M., Neilsen, D., Zlochower, Y., Hirschmann, E.W. and Sundar, H., 2023. Massively parallel simulations of binary black holes with adaptive wavelet multiresolution. Physical Review D, 107(6), p.064035.
+* Fernando, M., Neilsen, D., Hirschmann, E., Zlochower, Y., Sundar, H., Ghattas, O. and Biros, G., 2022, November. A GPU-accelerated AMR solver for gravitational wave propagation. In 2022 SC22: International Conference for High Performance Computing, Networking, Storage and Analysis (SC) (pp. 1078-1092). IEEE Computer Society. 
 * Milinda Fernando, David Neilsen, Hyun Lim, Eric Hirschmann, Hari Sundar, ”Massively Parallel Simulations of Binary Black Hole Intermediate-Mass-Ratio Inspirals” SIAM Journal on Scientific Computing 2019. 'https://doi.org/10.1137/18M1196972'
 * Milinda Fernando, David Neilsen, Eric Hirschmann, Hari Sundar, ”A scalable framework for Adaptive Computational General Relativity on Heterogeneous Clusters”, (ACM International Conference on Supercomputing, ICS’19)
+* Fernando, M. and Sundar, H., 2022. Scalable Local Timestepping on Octree Grids. SIAM Journal on Scientific Computing, 44(2), pp.C156-C183.
 * Milinda Fernando, Dmitry Duplyakin, and Hari Sundar. 2017. ”Machine and Application Aware Partitioning for Adaptive Mesh Refinement Applications”. In Proceedings of the 26th International Symposium on High-Performance Parallel and Distributed Computing (HPDC ’17). ACM, New York, NY, USA, 231-242. DOI: 'https://doi.org/10.1145/3078597.3078610'
 * Masado Ishii, Milinda Fernando, Kumar Saurabh, Biswajit Khara, Baskar Ganapathysubramanian, and Hari Sundar. 2019. Solving PDEs in space-time: 4D tree-based adaptivity, mesh-free and matrix-free approaches. In Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis (SC ’19). Association for Computing Machinery, New York, NY, USA, Article 61, 1–61. DOI:https://doi.org/10.1145/3295500.3356198 
 
