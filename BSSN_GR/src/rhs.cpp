@@ -161,9 +161,11 @@ void bssnrhs(double **unzipVarsRHS, const double **uZipVars,
     const unsigned int BLK_SZ=n;
     double* const deriv_base = bssn::BSSN_DERIV_WORKSPACE;
 
+// clang-format off
     #include "bssnrhs_evar_derivs.h"
     #include "bssnrhs_derivs.h"
     #include "bssnrhs_derivs_adv.h"
+// clang-format on
 
     bssn::timer::t_deriv.stop();
 
