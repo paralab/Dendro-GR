@@ -3,9 +3,14 @@
 /**
 *@author Milinda Fernando
 *School of Computing, University of Utah
-*@brief Header file for the GR simulation.
+*@brief 
 */
 //
+
+// NOTE: ON DEPRECIATION:
+// This file was depreciated because it has the old rkBSSN solver that has been swapped out in favor of the CTX solver.
+// it remains in case someone wants to use it in the future. (Though it would be best to go to a version of this repository before
+// June 2023)
 
 #include "gr.h"
 #include "grUtils.h"
