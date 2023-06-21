@@ -30,6 +30,7 @@ option(BSSN_USE_4TH_ORDER_DERIVS "use 4th order derivs" OFF)
 option(BSSN_USE_6TH_ORDER_DERIVS "use 6th order derivs" ON)
 option(BSSN_USE_8TH_ORDER_DERIVS "use 8th order derivs" OFF)
 option(BSSN_ENABLE_AVX "use vectorized computation for RHS (intel compilers only)" OFF)
+option(BSSN_VERBOSE_LOGGING "Enable more verbose logging (only useful during debug)" OFF)
 
 
 if(BSSN_ENABLE_AVX)
@@ -112,6 +113,10 @@ endif()
 
 if(BSSN_GAUGE_ROCHESTER)
     add_definitions(-DUSE_ROCHESTER_GAUGE)
+endif()
+
+if(BSSN_VERBOSE_LOGGING)
+    add_definitions(-DBSSN_VERBOSE_LOGGING)
 endif()
 
 
@@ -366,9 +371,8 @@ target_link_libraries(rhscpu_test bssn_lib dendro5 ${LAPACK_LIBRARIES} ${MPI_LIB
 
 #add_library(had_rhs STATIC src/hadrhs.F90)
 
-set(SOURCE_FILES src/gr.cpp include/gr.h ${BSSN_INC} ${BSSN_SRC} ${CUDA_GR_INCLUDE_H} ${CUDA_GR_SRC_CPP})
+set(SOURCE_FILES src/bssngr_main.cpp include/gr.h src/bssnCtx.cpp ${BSSN_INC} ${BSSN_SRC} ${CUDA_GR_INCLUDE_H} ${CUDA_GR_SRC_CPP})
 add_executable(bssnSolver ${SOURCE_FILES})
-
 target_include_directories(bssnSolver PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 target_include_directories(bssnSolver PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(bssnSolver PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
@@ -387,10 +391,9 @@ if(WITH_CUDA)
     target_link_libraries(bssnSolver bssn_cuda)
     target_link_libraries(bssnSolver ${CUDA_LIBRARIES})
 endif()
-
 target_link_libraries(bssnSolver dendro5 ${LAPACK_LIBRARIES} ${MPI_LIBRARIES} ${GSL_LIBRARIES} m)
 
-add_executable(bssnSolverCtx src/gr_nuts.cpp src/bssnCtx.cpp)
+add_executable(bssnSolverCtx src/bssngr_main.cpp src/bssnCtx.cpp)
 target_include_directories(bssnSolverCtx PRIVATE ${CMAKE_SOURCE_DIR}/dendro/include)
 target_include_directories(bssnSolverCtx PRIVATE ${CMAKE_SOURCE_DIR}/dendro/GPU/include)
 target_include_directories(bssnSolverCtx PRIVATE ${CMAKE_SOURCE_DIR}/dendro/test/include)

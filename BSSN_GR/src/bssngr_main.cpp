@@ -12,9 +12,9 @@
 #include "mesh.h"
 #include <vector>
 #include <iostream>
-#include "rkBSSN.h"
 #include "octUtils.h"
 #include "meshUtils.h"
+#include "rkBSSN.h"
 #include "sdc.h"
 #include "bssnCtx.h"
 
