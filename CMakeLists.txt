@@ -40,8 +40,7 @@ if(MPI_LINK_FLAGS)
   set(LINK_FLAGS "${LINK_FLAGS} ${MPI_LINK_FLAGS}")
 endif()
 
-# options for dendro
-
+# options for dendro -- not sure if these need to be declared here, but they might be due to header definitions...
 option(USE_64BIT_INDICES "Use 64-Bit indices. Reverts to 32-bit if turned off"
        ON)
 option(HILBERT_ORDERING "Use Hilbert ordering instead of Morton" ON)
@@ -198,7 +197,7 @@ endif()
 
 if(DENDRO_VTK_BINARY)
   add_definitions(-DDENDRO_VTU_BINARY)
-  if(DENDRO_VTK_ZLIB_COMPRES)
+if(DENDRO_VTK_ZLIB_COMPRES)
     add_definitions(-DDENDRO_VTU_ZLIB)
   endif()
 else()
@@ -216,7 +215,7 @@ add_definitions(-DMATVEC_PROFILE)
 # === BEGIN SUBDIRECTORY INCLUSION FOR BUILDING ===
 
 # dendro folder *MUST* be included to build the library first
-add_subdirectory(dendro)
+add_subdirectory(dendrolib)
 
 # additional subdirectories that are their own "solvers"
 add_subdirectory(BSSN_GR)
