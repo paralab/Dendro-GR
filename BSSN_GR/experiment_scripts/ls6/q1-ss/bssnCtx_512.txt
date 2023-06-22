@@ -1,0 +1,21 @@
+============================================================
+Current time : Mon Mar  7 13:37:34 2022
+ --- 
+============================================================
+step_ets	 act_npes	 glb_npes	 maxdepth	 numOcts	 dof_cg	 dof_uz	gele_min	 gele_mean	 gele_max	lele_min	 lele_mean	 lele_max	lnodes_min	 lnodes_mean	 lnodes_max	remsh_igt_min	 remesh_igt_mean	 remesh_igt_max	evolve_min	 evolve_mean	 evolve_max	unzip_async_min	 unzip_async_mean	 unzip_async_max	unzip_min	 unzip_mean	 unzip_max	rhs_min	 rhs_mean	 rhs_max	zip_async_min	 zip_async_mean	 zip_async_max	
+0	 512	 512	 14	 24872	 5217433	 54643784	 218	 426.193	 628	 44	 48.5781	 53	 8416	 10190.3	 12060	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 
+6	 512	 512	 14	 24872	 5217433	 54643784	 218	 426.193	 628	 44	 48.5781	 53	 8416	 10190.3	 12060	 0	 0	 0	 3.82689	 3.82691	 3.82718	 1.58595	 2.00017	 2.36356	 0.448748	 1.08841	 1.50598	 0.942655	 1.08012	 1.40618	 0.0552776	 0.149684	 0.23711	 
+============================================================
+Current time : Wed May 18 08:07:32 2022
+ --- 
+============================================================
+step_ets	 act_npes	 glb_npes	 maxdepth	 numOcts	 dof_cg	 dof_uz	gele_min	 gele_mean	 gele_max	lele_min	 lele_mean	 lele_max	lnodes_min	 lnodes_mean	 lnodes_max	remsh_igt_min	 remesh_igt_mean	 remesh_igt_max	evolve_min	 evolve_mean	 evolve_max	unzip_async_min	 unzip_async_mean	 unzip_async_max	unzip_min	 unzip_mean	 unzip_max	rhs_min	 rhs_mean	 rhs_max	zip_async_min	 zip_async_mean	 zip_async_max	
+0	 512	 512	 14	 50688	 10708333	 111361536	 323	 588.609	 920	 90	 99	 108	 18029	 20914.7	 24804	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 
+6	 512	 512	 14	 50688	 10708333	 111361536	 323	 588.609	 920	 90	 99	 108	 18029	 20914.7	 24804	 0	 0	 0	 6.61692	 6.61695	 6.61698	 2.78643	 3.4389	 3.87801	 1.40786	 2.06864	 2.52747	 1.91772	 2.14761	 2.49094	 0.108511	 0.287746	 0.454315	 
+============================================================
+Current time : Wed May 18 08:19:57 2022
+ --- 
+============================================================
+step_ets	 act_npes	 glb_npes	 maxdepth	 numOcts	 dof_cg	 dof_uz	gele_min	 gele_mean	 gele_max	lele_min	 lele_mean	 lele_max	lnodes_min	 lnodes_mean	 lnodes_max	remsh_igt_min	 remesh_igt_mean	 remesh_igt_max	evolve_min	 evolve_mean	 evolve_max	unzip_async_min	 unzip_async_mean	 unzip_async_max	unzip_min	 unzip_mean	 unzip_max	rhs_min	 rhs_mean	 rhs_max	zip_async_min	 zip_async_mean	 zip_async_max	
+0	 512	 512	 14	 50688	 10708333	 111361536	 323	 588.609	 920	 90	 99	 108	 18029	 20914.7	 24804	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 
+6	 512	 512	 14	 50688	 10708333	 111361536	 323	 588.609	 920	 90	 99	 108	 18029	 20914.7	 24804	 0	 0	 0	 6.61686	 6.6169	 6.61696	 2.81167	 3.4424	 3.87803	 1.37168	 2.07134	 2.54474	 1.90883	 2.15256	 2.49087	 0.103268	 0.286043	 0.455513	 
