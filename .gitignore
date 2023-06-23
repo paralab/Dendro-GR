@@ -52,3 +52,4 @@ kde
 *.pdf
 .vscode
 .python-version
+CMakeFiles/
