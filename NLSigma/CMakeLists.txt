@@ -52,21 +52,21 @@ add_executable(nlsmSolver ${SOURCE_FILES})
 target_include_directories(nlsmSolver
                            PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(nlsmSolver
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/include)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/include)
 target_include_directories(nlsmSolver
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/include/test)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/include/test)
 target_include_directories(nlsmSolver
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/examples/include)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/examples/include)
 target_include_directories(nlsmSolver
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/FEM/include)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/FEM/include)
 target_include_directories(nlsmSolver
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/ODE/include)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/ODE/include)
 target_include_directories(nlsmSolver
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/LinAlg/include)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/LinAlg/include)
 target_include_directories(nlsmSolver
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/IO/vtk/include)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO/vtk/include)
 target_include_directories(nlsmSolver
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/IO/zlib/inc)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO/zlib/inc)
 target_include_directories(nlsmSolver PRIVATE ${MPI_INCLUDE_PATH})
 target_include_directories(nlsmSolver PRIVATE ${GSL_INCLUDE_DIRS})
 if(WITH_CUDA)
@@ -79,21 +79,21 @@ add_executable(nlsmSolverNUTS ${SOURCE_FILES})
 target_include_directories(nlsmSolverNUTS
                            PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(nlsmSolverNUTS
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/include)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/include)
 target_include_directories(nlsmSolverNUTS
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/include/test)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/include/test)
 target_include_directories(nlsmSolverNUTS
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/examples/include)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/examples/include)
 target_include_directories(nlsmSolverNUTS
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/FEM/include)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/FEM/include)
 target_include_directories(nlsmSolverNUTS
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/ODE/include)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/ODE/include)
 target_include_directories(nlsmSolverNUTS
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/LinAlg/include)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/LinAlg/include)
 target_include_directories(nlsmSolverNUTS
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/IO/vtk/include)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO/vtk/include)
 target_include_directories(nlsmSolverNUTS
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/IO/zlib/inc)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO/zlib/inc)
 target_include_directories(nlsmSolverNUTS PRIVATE ${MPI_INCLUDE_PATH})
 target_include_directories(nlsmSolverNUTS PRIVATE ${GSL_INCLUDE_DIRS})
 if(WITH_CUDA)
@@ -108,23 +108,23 @@ if(WITH_CUDA)
   target_include_directories(nlsmSolverCUDA
                              PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
   target_include_directories(nlsmSolverCUDA
-                             PRIVATE ${CMAKE_SOURCE_DIR}/dendro/include)
+                             PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/include)
   target_include_directories(nlsmSolverCUDA
-                             PRIVATE ${CMAKE_SOURCE_DIR}/dendro/GPU/include)
+                             PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/GPU/include)
   target_include_directories(nlsmSolverCUDA
-                             PRIVATE ${CMAKE_SOURCE_DIR}/dendro/include/test)
+                             PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/include/test)
   target_include_directories(
-    nlsmSolverCUDA PRIVATE ${CMAKE_SOURCE_DIR}/dendro/examples/include)
+    nlsmSolverCUDA PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/examples/include)
   target_include_directories(nlsmSolverCUDA
-                             PRIVATE ${CMAKE_SOURCE_DIR}/dendro/FEM/include)
+                             PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/FEM/include)
   target_include_directories(nlsmSolverCUDA
-                             PRIVATE ${CMAKE_SOURCE_DIR}/dendro/ODE/include)
+                             PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/ODE/include)
   target_include_directories(nlsmSolverCUDA
-                             PRIVATE ${CMAKE_SOURCE_DIR}/dendro/LinAlg/include)
+                             PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/LinAlg/include)
   target_include_directories(nlsmSolverCUDA
-                             PRIVATE ${CMAKE_SOURCE_DIR}/dendro/IO/vtk/include)
+                             PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO/vtk/include)
   target_include_directories(nlsmSolverCUDA
-                             PRIVATE ${CMAKE_SOURCE_DIR}/dendro/IO/zlib/inc)
+                             PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO/zlib/inc)
   target_include_directories(nlsmSolverCUDA PRIVATE ${MPI_INCLUDE_PATH})
   target_include_directories(nlsmSolverCUDA PRIVATE ${GSL_INCLUDE_DIRS})
   target_include_directories(nlsmSolverCUDA PRIVATE ${CUDA_INCLUDE_DIRS})
@@ -137,21 +137,21 @@ add_executable(nlsmSolverSDC ${SOURCE_FILES})
 target_include_directories(nlsmSolverSDC
                            PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(nlsmSolverSDC
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/include)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/include)
 target_include_directories(nlsmSolverSDC
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/include/test)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/include/test)
 target_include_directories(nlsmSolverSDC
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/examples/include)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/examples/include)
 target_include_directories(nlsmSolverSDC
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/FEM/include)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/FEM/include)
 target_include_directories(nlsmSolverSDC
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/ODE/include)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/ODE/include)
 target_include_directories(nlsmSolverSDC
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/LinAlg/include)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/LinAlg/include)
 target_include_directories(nlsmSolverSDC
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/IO/vtk/include)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO/vtk/include)
 target_include_directories(nlsmSolverSDC
-                           PRIVATE ${CMAKE_SOURCE_DIR}/dendro/IO/zlib/inc)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO/zlib/inc)
 target_include_directories(nlsmSolverSDC PRIVATE ${MPI_INCLUDE_PATH})
 target_include_directories(nlsmSolverSDC PRIVATE ${GSL_INCLUDE_DIRS})
 if(WITH_CUDA)
@@ -165,21 +165,21 @@ target_link_libraries(nlsmSolverSDC dendro5 ${LAPACK_LIBRARIES}
 # target_include_directories(nlsmInvSolver
 #                            PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 # target_include_directories(nlsmInvSolver
-#                            PRIVATE ${CMAKE_SOURCE_DIR}/dendro/include)
+#                            PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/include)
 # target_include_directories(nlsmInvSolver
-#                            PRIVATE ${CMAKE_SOURCE_DIR}/dendro/include/test)
+#                            PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/include/test)
 # target_include_directories(nlsmInvSolver
-#                            PRIVATE ${CMAKE_SOURCE_DIR}/dendro/examples/include)
+#                            PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/examples/include)
 # target_include_directories(nlsmInvSolver
-#                            PRIVATE ${CMAKE_SOURCE_DIR}/dendro/FEM/include)
+#                            PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/FEM/include)
 # target_include_directories(nlsmInvSolver
-#                            PRIVATE ${CMAKE_SOURCE_DIR}/dendro/ODE/include)
+#                            PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/ODE/include)
 # target_include_directories(nlsmInvSolver
-#                            PRIVATE ${CMAKE_SOURCE_DIR}/dendro/LinAlg/include)
+#                            PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/LinAlg/include)
 # target_include_directories(nlsmInvSolver
-#                            PRIVATE ${CMAKE_SOURCE_DIR}/dendro/IO/vtk/include)
+#                            PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO/vtk/include)
 # target_include_directories(nlsmInvSolver
-#                            PRIVATE ${CMAKE_SOURCE_DIR}/dendro/IO/zlib/inc)
+#                            PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO/zlib/inc)
 # target_include_directories(nlsmInvSolver PRIVATE ${MPI_INCLUDE_PATH})
 # target_include_directories(nlsmInvSolver PRIVATE ${GSL_INCLUDE_DIRS})
 # if(WITH_CUDA)
