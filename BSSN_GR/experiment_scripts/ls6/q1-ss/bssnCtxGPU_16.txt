@@ -1,0 +1,14 @@
+============================================================
+Current time : Tue May 17 07:56:05 2022
+ --- 
+============================================================
+step_ets	 act_npes	 glb_npes	 maxdepth	 numOcts	 dof_cg	 dof_uz	gele_min	 gele_mean	 gele_max	lele_min	 lele_mean	 lele_max	lnodes_min	 lnodes_mean	 lnodes_max	remsh_igt_min	 remesh_igt_mean	 remesh_igt_max	evolve_min	 evolve_mean	 evolve_max	unzip_async_min	 unzip_async_mean	 unzip_async_max	unzip_min	 unzip_mean	 unzip_max	rhs_min	 rhs_mean	 rhs_max	zip_async_min	 zip_async_mean	 zip_async_max	
+0	 16	 16	 14	 24872	 5217433	 54643784	 1716	 2175.81	 2576	 1416	 1554.5	 1693	 293243	 326090	 360643	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 
+6	 16	 16	 14	 24872	 5217433	 54643784	 1716	 2175.81	 2576	 1416	 1554.5	 1693	 293243	 326090	 360643	 0	 0	 0	 0.795281	 0.795293	 0.7953	 0.538416	 0.56094	 0.582682	 0.0606508	 0.0689811	 0.074614	 0.180141	 0.194846	 0.209323	 0.00447345	 0.00493623	 0.0053165	 
+============================================================
+Current time : Wed May 18 06:47:01 2022
+ --- 
+============================================================
+step_ets	 act_npes	 glb_npes	 maxdepth	 numOcts	 dof_cg	 dof_uz	gele_min	 gele_mean	 gele_max	lele_min	 lele_mean	 lele_max	lnodes_min	 lnodes_mean	 lnodes_max	remsh_igt_min	 remesh_igt_mean	 remesh_igt_max	evolve_min	 evolve_mean	 evolve_max	unzip_async_min	 unzip_async_mean	 unzip_async_max	unzip_min	 unzip_mean	 unzip_max	rhs_min	 rhs_mean	 rhs_max	zip_async_min	 zip_async_mean	 zip_async_max	
+0	 16	 16	 14	 50688	 10708333	 111361536	 2569	 3052.75	 3520	 3047	 3168	 3289	 637332	 669271	 716227	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 
+6	 16	 16	 14	 50688	 10708333	 111361536	 2569	 3052.75	 3520	 3047	 3168	 3289	 637332	 669271	 716227	 0	 0	 0	 1.19263	 1.19264	 1.19264	 0.737848	 0.759464	 0.779912	 0.100167	 0.106222	 0.109985	 0.35452	 0.367814	 0.379889	 0.00952291	 0.0101646	 0.0109997	 

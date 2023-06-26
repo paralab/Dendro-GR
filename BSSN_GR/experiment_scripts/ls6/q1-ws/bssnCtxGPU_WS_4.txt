@@ -1,0 +1,14 @@
+============================================================
+Current time : Wed May 18 13:00:22 2022
+ --- 
+============================================================
+step_ets	 act_npes	 glb_npes	 maxdepth	 numOcts	 dof_cg	 dof_uz	gele_min	 gele_mean	 gele_max	lele_min	 lele_mean	 lele_max	lnodes_min	 lnodes_mean	 lnodes_max	remsh_igt_min	 remesh_igt_mean	 remesh_igt_max	evolve_min	 evolve_mean	 evolve_max	unzip_async_min	 unzip_async_mean	 unzip_async_max	unzip_min	 unzip_mean	 unzip_max	rhs_min	 rhs_mean	 rhs_max	zip_async_min	 zip_async_mean	 zip_async_max	
+0	 4	 4	 14	 28442	 5935513	 62487074	 2645	 3923.75	 5545	 7003	 7110.5	 7204	 1.44605e+06	 1.48388e+06	 1.51332e+06	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 
+6	 4	 4	 14	 28442	 5935513	 62487074	 2645	 3923.75	 5545	 7003	 7110.5	 7204	 1.44605e+06	 1.48388e+06	 1.51332e+06	 0	 0	 0	 4.66554	 4.66555	 4.66556	 2.18758	 2.48705	 2.74784	 0.487409	 0.543947	 0.624513	 1.77857	 1.85015	 1.961	 0.0307345	 0.065129	 0.100879	 
+============================================================
+Current time : Thu May 19 14:08:59 2022
+ --- 
+============================================================
+step_ets	 act_npes	 glb_npes	 maxdepth	 numOcts	 dof_cg	 dof_uz	gele_min	 gele_mean	 gele_max	lele_min	 lele_mean	 lele_max	lnodes_min	 lnodes_mean	 lnodes_max	remsh_igt_min	 remesh_igt_mean	 remesh_igt_max	evolve_min	 evolve_mean	 evolve_max	unzip_async_min	 unzip_async_mean	 unzip_async_max	unzip_min	 unzip_mean	 unzip_max	rhs_min	 rhs_mean	 rhs_max	zip_async_min	 zip_async_mean	 zip_async_max	
+0	 4	 4	 14	 56162	 11820655	 123387914	 3629	 5898	 8443	 13708	 14040.5	 14377	 2.87609e+06	 2.95516e+06	 3.0497e+06	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 0	 
+6	 4	 4	 14	 56162	 11820655	 123387914	 3629	 5898	 8443	 13708	 14040.5	 14377	 2.87609e+06	 2.95516e+06	 3.0497e+06	 0	 0	 0	 9.71776	 9.71776	 9.71777	 4.98444	 5.76184	 6.69338	 1.02133	 1.08871	 1.18026	 2.84024	 3.26976	 3.7379	 0.0501244	 0.130409	 0.207696	 
