@@ -48,10 +48,10 @@ namespace GW
     template<typename T>
     void extractFarFieldPsi4(const ot::Mesh* mesh, const T** cVar,unsigned int timestep,double time)
     {
-        unsigned int rankGlobal=mesh->getMPIRankGlobal();
-        unsigned int npesGlobal=mesh->getMPICommSizeGlobal();
-        MPI_Comm commGlobal=mesh->getMPIGlobalCommunicator();
-
+        // get the active comm and information about it
+        unsigned int rankActive=mesh->getMPIRank();
+        unsigned int npesActive=mesh->getMPICommSize();
+        MPI_Comm commActive=mesh->getMPICommunicator();
 
         unsigned int totalModes=0;
         for(unsigned int l=0;l<BSSN_GW_NUM_LMODES;l++)
@@ -71,7 +71,6 @@ namespace GW
         for(unsigned int l=0;l<BSSN_GW_NUM_LMODES;l++)
             lmCounts[l]=2*BSSN_GW_L_MODES[l]+1;
 
-
         lmOffset[0]=0;
         omp_par::scan(&(*(lmCounts.begin())),&(*(lmOffset.begin())),BSSN_GW_NUM_LMODES);
 
@@ -82,16 +81,13 @@ namespace GW
         std::vector<double> psi4L2R_g;
         std::vector<double> psi4L2I_g;
 
-
         psi4L2R.resize(BSSN_GW_NUM_RADAII,0);
         psi4L2I.resize(BSSN_GW_NUM_RADAII,0);
         psi4L2R_g.resize(BSSN_GW_NUM_RADAII,0);
         psi4L2I_g.resize(BSSN_GW_NUM_RADAII,0);
 
-
         if(mesh->isActive())
         {
-
             const unsigned int rankActive=mesh->getMPIRank();
             const unsigned int npesActive=mesh->getMPICommSize();
 
@@ -119,7 +115,6 @@ namespace GW
 
             for(unsigned int k=0;k<BSSN_GW_NUM_RADAII;k++)
             {
-
 
                 for(unsigned int pts=0;pts<numPts;pts++)
                 {
@@ -162,16 +157,15 @@ namespace GW
                 }
 
             }
-
         }
 
-        //par::Mpi_Reduce(swsh_coeff,swsh_coeff_g,(BSSN_GW_NUM_RADAII*TOTAL_MODES),MPI_SUM,0,commGlobal);
+        //par::Mpi_Reduce(swsh_coeff,swsh_coeff_g,(BSSN_GW_NUM_RADAII*TOTAL_MODES),MPI_SUM,0,commActive);
         //for(unsigned int k=0;k<BSSN_GW_NUM_RADAII;k++)
-        MPI_Reduce(swsh_coeff,swsh_coeff_g,(BSSN_GW_NUM_RADAII*TOTAL_MODES),MPI_DOUBLE_COMPLEX,MPI_SUM,0,commGlobal);
-        MPI_Reduce(&(*(psi4L2R.begin())),&(*(psi4L2R_g.begin())),BSSN_GW_NUM_RADAII,MPI_DOUBLE,MPI_SUM,0,commGlobal);
-        MPI_Reduce(&(*(psi4L2I.begin())),&(*(psi4L2I_g.begin())),BSSN_GW_NUM_RADAII,MPI_DOUBLE,MPI_SUM,0,commGlobal);
+        MPI_Reduce(swsh_coeff,swsh_coeff_g,(BSSN_GW_NUM_RADAII*TOTAL_MODES),MPI_DOUBLE_COMPLEX,MPI_SUM,0,commActive);
+        MPI_Reduce(&(*(psi4L2R.begin())),&(*(psi4L2R_g.begin())),BSSN_GW_NUM_RADAII,MPI_DOUBLE,MPI_SUM,0,commActive);
+        MPI_Reduce(&(*(psi4L2I.begin())),&(*(psi4L2I_g.begin())),BSSN_GW_NUM_RADAII,MPI_DOUBLE,MPI_SUM,0,commActive);
 
-        if(!rankGlobal)
+        if(!rankActive)
         {
 
             int n=BSSN_GW_NUM_RADAII;
@@ -240,7 +234,6 @@ namespace GW
             }
 
         }
-
 
         delete [] swsh_coeff;
         delete [] swsh_coeff_g;

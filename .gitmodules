@@ -1,0 +1,3 @@
+[submodule "dendrolib"]
+	path = dendrolib
+	url = https://github.com/paralab/Dendro-5.01.git

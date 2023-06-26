@@ -1,18 +1,55 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# additional excludes
 build/
 __pycache__
 kde
 .kdev4
 .idea
 *.aux
-*.out
 *.nav
+*.pdb
+*.su
+*.idb
 *.toc
 *.snm
 *.synctex.gz
 *.log
 *.bbl
 *.blg
-*.o
 .DS_store
 *.pdf
 .vscode
+.python-version
+CMakeFiles/

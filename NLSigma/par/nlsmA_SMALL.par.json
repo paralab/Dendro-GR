@@ -1,0 +1,136 @@
+{
+
+    "__comment__(Evolution variable indices )" : "U_CHI=0,U_PHI=1",
+
+    "DENDRO_VERSION": 5.0,
+    "__comment__" : "============== IO =====================================",
+            "           " : "Set to 1 restore solver from a checkpoint",
+            "NLSM_RESTORE_SOLVER":0,
+            "           " : "frequency for VTU output",
+            "NLSM_IO_OUTPUT_FREQ": 100,
+            "           " : "frequency for remeshing test based on wavelets",
+            "NLSM_REMESH_TEST_FREQ": 1,
+            "           " : "frequency for checkpoint output",
+            "NLSM_CHECKPT_FREQ": 10000,
+            "           " : "VTU file output gap. (Not currently used. Might be usefull in adaptive timestepping)",
+            "NLSM_IO_OUTPUT_GAP": 1,
+            "           " : "file prefix for the vtu files",
+            "NLSM_VTU_FILE_PREFIX": "nlsm_gr",
+            "           " : "file prefix for the checkpoint files",
+            "NLSM_CHKPT_FILE_PREFIX": "nlsm_cp",
+            "           " : "file prefix for the intermediate profile files",
+            "NLSM_PROFILE_FILE_PREFIX": "nlsm_prof",
+            "           " : "number of variables (evolution) to output in vtu files",
+            "NLSM_NUM_EVOL_VARS_VTU_OUTPUT":2,
+            "           " : "evolution variable ids",
+            "NLSM_VTU_OUTPUT_EVOL_INDICES": [0,1],
+    "__comment__" : "=======================================================",
+
+
+    "__comment__" : "========== LOAD BALANCING & MESH ======================",
+            "           " : "grain size N/p , Where N number of total octants, p number of active cores",
+            "NLSM_DENDRO_GRAIN_SZ": 100,
+            "           " : "variable group size for the asynchronous unzip operation",
+            "NLSM_ASYNC_COMM_K": 2,
+            "           " : "dendro coarsening factor, corsent if computed wavelet tol < NLSM_DENDRO_AMR_FAC*NLSM_WAVELET_TOL ",
+            "NLSM_DENDRO_AMR_FAC": 1.0,
+            "           " : "dendro load imbalance tolerance for flexible partitioning",
+            "NLSM_LOAD_IMB_TOL": 0.1,
+            "           " : "dimentionality of the octree, (meshing is supported only for 3D)",
+            "NLSM_DIM": 3,
+            "           " : "maximum level of refinement of the mesh",
+            "NLSM_MAXDEPTH": 7,
+    "__comment__" : "=======================================================",
+
+
+
+    "__comment__" : "========== WAVELET REFINEMENT ==========================",
+            "           " : "element order ",
+            "NLSM_ELE_ORDER": 6,
+            "           " : "wavelet tolerance",
+            "NLSM_WAVELET_TOL": 1e-4,
+            "           " : "number of refinement variables",
+            "NLSM_NUM_REFINE_VARS":2,
+            "           " : "refinement variable IDs",
+            "NLSM_REFINE_VARIABLE_INDICES":[0,1],
+            "           " : "refinement variable IDs",
+    "__comment__" : "=======================================================",
+
+
+
+
+    "__comment__" : "========== RK SOLVER ===================================",
+            "           " : "simulation time begin",
+            "NLSM_RK45_TIME_BEGIN": 0,
+            "           " : "simulation time end",
+            "NLSM_RK45_TIME_END": 1,
+            "           " : "CFL factor",
+            "NLSM_CFL_FACTOR":0.25,
+            "           " : "prefered time step size (this is overwrited with the specified CFL factor, not recommend to use this)",
+            "NLSM_RK45_TIME_STEP_SIZE": 0.01,
+            "           " : "used in adaptive time stepping (not currently used)",
+            "NLSM_RK45_DESIRED_TOL":1e-3,
+            "           " : "Kreiss-Oliger dissipation",
+            "KO_DISS_SIGMA": 0,
+
+    "__comment__" : "=======================================================",
+
+
+    "__comment__" : "========== BLOCK Adaptivity (Not Recommended use AMR) ====",
+            "           " : "Set to 1 disable AMR and use block adaptivity (not recomended). ",
+            "NLSM_ENABLE_BLOCK_ADAPTIVITY":0,
+            "NLSM_BLK_MIN_X": -9.9,
+            "NLSM_BLK_MIN_Y": -3.0,
+            "NLSM_BLK_MIN_Z": -3.0,
+            "NLSM_BLK_MAX_X": 9.9,
+            "NLSM_BLK_MAX_Y": 3.0,
+            "NLSM_BLK_MAX_Z": 3.0,
+    "__comment__" : "========================================================",
+
+
+    "__comment__" : "========== Select Initial Data =========================",
+            "           " : "1-familyA",
+            "NLSM_ID_TYPE": 0,
+            "NLSM_ID_AMP1": 1.3,
+            "NLSM_ID_R1": 1.0,
+            "NLSM_ID_DELTA1": 0.5,
+            "NLSM_ID_XC1": 0.0,
+            "NLSM_ID_YC1": 0.0,
+            "NLSM_ID_ZC1": 0.0,
+            "NLSM_ID_EPSX1": 1.0,
+            "NLSM_ID_EPSY1": 1.0,
+            "NLSM_ID_EPSZ1": 1.0,
+            "NLSM_ID_NU1": 0.0,
+            "NLSM_ID_OMEGA": 0.4,
+
+            "NLSM_ID_AMP2": 0.0,
+            "NLSM_ID_R2": 0.0,
+            "NLSM_ID_DELTA2": 3.0,
+            "NLSM_ID_XC2": 0.0,
+            "NLSM_ID_YC2": 0.0,
+            "NLSM_ID_ZC2": 0.0,
+            "NLSM_ID_EPSX2": 1.0,
+            "NLSM_ID_EPSY2": 1.0,
+            "NLSM_ID_EPSZ2": 1.0,
+            "NLSM_ID_NU2": 0.0,
+	    "NLSM_WAVE_SPEED_X":1.0,
+	    "NLSM_WAVE_SPEED_Y":1.0,
+	    "NLSM_WAVE_SPEED_Z":1.0,
+
+
+    "__comment__" : "========================================================",
+
+    "__comment__" : "========== Black Hole ==================================",
+            "           " : "Set to 1 disable AMR and use block adaptivity (not recomended). ",
+            "NLSM_GRID_MIN_X": -10.0,
+            "NLSM_GRID_MAX_X":  10.0,
+            "NLSM_GRID_MIN_Y": -10.0,
+            "NLSM_GRID_MAX_Y":  10.0,
+            "NLSM_GRID_MIN_Z": -10.0,
+            "NLSM_GRID_MAX_Z":  10.0,
+
+    "__comment__" : "========================================================"
+
+  }
+
+
