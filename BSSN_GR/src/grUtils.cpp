@@ -650,6 +650,68 @@ namespace bssn
         }
     }
 
+    void initialDataFunctionWrapper(const double xx_grid, const double yy_grid,
+                                    const double zz_grid, double* var) {
+        // code to convert grid functions to non-grid, if the function doesn't already support it
+        // const double xx = GRIDX_TO_X(xx_grid);
+        // const double yy = GRIDY_TO_Y(yy_grid);
+        // const double zz = GRIDZ_TO_Z(zz_grid);
+
+        switch (bssn::BSSN_ID_TYPE) {
+            case 0:
+                // NOTE: this is the TwoPunctures code! For **pure**
+                // initialization done when building up the grid before pure
+                // population, this calls bssn::punctureData which is simply the
+                // two puncture intiial data from HAD code. In bssnCtx.cpp's
+                // init_grid the bssn::BSSN_ID_TYPE switch will call the true
+                // TwoPunctures code which is the proper TPID initial data
+                bssn::punctureData(xx_grid, yy_grid, zz_grid, var);
+
+                break;
+
+            case 1:
+                // ID 1 is the puncture data function on its own
+                bssn::punctureData(xx_grid, yy_grid, zz_grid, var);
+
+                break;
+            
+            case 2:
+                // ID 2 is the KerrSchild Data
+                bssn::KerrSchildData(xx_grid, yy_grid, zz_grid, var);
+
+                break;
+            
+            case 3:
+                // ID 3 is a noise data
+                bssn::noiseData(xx_grid, yy_grid, zz_grid, var);
+
+                break;
+            
+            case 4:
+                // ID 4 is a fake initial data
+                bssn::fake_initial_data(xx_grid, yy_grid, zz_grid, var);
+
+                break;
+
+            // MORE CAN BE ADDED HERE
+
+            default:
+                int rank;
+                int npes;
+                MPI_Comm comm = MPI_COMM_WORLD;
+                MPI_Comm_rank(comm, &rank);
+                MPI_Comm_size(comm, &npes);
+                if (!rank) {
+                    std::cerr << RED << "ERROR::: Invalid initial data ID: " << bssn::BSSN_ID_TYPE << NRM
+                              << std::endl;
+                }
+
+                MPI_Abort(comm, 0);
+
+                break;
+        }
+    }
+
     void punctureDataPhysicalCoord(const double xx,const double yy,const double zz, double *var)
     {
         
