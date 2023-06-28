@@ -44,6 +44,30 @@ namespace bssn
      */
     void dumpParamFile(std::ostream& sout, int root, MPI_Comm comm);
 
+    /**
+     * @brief A general initial data function wrapper
+     *
+     * This function is designed to be called by the grid initialization. It can
+     * only take an x, y, and z position on the grid and fill out the proper
+     * variables array. If more variables are needed, special logic is required.
+     * As a reminder, the grid initialization done by Dendro's function2Octree
+     * routine cannot accept additional variables, so approximations are
+     * required for initial grid construction and refinement.
+     *
+     * However, in the bssnCtx object
+     * you can add additional logic in init_grid() to more accurately fill the
+     * grid with precise values (see BSSN_ID_TYPE 0 and how it calls
+     * punctureData() in this function and then calls TwoPunctures() in
+     * init_grid())
+     *
+     * @param xx_grid : the x coord (in octree/grid coords)
+     * @param yy_grid : the y coord (in octree/grid coords)
+     * @param zz_grid : the z coord (in octree/grid coords)
+     * @param var : initialized BSSN variables for the grid at the specified
+     * points
+     */
+    void initialDataFunctionWrapper(const double xx_grid, const double yy_grid,
+                                    const double zz_grid, double* var);
 
     /**
      * @brief Two puncture intiial data from HAD code/ 

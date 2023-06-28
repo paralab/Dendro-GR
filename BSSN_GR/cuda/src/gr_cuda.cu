@@ -132,7 +132,7 @@ int main (int argc, char** argv)
 
     //2. generate the initial grid.
     std::vector<ot::TreeNode> tmpNodes;
-    std::function<void(double,double,double,double*)> f_init=[](double x,double y,double z,double*var){bssn::punctureData(x,y,z,var);};
+    std::function<void(double,double,double,double*)> f_init=[](double x,double y,double z,double*var){bssn::initialDataFunctionWrapper(x,y,z,var);};
     std::function<double(double,double,double)> f_init_alpha=[](double x,double y,double z){ double var[24]; bssn::punctureData(x,y,z,var); return var[0];};
     //std::function<void(double,double,double,double*)> f_init=[](double x,double y,double z,double*var){bssn::KerrSchildData(x,y,z,var);};
 

@@ -58,17 +58,10 @@ void applyInitialConditions(const ot::Mesh* mesh, T** zipIn)
                             TwoPunctures((double)x,(double)y,(double)z,var,
                                          &mp, &mm, &mp_adm, &mm_adm, &E, &J1, &J2, &J3);
                         }
-                        else if (bssn::BSSN_ID_TYPE == 1) {
-                            bssn::punctureData((double)x,(double)y,(double)z,var);
-                        }
-                        else if (bssn::BSSN_ID_TYPE == 2) {
-                            bssn::KerrSchildData((double)x,(double)y,(double)z,var);
-                        }
-                        else if (bssn::BSSN_ID_TYPE == 3) {
-                            bssn::noiseData((double)x,(double)y,(double)z,var);
-                        }
                         else {
-                            std::cout<<"Unknown ID type"<<std::endl;
+                            // all other values are handled in the initial data wrapper including
+                            // an error message
+                            initialDataFunctionWrapper((double)x, (double)y, (double)z, var);
                         }
                         for(unsigned int v=0;v<bssn::BSSN_NUM_VARS;v++)
                             zipIn[v][nodeLookUp_CG]=var[v];
