@@ -21,6 +21,7 @@
 #include "mathUtils.h"
 #include <fstream>
 #include <ctime>
+#include "bssnCtxGPU.cuh"
 
 int bssn_driver(MPI_Comm comm, unsigned int num_step,unsigned int warm_up, std::ostream& outfile,unsigned int ts_mode)
 {

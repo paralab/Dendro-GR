@@ -261,61 +261,63 @@ int main (int argc, char** argv)
           //bssn::BSSN_REFINEMENT_MODE = RefinementMode::BH_LOC;
         }*/
 
-        if((step % bssn::BSSN_GW_EXTRACT_FREQ) == 0 )
-        {
-          if(!rank_global)
-            std::cout<<"[ETS] : Executing step :  "<<ets->curr_step()<<"\tcurrent time :"<<ets->curr_time()<<"\t dt:"<<ets->ts_size()<<"\t"<<std::endl;
-          // 03/23/22 : this works only because we use defult stream to for the evolution. Default stream is special and synchronous with all other streams.
-          bssnCtx->device_to_host_async(s_gw);
-          ts_gw_output=bssnCtx->get_ts_info();
-          is_gw_written=false;
-          
-          if( (step % bssn::BSSN_REMESH_TEST_FREQ) == 0 )
+        #ifndef BSSN_PROFILE_SCALING_RUN
+          if((step % bssn::BSSN_GW_EXTRACT_FREQ) == 0 )
           {
-            cudaStreamSynchronize(s_gw);
-            bool isRemesh = bssnCtx->is_remesh();
-            if(isRemesh)
+            if(!rank_global)
+              std::cout<<"[ETS] : Executing step :  "<<ets->curr_step()<<"\tcurrent time :"<<ets->curr_time()<<"\t dt:"<<ets->ts_size()<<"\t"<<std::endl;
+            // 03/23/22 : this works only because we use defult stream to for the evolution. Default stream is special and synchronous with all other streams.
+            bssnCtx->device_to_host_async(s_gw);
+            ts_gw_output=bssnCtx->get_ts_info();
+            is_gw_written=false;
+            
+            if( (step % bssn::BSSN_REMESH_TEST_FREQ) == 0 )
             {
-                if(!rank_global)
-                    std::cout<<"[ETS] : Remesh is triggered.  \n";
+              cudaStreamSynchronize(s_gw);
+              bool isRemesh = bssnCtx->is_remesh();
+              if(isRemesh)
+              {
+                  if(!rank_global)
+                      std::cout<<"[ETS] : Remesh is triggered.  \n";
 
-                bssnCtx->remesh_and_gridtransfer(bssn::BSSN_DENDRO_GRAIN_SZ, bssn::BSSN_LOAD_IMB_TOL,bssn::BSSN_SPLIT_FIX);
-                bssn::deallocate_bssn_deriv_workspace();
-                bssn::allocate_bssn_deriv_workspace(bssnCtx->get_mesh(),1);
-                ets->sync_with_mesh();
-                // correct timestep size
-                ot::Mesh* pmesh = bssnCtx->get_mesh();
-                unsigned int lmin, lmax;
-                pmesh->computeMinMaxLevel(lmin,lmax);
-                if(!pmesh->getMPIRank())
-                    printf("post merger grid level = (%d, %d)\n",lmin,lmax);
-                bssn::BSSN_RK45_TIME_STEP_SIZE=bssn::BSSN_CFL_FACTOR*((bssn::BSSN_COMPD_MAX[0]-bssn::BSSN_COMPD_MIN[0])*((1u<<(m_uiMaxDepth-lmax))/((double) bssn::BSSN_ELE_ORDER))/((double)(1u<<(m_uiMaxDepth))));
-                ts::TSInfo ts_in = bssnCtx->get_ts_info();
-                ts_in._m_uiTh = bssn::BSSN_RK45_TIME_STEP_SIZE;
-                bssnCtx->set_ts_info(ts_in);
+                  bssnCtx->remesh_and_gridtransfer(bssn::BSSN_DENDRO_GRAIN_SZ, bssn::BSSN_LOAD_IMB_TOL,bssn::BSSN_SPLIT_FIX);
+                  bssn::deallocate_bssn_deriv_workspace();
+                  bssn::allocate_bssn_deriv_workspace(bssnCtx->get_mesh(),1);
+                  ets->sync_with_mesh();
+                  // correct timestep size
+                  ot::Mesh* pmesh = bssnCtx->get_mesh();
+                  unsigned int lmin, lmax;
+                  pmesh->computeMinMaxLevel(lmin,lmax);
+                  if(!pmesh->getMPIRank())
+                      printf("post merger grid level = (%d, %d)\n",lmin,lmax);
+                  bssn::BSSN_RK45_TIME_STEP_SIZE=bssn::BSSN_CFL_FACTOR*((bssn::BSSN_COMPD_MAX[0]-bssn::BSSN_COMPD_MIN[0])*((1u<<(m_uiMaxDepth-lmax))/((double) bssn::BSSN_ELE_ORDER))/((double)(1u<<(m_uiMaxDepth))));
+                  ts::TSInfo ts_in = bssnCtx->get_ts_info();
+                  ts_in._m_uiTh = bssn::BSSN_RK45_TIME_STEP_SIZE;
+                  bssnCtx->set_ts_info(ts_in);
+              }
             }
+
           }
 
-        }
-
-        if((step % bssn::BSSN_GW_EXTRACT_FREQ) == (bssn::BSSN_GW_EXTRACT_FREQ-1))
-          cudaStreamSynchronize(s_gw);
-          
-        if((!is_gw_written) && (cudaStreamQuery(s_gw) == cudaSuccess))
-        {
-          ts_curr = bssnCtx->get_ts_info();
-          bssnCtx->set_ts_info(ts_gw_output);
-          bssnCtx->terminal_output();  
-          bssnCtx->write_vtu();
-          bssnCtx->evolve_bh_loc(bssnCtx->get_evolution_vars_cpu(),ets->ts_size()*bssn::BSSN_GW_EXTRACT_FREQ);
-          
-          if( (step % bssn::BSSN_CHECKPT_FREQ) == 0 )
-            bssnCtx->write_checkpt();
-          
-          bssnCtx->set_ts_info(ts_curr);
-          is_gw_written=true;
-          
-        }
+          if((step % bssn::BSSN_GW_EXTRACT_FREQ) == (bssn::BSSN_GW_EXTRACT_FREQ-1))
+            cudaStreamSynchronize(s_gw);
+            
+          if((!is_gw_written) && (cudaStreamQuery(s_gw) == cudaSuccess))
+          {
+            ts_curr = bssnCtx->get_ts_info();
+            bssnCtx->set_ts_info(ts_gw_output);
+            bssnCtx->terminal_output();  
+            bssnCtx->write_vtu();
+            bssnCtx->evolve_bh_loc(bssnCtx->get_evolution_vars_cpu(),ets->ts_size()*bssn::BSSN_GW_EXTRACT_FREQ);
+            
+            if( (step % bssn::BSSN_CHECKPT_FREQ) == 0 )
+              bssnCtx->write_checkpt();
+            
+            bssnCtx->set_ts_info(ts_curr);
+            is_gw_written=true;
+            
+          }
+        #endif
 
         ets->evolve();
       }
@@ -331,8 +333,9 @@ int main (int argc, char** argv)
       if(!(ets->get_global_rank()))
         std::cout<<" ETS time (max) : "<<t2_g<<std::endl;
 
-      delete bssnCtx->get_mesh();    
+      ot::Mesh* tmp_mesh = bssnCtx->get_mesh();    
       delete bssnCtx;
+      delete tmp_mesh;
       delete ets;
 
     }
