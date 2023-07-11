@@ -17,6 +17,7 @@
 #include "rkBSSN.h"
 #include "sdc.h"
 #include "bssnCtx.h"
+#include "aeh.h"
 
 
 int main (int argc, char** argv)
@@ -200,6 +201,23 @@ int main (int argc, char** argv)
           ets->set_ets_coefficients(ts::ETSType::RK5);
 
       ets->init();
+
+      aeh::SpectralAEHSolver<bssn::BSSNCtx,DendroScalar> aeh_solver(bssnCtx, 4, 64, 16, true);
+      const unsigned int num_lm_modes = aeh_solver.get_num_lm_modes();
+      const unsigned int max_iter     = 100;
+      DendroScalar* h0 = new DendroScalar[num_lm_modes];
+      DendroScalar* hh = new DendroScalar[num_lm_modes];
+      for (unsigned int i=0; i < num_lm_modes;i++)
+        h0[i]=0.0;
+      
+      h0[0] = 10* sqrt(4 * M_PI);
+      aeh_solver.solve(bssnCtx, h0, hh, max_iter);
+
+      
+      delete [] h0;
+      delete [] hh;
+      
+
       #if defined __PROFILE_CTX__ && defined __PROFILE_ETS__
         std::ofstream outfile;
         char fname [256];

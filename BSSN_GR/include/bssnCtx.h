@@ -26,6 +26,7 @@
 #include "bssn_constraints.h"
 #include "TwoPunctures.h"
 #include "mathMeshUtils.h"
+#include "aeh.h"
 
 namespace bssn
 {
@@ -78,6 +79,18 @@ namespace bssn
              * @return int : status. (0) on success. 
              */
             int rhs(DVec* in , DVec* out, unsigned int sz , DendroScalar time);
+
+            /**
+             * @brief computes AEH expansion function on the spacelike hypersurface. 
+             * 
+             * @param in : zipped input
+             * @param out : zipped output
+             * @param sz  : number of variables. 
+             * @param time : current time. 
+             * @return int : status. (0) on success. 
+             */
+
+            int aeh_expansion(aeh::AEH_VARS * m_aeh_vars, DVec& aeh_f, DVec& aeh_h);
 
              /**
              * @brief block wise RHS. 
