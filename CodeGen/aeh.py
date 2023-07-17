@@ -27,28 +27,28 @@ C2 = dendro.get_second_christoffel()
 # full Christoffel symbols w.r.t g_{ij}
 C3 = dendro.get_complete_christoffel(chi)
 
-r,theta, phi = sympy.symbols("r, theta, phi")
+# r,theta, phi = sympy.symbols("r, theta, phi")
 
-def sph_real(l,m, theta, phi):
-    """
-    computes the real spherical harmonics
-    """
-    assert abs(m)<=l
+# def sph_real(l,m, theta, phi):
+#     """
+#     computes the real spherical harmonics
+#     """
+#     assert abs(m)<=l
 
-    if m==0:
-        sph_norm_fac = sympy.sqrt(sympy.Rational((2 * l + 1), 4))/sympy.sqrt(sympy.pi) 
-    else:
-        sph_norm_fac = (-1)**m * sympy.sqrt(sympy.Rational((2 * l + 1) * sympy.factorial(l-sympy.Abs(m)) , 4 * sympy.factorial(l+sympy.Abs(m)))) /sympy.sqrt(sympy.pi)
+#     if m==0:
+#         sph_norm_fac = sympy.sqrt(sympy.Rational((2 * l + 1), 4))/sympy.sqrt(sympy.pi) 
+#     else:
+#         sph_norm_fac = (-1)**m * sympy.sqrt(sympy.Rational((2 * l + 1) * sympy.factorial(l-sympy.Abs(m)) , 4 * sympy.factorial(l+sympy.Abs(m)))) /sympy.sqrt(sympy.pi)
 
-    if m < 0:
-        return sph_norm_fac * sympy.functions.special.polynomials.assoc_legendre(l, m, sympy.cos(theta)) * sympy.sin(sympy.Abs(m) * phi)
-    elif m==0:
-        return sph_norm_fac * sympy.functions.special.polynomials.assoc_legendre(l, m, sympy.cos(theta)) 
-    else:
-        return sph_norm_fac * sympy.functions.special.polynomials.assoc_legendre(l, m, sympy.cos(theta)) * sympy.cos( m * phi)
+#     if m < 0:
+#         return sph_norm_fac * sympy.functions.special.polynomials.assoc_legendre(l, m, sympy.cos(theta)) * sympy.sin(sympy.Abs(m) * phi)
+#     elif m==0:
+#         return sph_norm_fac * sympy.functions.special.polynomials.assoc_legendre(l, m, sympy.cos(theta)) 
+#     else:
+#         return sph_norm_fac * sympy.functions.special.polynomials.assoc_legendre(l, m, sympy.cos(theta)) * sympy.cos( m * phi)
 
-l_max = 5
-lm_modes = [(l, m) for l in range(0, l_max + 1) for m in range(-l, -l+1)]
+# l_max = 5
+# lm_modes = [(l, m) for l in range(0, l_max + 1) for m in range(-l, -l+1)]
 
 F      = dendro.scalar("F","[pp]")
 s_dk   = [d(i,F) for i in dendro.e_i]
