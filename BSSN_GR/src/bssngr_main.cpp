@@ -202,7 +202,7 @@ int main (int argc, char** argv)
 
       ets->init();
 
-      aeh::SpectralAEHSolver<bssn::BSSNCtx,DendroScalar> aeh_solver(bssnCtx, 2, 64, 16, true);
+      aeh::SpectralAEHSolver<bssn::BSSNCtx,DendroScalar> aeh_solver(bssnCtx, 2, 64, 2, true);
       const unsigned int num_lm_modes = aeh_solver.get_num_lm_modes();
       const unsigned int max_iter     = 100;
       DendroScalar* h0 = new DendroScalar[num_lm_modes];
@@ -210,8 +210,8 @@ int main (int argc, char** argv)
       for (unsigned int i=0; i < num_lm_modes;i++)
         h0[i]=0.0;
       
-      h0[0] = 10* sqrt(4 * M_PI);
-      aeh_solver.solve(bssnCtx, h0, hh, max_iter);
+      h0[0] = 2* sqrt(4 * M_PI);
+      aeh_solver.solve(bssnCtx, h0, hh, max_iter, 1e-8);
 
       
       delete [] h0;

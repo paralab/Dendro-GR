@@ -1320,6 +1320,8 @@ int BSSNCtx::aeh_expansion(aeh::AEH_VARS * m_aeh_vars, DVec& aeh_f, DVec& aeh_h)
     const ot::Block* blkList     = m_uiMesh->getLocalBlockList().data();
     const unsigned int numBlocks = m_uiMesh->getLocalBlockList().size();
 
+    const DendroScalar r_min = 1e-2;
+
     for(unsigned int blk=0; blk<numBlocks; blk++)
     {
         DendroScalar ptmin[3], ptmax[3];
@@ -1444,7 +1446,20 @@ int BSSNCtx::aeh_expansion(aeh::AEH_VARS * m_aeh_vars, DVec& aeh_f, DVec& aeh_h)
             #endif
                 for (unsigned int i = PW; i < nx-PW; i++) {
                     const unsigned int pp = i + nx*(j + ny*k);
-                    #include "expansion_aeh.cpp"
+                    const double xx = ptmin[0] + i * hx;
+                    const double yy = ptmin[1] + j * hy;
+                    const double zz = ptmin[2] + k * hz;
+
+                    const double rr = sqrt(xx * xx + yy * yy + zz * zz);
+                    if(rr < r_min)
+                        H[pp]=-1.0;
+                    else
+                    {
+                        #include "expansion_aeh.cpp"
+                    }
+                        
+                    
+                    
                 }
             }
         }

@@ -112,7 +112,7 @@ namespace aeh
              * @param max_iter 
              * @return AEHErrorType 
              */
-            AEHErrorType solve(Ctx * ctx, const T* const h_init, T*  h_qs, unsigned int max_iter);
+            AEHErrorType solve(Ctx * ctx, const T* const h_init, T*  h_qs, unsigned int max_iter, double eps);
 
 
         private:
@@ -192,22 +192,26 @@ namespace aeh
 
             }
 
-            DendroScalar solve_00_bisection(DendroScalar a, DendroScalar b, Ctx * ctx, T*  h_qs, DVec& aeh_f, DVec& aeh_h, std::vector<T>& interp_coords, DendroScalar eps=1e-8)
+            DendroScalar solve_00_bisection(DendroScalar a, DendroScalar b, Ctx * ctx, T*  h_qs, DVec& aeh_f, DVec& aeh_h, std::vector<T>& interp_coords, DendroScalar eps=1e-12)
             {
                 ot::Mesh * m_uiMesh = ctx->get_mesh();
                 if(!(m_uiMesh->isActive()))
                     return -1.0;
-                
-                
-                DendroScalar f_a = rhs_00(ctx, a, h_qs, aeh_f, aeh_h, interp_coords);
-                DendroScalar f_b = rhs_00(ctx, b, h_qs, aeh_f, aeh_h, interp_coords);
 
+                int rank = m_uiMesh->getMPIRank();
+                int npes = m_uiMesh->getMPICommSize();
+                
+                DendroScalar h_00 = h_qs[0];
+
+                DendroScalar f_a  = rhs_00(ctx, a, h_qs, aeh_f, aeh_h, interp_coords);
+                DendroScalar f_b  = rhs_00(ctx, b, h_qs, aeh_f, aeh_h, interp_coords);
+                
                 if (f_a * f_b >= 0)
                 {
-                    std::cout << "You have not assumed right a and b\n";
-                    std::cout << "f(a) = "<<f_a<<" and f(b) = "<<f_b<<std::endl;
-                    //MPI_Abort(m_uiMesh->getMPICommunicator(),-1);
-                    return -1.0;
+                    if(!rank)
+                        printf("lm=(0,0) initial interval (a,b) = (%.8E, %.8E) = (f(a), f(b)) = (%.8E, %.8E)\n", a, b, f_a, f_b);
+                    
+                    return h_00;
                 }
 
                 DendroScalar   c = a;
@@ -217,9 +221,9 @@ namespace aeh
                     c   = (a+b)/2;
                     DendroScalar f_c = rhs_00(ctx, c, h_qs, aeh_f, aeh_h, interp_coords);  
 
-                    if(!m_uiMesh->getMPIRank())
-                        std::cout<<" h_00 interval : ("<<a<<" , "<<b<<" )"<<"fc="<<f_c<<std::endl;
-            
+                    if(!rank)
+                        printf("lm=(0,0)  h_00 = (%.8E) ,  H(h) = (%.8E)\n", c, f_c);
+                        
                     // Check if middle point is root
                     if (abs(f_c) < eps )
                     {
@@ -539,12 +543,13 @@ namespace aeh
 
     
     template<typename Ctx, typename T>
-    AEHErrorType SpectralAEHSolver<Ctx, T>::solve(Ctx * ctx, const T* const h_init, T* h_qs, unsigned int max_iter)
+    AEHErrorType SpectralAEHSolver<Ctx, T>::solve(Ctx * ctx, const T* const h_init, T* h_qs, unsigned int max_iter, double eps)
     {
         ot::Mesh * m_uiMesh = ctx->get_mesh();
         if(!m_uiMesh->isActive())
             return AEHErrorType::SUCCESS;
-
+        
+        const int rank = m_uiMesh->getMPIRank();
         const unsigned int num_lm = m_sph_modes.size();
         const unsigned int cg_sz  = m_uiMesh->getDegOfFreedom();
 
@@ -593,12 +598,10 @@ namespace aeh
         
         std::vector<T> aeh_h_inp;
         aeh_h_inp.resize(num_angular_pts);
-
+        double relative_error=0;
         do
         {
-            std::cout<<"iter = "<<iter<<"/"<<max_iter<<std::endl;
-            printArray_1D<DendroScalar>(h_qs, m_sph_modes.size());
-
+            
             for(unsigned int qt=0; qt < m_num_theta; qt++)
                 for(unsigned int qp=0; qp < m_num_phi; qp++)
                 {
@@ -679,21 +682,26 @@ namespace aeh
                     tmp+=  aeh_h_inp[valid_idx[idx]] * real_spherical_harmonic(l, m, m_qtheta[qt],  m_qphi[qp]) * m_quad_theta->weights[qt] * m_quad_phi->weights[qp];
                 }
                 par::Mpi_Allreduce(&tmp, &a_qs, 1, MPI_SUM, m_uiMesh->getMPICommunicator());
-                
-                if(!m_uiMesh->getMPIRank())
-                    std::cout<<"a_qs "<<a_qs<<std::endl;
-                if(lm_idx>0)
-                    h_qs1[lm_idx] = h_qs[lm_idx] - (1.0 / (DendroScalar)( l * (l + 1))) * a_qs;  
+                h_qs1[lm_idx] = h_qs[lm_idx] - (1.0 / (DendroScalar)( l * (l + 1))) * a_qs;
             }
-
+            h_qs1[0] = h_qs[0];
             // solve for non-linear equation. 
-            DendroScalar h_00 = this->solve_00_bisection(1,300,ctx,h_qs1, aeh_f, aeh_h, interp_coords);
-            h_qs1[0]          = h_00;  
+            h_qs1[0] = this->solve_00_bisection(0, 10, ctx,h_qs1, aeh_f, aeh_h, interp_coords, eps);
+
+            relative_error = normL2(h_qs1, h_qs, m_sph_modes.size())/ normL2(h_qs, m_sph_modes.size());
+            if(!rank)
+            {
+                printf("AEH solver iteration = %d / %d relative error = %.8E\n",iter, max_iter, relative_error);
+                for(unsigned int lm_idx=0; lm_idx < m_sph_modes.size(); lm_idx++)
+                    printf("h_{%d, %d} = %.8E ,",m_sph_modes[lm_idx].first, m_sph_modes[lm_idx].second, h_qs1[lm_idx]);
+                printf("\n");
+            }
+                
             
             std::swap(h_qs, h_qs1);
             iter+=1;
 
-        }while(iter < max_iter);
+        }while((iter < max_iter) && (relative_error > eps) );
         
         delete [] h_qs1;
 
