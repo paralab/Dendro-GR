@@ -202,22 +202,6 @@ int main (int argc, char** argv)
 
       ets->init();
 
-      aeh::SpectralAEHSolver<bssn::BSSNCtx,DendroScalar> aeh_solver(bssnCtx, 2, 64, 2, true);
-      const unsigned int num_lm_modes = aeh_solver.get_num_lm_modes();
-      const unsigned int max_iter     = 100;
-      DendroScalar* h0 = new DendroScalar[num_lm_modes];
-      DendroScalar* hh = new DendroScalar[num_lm_modes];
-      for (unsigned int i=0; i < num_lm_modes;i++)
-        h0[i]=0.0;
-      
-      h0[0] = 2* sqrt(4 * M_PI);
-      aeh_solver.solve(bssnCtx, h0, hh, max_iter, 1e-8);
-
-      
-      delete [] h0;
-      delete [] hh;
-      
-
       #if defined __PROFILE_CTX__ && defined __PROFILE_ETS__
         std::ofstream outfile;
         char fname [256];
@@ -259,7 +243,6 @@ int main (int argc, char** argv)
           bssn::BSSN_REMESH_TEST_FREQ=bssn::BSSN_REMESH_TEST_FREQ_AFTER_MERGER;  
           bssn::BSSN_GW_EXTRACT_FREQ  = bssn::BSSN_GW_EXTRACT_FREQ_AFTER_MERGER;
         }
-         
 
         if( (step % bssn::BSSN_REMESH_TEST_FREQ) == 0 )
         {
@@ -286,6 +269,26 @@ int main (int argc, char** argv)
               
             }
         }
+
+        {
+          aeh::SpectralAEHSolver<bssn::BSSNCtx,DendroScalar> aeh_solver(bssnCtx, 2, 8, 8, false);
+          const unsigned int num_lm_modes = aeh_solver.get_num_lm_modes();
+          const unsigned int max_iter     = 5;
+          DendroScalar* h0 = new DendroScalar[num_lm_modes];
+          DendroScalar* hh = new DendroScalar[num_lm_modes];
+          for (unsigned int i=0; i < num_lm_modes;i++)
+            h0[i]=0.0;
+          
+          h0[0] = 1* sqrt(4 * M_PI);
+          
+          aeh_solver.solve(bssnCtx->get_bh0_loc(), bssnCtx, h0, hh, max_iter, 1e-4, 1e-5, 3);
+          aeh_solver.solve(bssnCtx->get_bh1_loc(), bssnCtx, h0, hh, max_iter, 1e-4, 1e-5, 3);
+          
+          
+          delete [] h0;
+          delete [] hh;
+        }  
+
 
         if((step % bssn::BSSN_GW_EXTRACT_FREQ) == 0 )
         {

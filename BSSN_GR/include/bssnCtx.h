@@ -53,6 +53,10 @@ namespace bssn
             /**@brief: default deconstructor*/
             ~BSSNCtx();
 
+            /**@brief get bh locations*/
+            const Point& get_bh0_loc() const {return m_uiBHLoc[0];}
+            const Point& get_bh1_loc() const {return m_uiBHLoc[1];}
+
             /**
              * @brief sets time adaptive offset
              * @param tadapoffst 
@@ -90,7 +94,7 @@ namespace bssn
              * @return int : status. (0) on success. 
              */
 
-            int aeh_expansion(aeh::AEH_VARS * m_aeh_vars, DVec& aeh_f, DVec& aeh_h);
+            int aeh_expansion(const Point& origin, aeh::AEH_VARS * m_aeh_vars, DVec& aeh_f, DVec& aeh_h);
 
              /**
              * @brief block wise RHS. 

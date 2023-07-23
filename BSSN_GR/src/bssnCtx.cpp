@@ -1290,7 +1290,7 @@ void BSSNCtx::evolve_bh_loc(DVec sIn, double dt) {
 }
 
 
-int BSSNCtx::aeh_expansion(aeh::AEH_VARS * m_aeh_vars, DVec& aeh_f, DVec& aeh_h)
+int BSSNCtx::aeh_expansion(const Point& origin, aeh::AEH_VARS * m_aeh_vars, DVec& aeh_f, DVec& aeh_h)
 {
 
     const unsigned int cg_sz   = m_uiMesh->getDegOfFreedom();
@@ -1446,13 +1446,13 @@ int BSSNCtx::aeh_expansion(aeh::AEH_VARS * m_aeh_vars, DVec& aeh_f, DVec& aeh_h)
             #endif
                 for (unsigned int i = PW; i < nx-PW; i++) {
                     const unsigned int pp = i + nx*(j + ny*k);
-                    const double xx = ptmin[0] + i * hx;
-                    const double yy = ptmin[1] + j * hy;
-                    const double zz = ptmin[2] + k * hz;
+                    const double xx = ptmin[0] + i * hx - origin.x();
+                    const double yy = ptmin[1] + j * hy - origin.y();
+                    const double zz = ptmin[2] + k * hz - origin.z();
 
                     const double rr = sqrt(xx * xx + yy * yy + zz * zz);
                     if(rr < r_min)
-                        H[pp]=-1.0;
+                        H[pp]=-1.e2;
                     else
                     {
                         #include "expansion_aeh.cpp"
