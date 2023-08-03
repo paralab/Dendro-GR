@@ -1451,11 +1451,9 @@ int BSSNCtx::aeh_expansion(const Point& origin, aeh::AEH_VARS * m_aeh_vars, DVec
                     const double zz = ptmin[2] + k * hz - origin.z();
 
                     const double rr = sqrt(xx * xx + yy * yy + zz * zz);
-                    if(rr < r_min)
-                        H[pp]=-1.e0;
-                    else
                     {
                         #include "expansion_aeh.cpp"
+                        //H[pp] *= sqrt(grad_0_F[pp] * grad_0_F[pp] + grad_1_F[pp] * grad_1_F[pp] + grad_2_F[pp] * grad_2_F[pp]);
                     }
                         
                     
