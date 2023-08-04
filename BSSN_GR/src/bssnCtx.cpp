@@ -1290,7 +1290,7 @@ void BSSNCtx::evolve_bh_loc(DVec sIn, double dt) {
 }
 
 
-int BSSNCtx::aeh_expansion(const Point& origin, aeh::AEH_VARS * m_aeh_vars, DVec& aeh_f, DVec& aeh_h)
+int BSSNCtx::aeh_expansion(const Point& origin, aeh::AEH_VARS * m_aeh_vars, DVec& aeh_f, DVec& aeh_h, const DendroScalar* const rlim)
 {
 
     const unsigned int cg_sz   = m_uiMesh->getDegOfFreedom();
@@ -1345,6 +1345,9 @@ int BSSNCtx::aeh_expansion(const Point& origin, aeh::AEH_VARS * m_aeh_vars, DVec
         ptmax[0]=GRIDX_TO_X(blkList[blk].getBlockNode().maxX())+PW*dx;
         ptmax[1]=GRIDY_TO_Y(blkList[blk].getBlockNode().maxY())+PW*dy;
         ptmax[2]=GRIDZ_TO_Z(blkList[blk].getBlockNode().maxZ())+PW*dz;
+
+        // if(sqrt(ptmax[0] * ptmax[0] + ptmax[1]*ptmax[1] + ptmax[2] * ptmax[2]) > rlim[1])
+        //     continue;
 
         const unsigned int n = sz[0]*sz[1]*sz[2];
         const unsigned int BLK_SZ=n;

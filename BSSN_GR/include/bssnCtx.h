@@ -94,7 +94,7 @@ namespace bssn
              * @return int : status. (0) on success. 
              */
 
-            int aeh_expansion(const Point& origin, aeh::AEH_VARS * m_aeh_vars, DVec& aeh_f, DVec& aeh_h);
+            int aeh_expansion(const Point& origin, aeh::AEH_VARS * m_aeh_vars, DVec& aeh_f, DVec& aeh_h, const DendroScalar* const rlim);
 
              /**
              * @brief block wise RHS. 

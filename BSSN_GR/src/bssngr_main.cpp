@@ -284,20 +284,22 @@ int main (int argc, char** argv)
           
           {
             double r_plus  = 0.5 * sqrt(std::pow(TPID::par_m_plus , 2)  - 1 * (std::pow(TPID::par_S_plus[0],2) + std::pow(TPID::par_S_plus[1],2) + std::pow(TPID::par_S_plus[2],2)));
+            double rlim[2] ={1e-3, 5};
             h0[0] = r_plus * sqrt(4 * M_PI);
             char fname[256];
             sprintf(fname,"%s_%d_%d_%d_bh0_aeh.dat",bssn::BSSN_PROFILE_FILE_PREFIX.c_str(), lmax, ntheta, nphi);
-            aeh_solver.solve(bssnCtx->get_bh0_loc(), bssnCtx, h0, hh, max_iter, 1e-8, 1e-8, 5);
+            aeh_solver.solve(bssnCtx->get_bh0_loc(), bssnCtx, h0, hh, max_iter, 1e-8, 1e-8, rlim);
             aeh_solver.aeh_to_json(bssnCtx->get_bh0_loc(), bssnCtx, hh, fname, std::ios_base::app);
 
           }
 
           {
             double r_minus = 0.5 * sqrt(std::pow(TPID::par_m_minus, 2)  - 1 * (std::pow(TPID::par_S_minus[0],2) + std::pow(TPID::par_S_minus[1],2) + std::pow(TPID::par_S_minus[2],2)));
+            double rlim[2] ={1e-3, 5};
             h0[0] = r_minus * sqrt(4 * M_PI);
             char fname[256];
             sprintf(fname,"%s_%d_%d_%d_bh1_aeh.dat",bssn::BSSN_PROFILE_FILE_PREFIX.c_str(), lmax, ntheta, nphi);
-            aeh_solver.solve(bssnCtx->get_bh1_loc(), bssnCtx, h0, hh, max_iter, 1e-8, 1e-8, 5);
+            aeh_solver.solve(bssnCtx->get_bh1_loc(), bssnCtx, h0, hh, max_iter, 1e-8, 1e-8, rlim);
             aeh_solver.aeh_to_json(bssnCtx->get_bh1_loc(), bssnCtx, hh, fname, std::ios_base::app);
 
           }
@@ -307,7 +309,7 @@ int main (int argc, char** argv)
           //aeh_solver.solve(Point(0,0,0), bssnCtx, h0, hh, max_iter, 1e-8, 1e-8, 10);
           delete [] h0;
           delete [] hh;
-
+          bssnCtx->get_mesh()->waitActive();
           MPI_Abort(bssnCtx->get_mesh()->getMPICommunicator(), 0);
 
         }  
