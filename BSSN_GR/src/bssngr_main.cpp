@@ -271,24 +271,43 @@ int main (int argc, char** argv)
         }
 
         {
-          const int lmax   = std::atoi(argv[3]);
-          const int ntheta = std::atoi(argv[4]);
-          const int nphi   = std::atoi(argv[5]);
+          const int lmax               = std::atoi(argv[3]);
+          const int ntheta             = std::atoi(argv[4]);
+          const int nphi               = std::atoi(argv[5]);
           const unsigned int max_iter  = std::atoi(argv[6]);
+          const double rel_tol         = std::atof(argv[7]);
+          const double abs_tol         = std::atof(argv[8]);
+
           aeh::SpectralAEHSolver<bssn::BSSNCtx,DendroScalar> aeh_solver(bssnCtx, lmax, ntheta, nphi, false);
           const unsigned int num_lm_modes = aeh_solver.get_num_lm_modes();
           DendroScalar* h0 = new DendroScalar[num_lm_modes];
           DendroScalar* hh = new DendroScalar[num_lm_modes];
-          for (unsigned int i=0; i < num_lm_modes;i++)
-            h0[i]=0.0;
+          ot::Mesh* pmesh = bssnCtx->get_mesh();
           
           {
             double r_plus  = 0.5 * sqrt(std::pow(TPID::par_m_plus , 2)  - 1 * (std::pow(TPID::par_S_plus[0],2) + std::pow(TPID::par_S_plus[1],2) + std::pow(TPID::par_S_plus[2],2)));
             double rlim[2] ={1e-3, 5};
+
+            for (unsigned int i=0; i < num_lm_modes;i++)
+            {
+              h0[i]=0.0;
+              hh[i]=0.0;
+            }
+
             h0[0] = r_plus * sqrt(4 * M_PI);
+            for(unsigned int ll=0; ll < lmax; ll+=2)
+            {
+                if (!pmesh->getMPIRank())
+                  std::cout<<"sub cycle lmax = "<<ll<<std::endl;
+
+                aeh::SpectralAEHSolver<bssn::BSSNCtx,DendroScalar> s1(bssnCtx, ll, ntheta, nphi, false, false);
+                s1.solve(bssnCtx->get_bh0_loc(), bssnCtx, h0, hh, max_iter, rel_tol, abs_tol, rlim);
+                std::swap(h0,hh);
+            }
+
             char fname[256];
             sprintf(fname,"%s_%d_%d_%d_bh0_aeh.dat",bssn::BSSN_PROFILE_FILE_PREFIX.c_str(), lmax, ntheta, nphi);
-            aeh_solver.solve(bssnCtx->get_bh0_loc(), bssnCtx, h0, hh, max_iter, 1e-8, 1e-8, rlim);
+            aeh_solver.solve(bssnCtx->get_bh0_loc(), bssnCtx, h0, hh, max_iter, rel_tol, abs_tol, rlim);
             aeh_solver.aeh_to_json(bssnCtx->get_bh0_loc(), bssnCtx, hh, fname, std::ios_base::app);
 
           }
@@ -296,10 +315,27 @@ int main (int argc, char** argv)
           {
             double r_minus = 0.5 * sqrt(std::pow(TPID::par_m_minus, 2)  - 1 * (std::pow(TPID::par_S_minus[0],2) + std::pow(TPID::par_S_minus[1],2) + std::pow(TPID::par_S_minus[2],2)));
             double rlim[2] ={1e-3, 5};
+            for (unsigned int i=0; i < num_lm_modes;i++)
+            {
+              h0[i]=0.0;
+              hh[i]=0.0;
+            }
+
             h0[0] = r_minus * sqrt(4 * M_PI);
+            
+            for(unsigned int ll=0; ll < lmax; ll+=2)
+            {
+                if (!pmesh->getMPIRank())
+                  std::cout<<"sub cycle lmax = "<<ll<<std::endl;
+
+                aeh::SpectralAEHSolver<bssn::BSSNCtx,DendroScalar> s1(bssnCtx, ll, ntheta, nphi, false, false);
+                s1.solve(bssnCtx->get_bh1_loc(), bssnCtx, h0, hh, max_iter, rel_tol, abs_tol, rlim);
+                std::swap(h0,hh);
+            }
+
             char fname[256];
             sprintf(fname,"%s_%d_%d_%d_bh1_aeh.dat",bssn::BSSN_PROFILE_FILE_PREFIX.c_str(), lmax, ntheta, nphi);
-            aeh_solver.solve(bssnCtx->get_bh1_loc(), bssnCtx, h0, hh, max_iter, 1e-8, 1e-8, rlim);
+            aeh_solver.solve(bssnCtx->get_bh1_loc(), bssnCtx, h0, hh, max_iter, rel_tol, abs_tol, rlim);
             aeh_solver.aeh_to_json(bssnCtx->get_bh1_loc(), bssnCtx, hh, fname, std::ios_base::app);
 
           }

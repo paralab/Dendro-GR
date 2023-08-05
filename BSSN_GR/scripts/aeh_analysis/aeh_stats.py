@@ -152,7 +152,7 @@ bh_q4 =[{"rmin":0.08726049192, "rmean": 0.08907037693, "rmax": 0.09093860799}, {
 print("\nBH0")
 print("AHFinderDirect rmin=%.8E rmean=%.8E rman=%.8E"%(bh_q4[0]["rmin"], bh_q4[0]["rmean"], bh_q4[0]["rmax"]))
 runs_folder="../../../build1/q4/dat"    
-runs       =[runs_folder+"/dgr_%d_32_32_bh0_aeh.dat"%i for i in range(0,5)]    
+runs       =[runs_folder+"/dgr_%d_32_32_bh0_aeh.dat"%i for i in range(0,11)]    
 aeh_data   =[load_aeh_data(r)[0] for r in runs]
 plot_convergence(aeh_data, runs_folder+"/bh0.png")
 for d in aeh_data:
@@ -166,7 +166,7 @@ plot_error(aeh_data, runs_folder+"/bh0_expansion.png")
 
 print("\nBH1")
 print("AHFinderDirect rmin=%.8E rmean=%.8E rman=%.8E"%(bh_q4[1]["rmin"], bh_q4[1]["rmean"], bh_q4[1]["rmax"]))
-runs       =[runs_folder+"/dgr_%d_32_32_bh1_aeh.dat"%i for i in range(0,5)]    
+runs       =[runs_folder+"/dgr_%d_32_32_bh1_aeh.dat"%i for i in range(0,11)]    
 aeh_data   =[load_aeh_data(r)[0] for r in runs]
 plot_convergence(aeh_data, runs_folder+"/bh1.png")
 

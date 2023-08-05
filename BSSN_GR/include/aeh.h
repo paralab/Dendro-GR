@@ -20,6 +20,7 @@
 
 namespace aeh
 {
+    enum AEHSolverType {NKO=0, FAST_FLOW};
     enum AEHErrorType {SUCCESS, MAX_ITERATIONS_REACHED, FAIL};
     typedef std::pair<int, int> LM_MODE;
     typedef ot::DVector<DendroScalar, unsigned int> DVec;
@@ -37,8 +38,7 @@ namespace aeh
 
     } AEH_VARS;
 
-
-    
+     
     template<typename Ctx, typename T>
     class SpectralAEHSolver
     {
@@ -70,6 +70,7 @@ namespace aeh
             std::vector<T> m_sin_qphi;
             std::vector<T> m_cos_qphi;
 
+            AEHSolverType m_solver_type= AEHSolverType::FAST_FLOW;
             
         public:
             /**
@@ -79,10 +80,16 @@ namespace aeh
              * @param l_max : Spectral expansion using l=0 to l=l_max, and corresponding m-modes 
              * @param azimuthal_symmetry : Use azimuthal symmetry or not. (m=0) modes
              */
-            SpectralAEHSolver(Ctx* ctx, unsigned int l_max, unsigned int q_theta, unsigned int q_phi, bool azimuthal_symmetry=false);
+            SpectralAEHSolver(Ctx* ctx, unsigned int l_max, unsigned int q_theta, unsigned int q_phi, bool azimuthal_symmetry=false, bool verbose=true);
             
             /**@brief deconstructor for AEH solver object*/
             ~SpectralAEHSolver();
+
+            /**@brief set aeh solver type*/
+            void set_solver_type(AEHSolverType type) {m_solver_type=type;}
+
+            /**@brief get aeh solver type*/
+            AEHSolverType get_solver_type() {return m_solver_type;}
 
             const std::vector<LM_MODE> & get_lm_modes() const {return m_sph_modes;}
 
@@ -335,7 +342,7 @@ namespace aeh
     };
 
     template<typename Ctx, typename T>
-    SpectralAEHSolver<Ctx, T>::SpectralAEHSolver(Ctx* ctx, unsigned int l_max, unsigned int q_theta, unsigned int q_phi, bool azimuthal_symmetry)
+    SpectralAEHSolver<Ctx, T>::SpectralAEHSolver(Ctx* ctx, unsigned int l_max, unsigned int q_theta, unsigned int q_phi, bool azimuthal_symmetry, bool verbose)
     {
         m_ctx = ctx;
         ot::Mesh * m_uiMesh = ctx->get_mesh();
@@ -552,13 +559,15 @@ namespace aeh
         }
         
         
-        if(!rank)
+        if(verbose && !rank)
         {
             std::cout<<"====================================================================================================="<<std::endl;
             std::cout<<"                      AEH Solver Initialized                                                         "<<std::endl;
-            std::cout<<" lm : ";
-            for (unsigned int lm_idx=0; lm_idx<m_sph_modes.size(); lm_idx++)
-                std::cout<<"( "<<m_sph_modes[lm_idx].first<<", "<<m_sph_modes[lm_idx].second<<" )  ";
+            std::cout<<"====================================================================================================="<<std::endl;
+            std::cout<<"l max = "<<m_sph_modes[m_sph_modes.size()-1].first;
+            // std::cout<<" lm : ";
+            // for (unsigned int lm_idx=0; lm_idx<m_sph_modes.size(); lm_idx++)
+            //     std::cout<<"( "<<m_sph_modes[lm_idx].first<<", "<<m_sph_modes[lm_idx].second<<" )  ";
             std::cout<<std::endl;
             std::cout<<"quad theta : "<<m_num_theta<<std::endl;
             std::cout<<"quad phi   : "<<m_num_phi  <<std::endl;
@@ -871,37 +880,71 @@ namespace aeh
             valid_idx.clear();
 
             ot::da::interpolateToCoords(m_uiMesh, aeh_h_ptr, interp_coords.data(), interp_coords.size(), grid_limits, domain_limits, aeh_h_inp.data(), valid_idx);
-            const int l_max            = std::max(10, 4 * m_sph_modes[m_sph_modes.size()-1].first);
-            const DendroScalar dlambda = (1.0 / (DendroScalar)( l_max * (l_max + 1)));
-
-            for(unsigned int lm_idx=1; lm_idx < m_sph_modes.size(); lm_idx++)
+            if(m_solver_type==AEHSolverType::NKO)
             {
-                DendroScalar tmp  = 0.0;
-                DendroScalar a_qs = 0.0;
-
-                int l = m_sph_modes[lm_idx].first;
-                int m = m_sph_modes[lm_idx].second;
-                
-                for(unsigned int idx=0;idx < valid_idx.size(); idx++)
+                const int l_max            = std::max(10, 4 * m_sph_modes[m_sph_modes.size()-1].first);
+                const DendroScalar dlambda = (1.0 / (DendroScalar)( l_max * (l_max + 1)));
+                for(unsigned int lm_idx=1; lm_idx < m_sph_modes.size(); lm_idx++)
                 {
-                    const unsigned int qp = valid_idx[idx] % m_num_phi;
-                    const unsigned int qt = (valid_idx[idx] -qp) / m_num_phi;
-                    tmp+= aeh_h_inp[valid_idx[idx]] *  real_spherical_harmonic(l, m, m_qtheta[qt],  m_qphi[qp]) * m_quad_theta->weights[qt] * m_quad_phi->weights[qp];
+                    DendroScalar tmp  = 0.0;
+                    DendroScalar a_qs = 0.0;
+
+                    int l = m_sph_modes[lm_idx].first;
+                    int m = m_sph_modes[lm_idx].second;
                     
+                    for(unsigned int idx=0;idx < valid_idx.size(); idx++)
+                    {
+                        const unsigned int qp = valid_idx[idx] % m_num_phi;
+                        const unsigned int qt = (valid_idx[idx] -qp) / m_num_phi;
+                        tmp+= aeh_h_inp[valid_idx[idx]] *  real_spherical_harmonic(l, m, m_qtheta[qt],  m_qphi[qp]) * m_quad_theta->weights[qt] * m_quad_phi->weights[qp];
+                        
+                    }
+
+                    par::Mpi_Allreduce(&tmp, &a_qs, 1, MPI_SUM, m_uiMesh->getMPICommunicator());
+                    // if(!rank)
+                    //     printf("lm=(%d, %d) integral =%.8E\n",l,m,a_qs);
+                    h_qs1[lm_idx] = h_qs0[lm_idx] -  dlambda * a_qs;
+
+                }
+                
+                h_qs1[0] = h_qs0[0];
+                h_qs1[0] = this->solve_00_newton(origin, ctx, h_qs1, aeh_f, aeh_h, interp_coords, 1e-6, rlim);
+                if(h_qs1[0]==-1.0)
+                    return AEHErrorType::FAIL;
+
+            }else if(m_solver_type==AEHSolverType::FAST_FLOW)
+            {
+                const int l_max            = std::max(10, 4 * m_sph_modes[m_sph_modes.size()-1].first);
+                const DendroScalar A       = (1.0 / (DendroScalar)( l_max * (l_max + 1))) + 0.5;
+                const DendroScalar B       =  0.5 / 1.0;
+                const DendroScalar dlambda = A/(1 + B * l_max * ( l_max + 1));
+
+                for(unsigned int lm_idx=0; lm_idx < m_sph_modes.size(); lm_idx++)
+                {
+                    DendroScalar tmp  = 0.0;
+                    DendroScalar a_qs = 0.0;
+
+                    int l = m_sph_modes[lm_idx].first;
+                    int m = m_sph_modes[lm_idx].second;
+                    
+                    for(unsigned int idx=0;idx < valid_idx.size(); idx++)
+                    {
+                        const unsigned int qp = valid_idx[idx] % m_num_phi;
+                        const unsigned int qt = (valid_idx[idx] -qp) / m_num_phi;
+                        tmp+= aeh_h_inp[valid_idx[idx]] *  real_spherical_harmonic(l, m, m_qtheta[qt],  m_qphi[qp]) * m_quad_theta->weights[qt] * m_quad_phi->weights[qp];
+                        
+                    }
+
+                    par::Mpi_Allreduce(&tmp, &a_qs, 1, MPI_SUM, m_uiMesh->getMPICommunicator());
+                    // if(!rank)
+                    //     printf("lm=(%d, %d) integral =%.8E\n",l,m,a_qs);
+                    h_qs1[lm_idx] = h_qs0[lm_idx] -  dlambda * a_qs;
+
                 }
 
-                par::Mpi_Allreduce(&tmp, &a_qs, 1, MPI_SUM, m_uiMesh->getMPICommunicator());
-                // if(!rank)
-                //     printf("lm=(%d, %d) integral =%.8E\n",l,m,a_qs);
-                h_qs1[lm_idx] = h_qs0[lm_idx] -  dlambda * a_qs;
-
-            }
-            
-            h_qs1[0] = h_qs0[0];
-            h_qs1[0] = this->solve_00_newton(origin, ctx, h_qs1, aeh_f, aeh_h, interp_coords, 1e-6, rlim);
-            if(h_qs1[0]==-1.0)
+            }else
                 return AEHErrorType::FAIL;
-
+            
             absolute_error        = eval_expansion_norm(origin, ctx, h_qs1, aeh_f, aeh_h, interp_coords, rlim, 2);
             relative_error        = normL2(h_qs1, h_qs0, m_sph_modes.size())/ normL2(h_qs0, m_sph_modes.size());
             if(!rank)
