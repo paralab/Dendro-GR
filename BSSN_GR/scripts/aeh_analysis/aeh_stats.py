@@ -55,7 +55,7 @@ def aeh_characteristics(d, ntheta, nphi):
 
 def plot_error(aeh_data,fname):
     
-    plt.figure(figsize=(30,20),dpi=300)
+    plt.figure(figsize=(30,30),dpi=300)
     
     plt_idx=1
     for d in aeh_data:
@@ -121,7 +121,7 @@ def plot_convergence(aeh_data,fname):
         
         
     plt.semilogy(np.array(lval, dtype=np.int32), np.array(rel_error) , ".-")
-    plt.xlabel(r"l modes")
+    plt.xlabel(r"$l_{max}$")
     plt.ylabel(r"relative error")
     plt.grid(visible=True)
     plt.savefig(fname)
@@ -155,11 +155,16 @@ runs_folder="../../../build1/q4/dat"
 runs       =[runs_folder+"/dgr_%d_32_32_bh0_aeh.dat"%i for i in range(0,11)]    
 aeh_data   =[load_aeh_data(r)[0] for r in runs]
 plot_convergence(aeh_data, runs_folder+"/bh0.png")
+r_high     = aeh_characteristics(aeh_data[-1],32,32)
+
 for d in aeh_data:
     l_max = d["lm"][-1][0]
     r         = aeh_characteristics(d,32,32)
     rel_error = [abs(r["rmin"]/bh_q4[0]["rmin"]-1) , abs(r["rmean"]/bh_q4[0]["rmean"]-1), abs(r["rmax"]/bh_q4[0]["rmax"]-1)]
-    print("l max=%d r_min=%.8E r_mean=%.8E r_max=%.8E \t w.r.t AHFinderDirect rel_error(r_min)=%.8E rel_error(r_mean)=%.8E rel_error(r_max)=%.8E"%(l_max, r["rmin"], r["rmean"], r["rmax"], rel_error[0], rel_error[1], rel_error[2]))
+    cov_error = [abs(r["rmin"]/r_high["rmin"]-1) , abs(r["rmean"]/r_high["rmean"]-1), abs(r["rmax"]/r_high["rmax"]-1)]
+    #print("l max=%d r_min=%.8E r_mean=%.8E r_max=%.8E \t w.r.t AHFinderDirect rel_error(r_min)=%.8E rel_error(r_mean)=%.8E rel_error(r_max)=%.8E"%(l_max, r["rmin"], r["rmean"], r["rmax"], rel_error[0], rel_error[1], rel_error[2]))
+    print("%d & %.2E & %.2E & %.2E & %.2E & %.2E & %.2E"%(l_max, rel_error[0], rel_error[1], rel_error[2], cov_error[0], cov_error[1], cov_error[2]))
+    
 
 plot_error(aeh_data, runs_folder+"/bh0_expansion.png")
 
@@ -169,12 +174,14 @@ print("AHFinderDirect rmin=%.8E rmean=%.8E rman=%.8E"%(bh_q4[1]["rmin"], bh_q4[1
 runs       =[runs_folder+"/dgr_%d_32_32_bh1_aeh.dat"%i for i in range(0,11)]    
 aeh_data   =[load_aeh_data(r)[0] for r in runs]
 plot_convergence(aeh_data, runs_folder+"/bh1.png")
-
+r_high     = aeh_characteristics(aeh_data[-1],32,32)
 for d in aeh_data:
     l_max = d["lm"][-1][0]
     r         = aeh_characteristics(d,32,32)
     rel_error = [abs(r["rmin"]/bh_q4[1]["rmin"]-1) , abs(r["rmean"]/bh_q4[1]["rmean"]-1), abs(r["rmax"]/bh_q4[1]["rmax"]-1)]
-    print("l max=%d r_min=%.8E r_mean=%.8E r_max=%.8E \t w.r.t AHFinderDirect rel_error(r_min)=%.8E rel_error(r_mean)=%.8E rel_error(r_max)=%.8E"%(l_max, r["rmin"], r["rmean"], r["rmax"], rel_error[0], rel_error[1], rel_error[2]))
+    cov_error = [abs(r["rmin"]/r_high["rmin"]-1) , abs(r["rmean"]/r_high["rmean"]-1), abs(r["rmax"]/r_high["rmax"]-1)]
+    #print("l max=%d r_min=%.8E r_mean=%.8E r_max=%.8E \t w.r.t AHFinderDirect rel_error(r_min)=%.8E rel_error(r_mean)=%.8E rel_error(r_max)=%.8E"%(l_max, r["rmin"], r["rmean"], r["rmax"], rel_error[0], rel_error[1], rel_error[2]))
+    print("%d & %.2E & %.2E & %.2E & %.2E & %.2E & %.2E"%(l_max, rel_error[0], rel_error[1], rel_error[2], cov_error[0], cov_error[1], cov_error[2]))
 
 
 plot_error(aeh_data, runs_folder+"/bh1_expansion.png")

@@ -63,3 +63,6 @@ H      = sum([(dendro.DiDj(F)[i,j]/s_norm - Kij[i,j]) * (ig[i,j] - n_uk[i] * n_u
 outs   = [H]
 vnames = ['H']
 dendro.generate_cpu(outs, vnames, '[pp]')
+
+
+#mu_ij = sympy.Matrix([[sympy.simplify(ig[i,j] - n_uk[i] * n_uk[j]) for j in dendro.e_i] for i in dendro.e_i ])

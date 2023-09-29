@@ -240,7 +240,9 @@ int main (int argc, char** argv)
         {
           // bssn::BSSN_REMESH_TEST_FREQ=3 * bssn::BSSN_REMESH_TEST_FREQ_AFTER_MERGER;
           // bssn::BSSN_MINDEPTH=5;
-          bssn::BSSN_REMESH_TEST_FREQ=bssn::BSSN_REMESH_TEST_FREQ_AFTER_MERGER;  
+          bssn::BSSN_REFINEMENT_MODE          = bssn::RefinementMode::WAMR;
+          bssn::BSSN_USE_WAVELET_TOL_FUNCTION = 1;
+          bssn::BSSN_REMESH_TEST_FREQ = bssn::BSSN_REMESH_TEST_FREQ_AFTER_MERGER;  
           bssn::BSSN_GW_EXTRACT_FREQ  = bssn::BSSN_GW_EXTRACT_FREQ_AFTER_MERGER;
         }
 
