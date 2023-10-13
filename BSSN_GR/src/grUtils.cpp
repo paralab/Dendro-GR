@@ -700,6 +700,11 @@ namespace bssn
 
                 break;
 
+            case 5:
+                // minkowski initial data is flat space!
+                bssn:minkowskiInitialData(xx_grid, yy_grid, zz_grid, var);
+
+                break;
             // MORE CAN BE ADDED HERE
 
             default:
@@ -1410,6 +1415,34 @@ namespace bssn
 
 
     }
+
+    void minkowskiInitialData(const double xx1, const double yy1, const double zz1, double *var) {
+        // Flat space initialization!
+        var[VAR::U_ALPHA] = 1;  // lapse
+        var[VAR::U_CHI] = 1;    // chi
+        var[VAR::U_K] = 0;      // trace K
+        var[VAR::U_GT0] = 0;    // Gt0
+        var[VAR::U_GT1] = 0;    // Gt1
+        var[VAR::U_GT2] = 0;    // Gt2
+        var[VAR::U_BETA0] = 0;  // shift 0
+        var[VAR::U_BETA1] = 0;  // shift 1
+        var[VAR::U_BETA2] = 0;  // shift 2
+        var[VAR::U_B0] = 0;     // gaugeB0
+        var[VAR::U_B1] = 0;     // gaugeB1
+        var[VAR::U_B2] = 0;     // gaugeB2
+        var[VAR::U_SYMGT0] = 1; // gt11
+        var[VAR::U_SYMGT1] = 0; // gt12
+        var[VAR::U_SYMGT2] = 0; // gt13
+        var[VAR::U_SYMGT3] = 1; // gt22
+        var[VAR::U_SYMGT4] = 0; // gt23
+        var[VAR::U_SYMGT5] = 1; // gt33
+        var[VAR::U_SYMAT0] = 0; // At11
+        var[VAR::U_SYMAT1] = 0; // At12
+        var[VAR::U_SYMAT2] = 0; // At13
+        var[VAR::U_SYMAT3] = 0; // At22
+        var[VAR::U_SYMAT4] = 0; // At23
+        var[VAR::U_SYMAT5] = 0; // At33
+}
 
     void blockAdaptiveOctree(std::vector<ot::TreeNode>& tmpNodes,const Point& pt_min,const Point & pt_max,const unsigned int regLev,const unsigned int maxDepth,MPI_Comm comm)
     {

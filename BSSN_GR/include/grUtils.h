@@ -109,6 +109,11 @@ namespace bssn
     void noiseData(const double xx1,const double yy1,const double zz1, double *var);
 
     /**
+     * @brief initial flat space data (Minkowski)
+     */
+    void minkowskiInitialData(const double xx1, const double yy1, const double zz1, double *var);
+
+    /**
      * @brief fake initial data. 
      * @param xx1 : x coord
      * @param yy1 : y coord
