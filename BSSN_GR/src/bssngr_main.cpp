@@ -132,6 +132,7 @@ int main (int argc, char** argv)
     std::function<void(double,double,double,double*)> f_init=[](double x,double y,double z,double*var){bssn::initialDataFunctionWrapper(x,y,z,var);};
     std::function<double(double,double,double)> f_init_alpha=[](double x,double y,double z){ double var[24]; bssn::initialDataFunctionWrapper(x,y,z,var); return var[0];};
     //std::function<void(double,double,double,double*)> f_init=[](double x,double y,double z,double*var){bssn::KerrSchildData(x,y,z,var);};
+    std::function<void(double,double,double,double*)> f_init_flat = [](double x, double y, double z, double* var){bssn::minkowskiInitialData(x, y, z, var);};
 
     const unsigned int interpVars=bssn::BSSN_NUM_VARS;
     unsigned int varIndex[interpVars];
@@ -166,7 +167,18 @@ int main (int argc, char** argv)
           MPI_Abort(comm,0);
           
         }
-        function2Octree(f_init,bssn::BSSN_NUM_VARS,varIndex,interpVars,tmpNodes,(f2olmin-MAXDEAPTH_LEVEL_DIFF-2),bssn::BSSN_WAVELET_TOL,bssn::BSSN_ELE_ORDER,comm);
+
+        std::function<void(double, double, double, double*)> *f_init_use;
+
+        // TODO: Need to add some custom logic here to determine if function2Octree should use flat initialization or 
+        //
+        if (true) {
+            f_init_use = &f_init;
+        } else {
+            f_init_use = &f_init_flat;
+        }
+
+        function2Octree(*f_init_use,bssn::BSSN_NUM_VARS,varIndex,interpVars,tmpNodes,(f2olmin-MAXDEAPTH_LEVEL_DIFF-2),bssn::BSSN_WAVELET_TOL,bssn::BSSN_ELE_ORDER,comm);
         
     }
 
