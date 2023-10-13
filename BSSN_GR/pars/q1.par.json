@@ -12,11 +12,11 @@
             "BSSN_IO_OUTPUT_FREQ": 3000,
             "           " : "frequency for remeshing test based on wavelets",
             "BSSN_REMESH_TEST_FREQ": 30,
-	    "BSSN_GW_EXTRACT_FREQ" : 10,
+            "BSSN_GW_EXTRACT_FREQ" : 10,
 
-	    "BSSN_EH_REFINE_VAL": 0.4,
+            "BSSN_EH_REFINE_VAL": 0.4,
 
-	    "BSSN_EH_COARSEN_VAL": 0.6,	
+            "BSSN_EH_COARSEN_VAL": 0.6,	
 
             "           " : "frequency for checkpoint output",
             "BSSN_CHECKPT_FREQ": 5000,
@@ -29,7 +29,7 @@
             "           " : "file prefix for the intermediate profile files",
             "BSSN_PROFILE_FILE_PREFIX": "dat/dgr",
             "           " : "file prefix for tpid solver",
-	    "TPID_FILEPREFIX":"rit_q1",
+            "TPID_FILEPREFIX":"rit_q1",
             "           " : "number of variables (evolution) to output in vtu files",
             "BSSN_NUM_EVOL_VARS_VTU_OUTPUT":14,
             "           " : "evolution variable ids",
@@ -38,7 +38,7 @@
             "BSSN_NUM_CONST_VARS_VTU_OUTPUT": 6,
             "           " : "constraint variable var ids",
             "BSSN_VTU_OUTPUT_CONST_INDICES": [0,1,2,3,4,5],
-	    "BSSN_VTU_Z_SLICE_ONLY":true,
+            "BSSN_VTU_Z_SLICE_ONLY":true,
     "__comment__" : "=======================================================",
 
 
@@ -61,10 +61,10 @@
 
 
     "__comment__" : "========== WAVELET REFINEMENT ==========================",
-	    "BSSN_ELE_ORDER": 6,
+            "BSSN_ELE_ORDER": 6,
             "           " : "wavelet tolerance",
             "BSSN_WAVELET_TOL": 1e-5,
-	    "BSSN_GW_REFINE_WTOL":1e-4,
+            "BSSN_GW_REFINE_WTOL":1e-4,
             "           " : "set wavelet tolerance using a function (default 0)",
             "BSSN_USE_WAVELET_TOL_FUNCTION" : 3,
             "           " : "the maximum value of wavelet tolerance",
@@ -78,9 +78,10 @@
             "           " : "refinement variable IDs",
             "BSSN_REFINE_VARIABLE_INDICES":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23],
             "           " : "fd intergrid transfer",
-	    "BSSN_USE_FD_GRID_TRANSFER":false,
-	    "           " : "refinement mode 0-WAMR , 1-EH, 2-EH_WAMR 3-BH_loc based",
+            "BSSN_USE_FD_GRID_TRANSFER":false,
+            "           " : "refinement mode 0-WAMR , 1-EH, 2-EH_WAMR 3-BH_loc based",
             "BSSN_REFINEMENT_MODE": 3,
+            "BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE": true,
 
 			
     "__comment__" : "=======================================================",
@@ -138,7 +139,7 @@
             "BSSN_XI_2" : 0
             },
 
-	    "ANG_PAR": 1e-2,
+            "ANG_PAR": 1e-2,
             "CHI_FLOOR": 1e-4,
             "BSSN_TRK0": 0.0,
             "KO_DISS_SIGMA": 4e-1,
@@ -169,7 +170,7 @@
 
             "BSSN_BH1_AMR_R": 1.0,
             "BSSN_BH1_CONSTRAINT_R":5,
-	    "BSSN_BH1_MAX_LEV":15,
+            "BSSN_BH1_MAX_LEV":15,
 
             "BSSN_BH1": {
                 "MASS":0.4824,
@@ -184,9 +185,9 @@
                 "SPIN_PHI": 0
               },
               
-	      "BSSN_BH2_AMR_R": 1.0,
+              "BSSN_BH2_AMR_R": 1.0,
               "BSSN_BH2_CONSTRAINT_R":5,
-	      "BSSN_BH2_MAX_LEV":15,
+              "BSSN_BH2_MAX_LEV":15,
 
               "BSSN_BH2": {
                   "MASS":0.4824,

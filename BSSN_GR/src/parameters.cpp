@@ -147,6 +147,8 @@ namespace bssn
     // by default use WAMR refinement. 
     RefinementMode BSSN_REFINEMENT_MODE = RefinementMode::WAMR;
 
+    bool BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE = false;
+
     bool BSSN_VTU_Z_SLICE_ONLY = true;
 
     unsigned int BSSN_LTS_TS_OFFSET=4;

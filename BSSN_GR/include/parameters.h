@@ -310,6 +310,9 @@ namespace bssn
 
     /**@brief: refinement mode for the application*/
     extern RefinementMode BSSN_REFINEMENT_MODE;
+
+    /**@brief: option to enable if the set refinement mode should be used for initial grid converge */
+    extern bool BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE;
     
     /**@brief: if true output only the z slice*/
     extern bool BSSN_VTU_Z_SLICE_ONLY;

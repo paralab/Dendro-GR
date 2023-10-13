@@ -376,11 +376,22 @@ int BSSNCtx::initialize() {
         this->unzip(m_evar, m_evar_unz, bssn::BSSN_ASYNC_COMM_K);
         m_evar_unz.to_2d(unzipVar);
         // isRefine=this->is_remesh();
-        // enforce WMAR refinement based refinement initially.
-        isRefine =
-            bssn::isReMeshWAMR(m_uiMesh, (const double**)unzipVar, refineVarIds,
-                               bssn::BSSN_NUM_REFINE_VARS, waveletTolFunc,
-                               bssn::BSSN_DENDRO_AMR_FAC);
+        // NOTE: use a parameter to determine if initial grid covergence should
+        // be based on WAMR or the input method
+        if (bssn::BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE) {
+            // is remesh will use whatever the parameter was set to, not the
+            // default WAMR though... WAMR may actually be selected! But this
+            // way, any of the other initial refinement modes can be called
+            // instead during the initial convergence!
+            isRefine = this->is_remesh();
+        } else {
+            // enforce WMAR refinement based refinement initially.
+            isRefine =
+                bssn::isReMeshWAMR(m_uiMesh, (const double**)unzipVar,
+                                   refineVarIds, bssn::BSSN_NUM_REFINE_VARS,
+                                   waveletTolFunc, bssn::BSSN_DENDRO_AMR_FAC);
+        }
+
         if (isRefine) {
             ot::Mesh* newMesh =
                 this->remesh(bssn::BSSN_DENDRO_GRAIN_SZ,
@@ -534,9 +545,10 @@ int BSSNCtx::init_grid() {
                                          var, &mp, &mm, &mp_adm, &mm_adm, &E,
                                          &J1, &J2, &J3);
                         } else {
-                            // all other values are handled in the initial data wrapper including
-                            // an error message
-                            initialDataFunctionWrapper((double)x, (double)y, (double)z, var);
+                            // all other values are handled in the initial data
+                            // wrapper including an error message
+                            initialDataFunctionWrapper((double)x, (double)y,
+                                                       (double)z, var);
                         }
                         for (unsigned int v = 0; v < bssn::BSSN_NUM_VARS; v++)
                             zipIn[v][nodeLookUp_CG] = var[v];

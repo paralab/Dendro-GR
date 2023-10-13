@@ -176,7 +176,7 @@ namespace bssn
                 bssn::BSSN_BH2_CONSTRAINT_R =parFile["BSSN_BH2_CONSTRAINT_R"];
             
 
-           /* Parameters for TPID */
+            /* Parameters for TPID */ 
             TPID::target_M_plus=parFile["TPID_TARGET_M_PLUS"];
             TPID::target_M_minus=parFile["TPID_TARGET_M_MINUS"];
             TPID::par_m_plus=TPID::target_M_plus;
@@ -259,6 +259,10 @@ namespace bssn
                 bssn::BSSN_REFINEMENT_MODE = static_cast<bssn::RefinementMode>(parFile["BSSN_REFINEMENT_MODE"]);
             }
 
+            if(parFile.find("BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE") != parFile.end())
+            {
+                bssn::BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE = parFile["BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE"];
+            }
 
         }
 
@@ -277,6 +281,7 @@ namespace bssn
         par::Mpi_Bcast(&BSSN_DENDRO_AMR_FAC,1,0,comm);
         par::Mpi_Bcast(&BSSN_ASYNC_COMM_K,1,0,comm);
         par::Mpi_Bcast((int*)&BSSN_REFINEMENT_MODE,1,0,comm);
+        par::Mpi_Bcast(&BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE, 1, 0, comm);
         par::Mpi_Bcast(&BSSN_GW_EXTRACT_FREQ,1,0,comm);
         par::Mpi_Bcast(&BSSN_BH1_AMR_R,1,0,comm);
         par::Mpi_Bcast(&BSSN_BH2_AMR_R,1,0,comm);
@@ -554,6 +559,8 @@ namespace bssn
             sout<<bssn::BSSN_REFINE_VARIABLE_INDICES[bssn::BSSN_NUM_REFINE_VARS-1]<<"]"<<NRM<<std::endl;
 
             sout<<YLW<<"\tBSSN_REFINEMENT_MODE :"<<bssn::BSSN_REFINEMENT_MODE<<NRM<<std::endl;
+            sout<<YLW<<"\tBSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE :"<<bssn::BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE<<NRM<<std::endl;
+
             sout<<YLW<<"\tBSSN_BH1_AMR_R:"<<bssn::BSSN_BH1_AMR_R<<NRM<<std::endl;
             sout<<YLW<<"\tBSSN_BH2_AMR_R:"<<bssn::BSSN_BH2_AMR_R<<NRM<<std::endl;
 
