@@ -150,6 +150,9 @@ namespace bssn
             if(parFile.find("BSSN_BH2_AMR_R")!=parFile.end())
                 bssn::BSSN_BH2_AMR_R = parFile["BSSN_BH2_AMR_R"];
 
+            if(parFile.find("BSSN_AMR_R_RATIO") != parFile.end())
+                bssn::BSSN_AMR_R_RATIO = parFile["BSSN_AMR_R_RATIO"];
+
             if(parFile.find("BSSN_BH1_MAX_LEV")!=parFile.end())
                 bssn::BSSN_BH1_MAX_LEV = parFile["BSSN_BH1_MAX_LEV"];
             else
@@ -285,6 +288,7 @@ namespace bssn
         par::Mpi_Bcast(&BSSN_GW_EXTRACT_FREQ,1,0,comm);
         par::Mpi_Bcast(&BSSN_BH1_AMR_R,1,0,comm);
         par::Mpi_Bcast(&BSSN_BH2_AMR_R,1,0,comm);
+        par::Mpi_Bcast(&BSSN_AMR_R_RATIO,1,0,comm);
 
         par::Mpi_Bcast(&BSSN_BH1_CONSTRAINT_R,1,0,comm);
         par::Mpi_Bcast(&BSSN_BH2_CONSTRAINT_R,1,0,comm);
@@ -561,8 +565,9 @@ namespace bssn
             sout<<YLW<<"\tBSSN_REFINEMENT_MODE :"<<bssn::BSSN_REFINEMENT_MODE<<NRM<<std::endl;
             sout<<YLW<<"\tBSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE :"<<bssn::BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE<<NRM<<std::endl;
 
-            sout<<YLW<<"\tBSSN_BH1_AMR_R:"<<bssn::BSSN_BH1_AMR_R<<NRM<<std::endl;
-            sout<<YLW<<"\tBSSN_BH2_AMR_R:"<<bssn::BSSN_BH2_AMR_R<<NRM<<std::endl;
+            sout<<YLW<<"\tBSSN_BH1_AMR_R: "<<bssn::BSSN_BH1_AMR_R<<NRM<<std::endl;
+            sout<<YLW<<"\tBSSN_BH2_AMR_R: "<<bssn::BSSN_BH2_AMR_R<<NRM<<std::endl;
+            sout<<YLW<<"\tBSSN_AMR_R_RATIO: " << bssn::BSSN_AMR_R_RATIO << NRM << std::endl;
 
             sout<<YLW<<"\tBSSN_BH1_CONSTRAINT_R:"<<bssn::BSSN_BH1_CONSTRAINT_R<<NRM<<std::endl;
             sout<<YLW<<"\tBSSN_BH2_CONSTRAINT_R:"<<bssn::BSSN_BH2_CONSTRAINT_R<<NRM<<std::endl;

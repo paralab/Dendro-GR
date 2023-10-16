@@ -129,6 +129,9 @@ namespace bssn
     /**@brief: AMR radius for the BH location based refinement. (BH2) */
     extern double BSSN_BH2_AMR_R;
 
+    /** @brief: AMR ratio for the far factor, this was originally just 2.5, which is why it's the default **/
+    extern double BSSN_AMR_R_RATIO;
+
     /**@brief: BH Mass. (BH1)*/
     extern double BSSN_BH1_MASS;
 

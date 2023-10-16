@@ -160,7 +160,8 @@ namespace bssn
     {
         
         const double r_near[2] = {bssn::BSSN_BH1_AMR_R,bssn::BSSN_BH2_AMR_R};
-        const double r_far[2]  =  {2.5 * r_near[0], 2.5 * r_near[1] };
+        // const double r_far[2]  =  {2.5 * r_near[0], 2.5 * r_near[1] };
+        const double r_far[2] = { bssn::BSSN_AMR_R_RATIO * r_near[0], bssn::BSSN_AMR_R_RATIO * r_near[1] };
         const unsigned int DEPTH_LEV_OFFSET = 2;
 
         const unsigned int eleLocalBegin = pMesh->getElementLocalBegin();
