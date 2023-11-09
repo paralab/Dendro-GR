@@ -210,6 +210,9 @@ endif()
 
 add_definitions(-DMATVEC_PROFILE)
 
+include(${CMAKE_SOURCE_DIR}/cmake-modules/CheckGit.cmake)
+CheckGitSetup()
+
 # === END REQUIRED CONFIGURATIONS FOR DENDRO ===
 
 # === BEGIN SUBDIRECTORY INCLUSION FOR BUILDING ===

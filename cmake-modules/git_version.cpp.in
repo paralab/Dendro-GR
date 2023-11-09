@@ -1,0 +1,9 @@
+#include "git_version_and_date.h"
+
+namespace compile_info {
+
+const char *currGitHash = "@GIT_HASH@";
+const char *dirtyStatus = "@GIT_DIRTY@";
+const char *compileDate = "@COMPILE_DATE_TIME@";
+
+}  // namespace compile_info

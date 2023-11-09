@@ -18,6 +18,8 @@
 #include "sdc.h"
 #include "bssnCtx.h"
 
+#include "git_version_and_date.h"
+
 
 int main (int argc, char** argv)
 {
@@ -101,6 +103,22 @@ int main (int argc, char** argv)
           std::cout<<RED<<"  Compiled without  USE_FD_INTERP_FOR_UNZIP"<<NRM<<std::endl;
         #endif
 
+    }
+
+
+    if (!rank) {
+        std::cout << YLW << "  COMPILED ON  -  " << compile_info::compileDate << NRM <<std::endl;
+        std::cout << YLW << "  LATEST GIT HASH - " << compile_info::currGitHash << compile_info::dirtyStatus << std::endl;
+    }
+
+    std::vector<std::string> arg_s(argv, argv+argc);
+    for (size_t ii = 1; ii < arg_s.size(); ++ii) {
+        if (arg_s[ii] == "--compile-info") {
+            if (!rank)
+                std::cout << "Compile info only flag found, exiting..." << NRM << std::endl << std::endl;
+            MPI_Finalize();
+            return 0; 
+        }
     }
 
     //1 . read the parameter file.

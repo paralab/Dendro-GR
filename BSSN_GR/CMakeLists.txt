@@ -392,6 +392,7 @@ if(WITH_CUDA)
     target_link_libraries(bssnSolver ${CUDA_LIBRARIES})
 endif()
 target_link_libraries(bssnSolver dendro5 ${LAPACK_LIBRARIES} ${MPI_LIBRARIES} ${GSL_LIBRARIES} m)
+target_link_libraries(bssnSolver dendro_git_version_and_date)
 
 add_executable(bssnSolverCtx src/bssngr_main.cpp src/bssnCtx.cpp)
 target_include_directories(bssnSolverCtx PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/include)
@@ -412,6 +413,7 @@ target_include_directories(bssnSolverCtx PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/scr
 target_include_directories(bssnSolverCtx PRIVATE ${CUDA_INCLUDE_DIRS})
 target_link_libraries(bssnSolverCtx bssn_lib dendro5 ${CUDA_LIBRARIES})
 target_link_libraries(bssnSolverCtx ${LAPACK_LIBRARIES} ${MPI_LIBRARIES} ${GSL_LIBRARIES} m)
+target_link_libraries(bssnSolver dendro_git_version_and_date)
 
 # set(SOURCE_FILES src/gr_scaling.cpp include/gr.h ${BSSN_INC} ${BSSN_SRC} ${CUDA_GR_INCLUDE_H} ${CUDA_GR_SRC_CPP})
 # add_executable(bssnScalingTest ${SOURCE_FILES})
