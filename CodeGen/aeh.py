@@ -3,6 +3,8 @@
 import sys as sys
 import dendro
 import sympy
+import contextlib 
+import io
 
 gt  = dendro.sym_3x3("gt" , "[pp]")
 At  = dendro.sym_3x3("At" , "[pp]")
@@ -27,29 +29,6 @@ C2 = dendro.get_second_christoffel()
 # full Christoffel symbols w.r.t g_{ij}
 C3 = dendro.get_complete_christoffel(chi)
 
-# r,theta, phi = sympy.symbols("r, theta, phi")
-
-# def sph_real(l,m, theta, phi):
-#     """
-#     computes the real spherical harmonics
-#     """
-#     assert abs(m)<=l
-
-#     if m==0:
-#         sph_norm_fac = sympy.sqrt(sympy.Rational((2 * l + 1), 4))/sympy.sqrt(sympy.pi) 
-#     else:
-#         sph_norm_fac = (-1)**m * sympy.sqrt(sympy.Rational((2 * l + 1) * sympy.factorial(l-sympy.Abs(m)) , 4 * sympy.factorial(l+sympy.Abs(m)))) /sympy.sqrt(sympy.pi)
-
-#     if m < 0:
-#         return sph_norm_fac * sympy.functions.special.polynomials.assoc_legendre(l, m, sympy.cos(theta)) * sympy.sin(sympy.Abs(m) * phi)
-#     elif m==0:
-#         return sph_norm_fac * sympy.functions.special.polynomials.assoc_legendre(l, m, sympy.cos(theta)) 
-#     else:
-#         return sph_norm_fac * sympy.functions.special.polynomials.assoc_legendre(l, m, sympy.cos(theta)) * sympy.cos( m * phi)
-
-# l_max = 5
-# lm_modes = [(l, m) for l in range(0, l_max + 1) for m in range(-l, -l+1)]
-
 F      = dendro.scalar("F","[pp]")
 s_dk   = [d(i,F) for i in dendro.e_i]
 s_uk   = [sympy.simplify(sum([ig[i,j] * s_dk[j] for j in dendro.e_i])) for i in dendro.e_i]
@@ -62,7 +41,31 @@ H      = sum([(dendro.DiDj(F)[i,j]/s_norm - Kij[i,j]) * (ig[i,j] - n_uk[i] * n_u
 
 outs   = [H]
 vnames = ['H']
-dendro.generate_cpu(outs, vnames, '[pp]')
+
+with contextlib.redirect_stdout(io.StringIO()) as f:
+    dendro.generate_cpu(outs, vnames, '[pp]')
+
+with open("../BSSN_GR/src/expansion_aeh.cpp", "w") as f_out:
+    f_out.writelines(f.getvalue())
 
 
-#mu_ij = sympy.Matrix([[sympy.simplify(ig[i,j] - n_uk[i] * n_uk[j]) for j in dendro.e_i] for i in dendro.e_i ])
+dendro.d   = lambda i,x : sympy.Symbol("grad_%d_%s"%(i,str(x).split('[')[0]))
+dendro.d2  = lambda i,j,x : sympy.Symbol("grad2_%d_%d_%s"%(min(i,j),max(i,j),str(x).split('[')[0]))
+
+dendro.ad  = dendro.d
+dendro.kod = dendro.undef
+
+d=dendro.d
+d2=dendro.d2
+ad=dendro.ad
+    
+g      = gt/chi
+A      = dendro.vec3("A","[pp]")
+
+md_ij   = sympy.Matrix([[sympy.simplify(sum([g[a,b] * d(i, A[a]) * d(j, A[b]) for a in dendro.e_i for b in dendro.e_i])) for j in range(2)] for i in range(2)])
+det_mij = sympy.simplify(sympy.det(md_ij))
+with contextlib.redirect_stdout(io.StringIO()) as f:
+    dendro.generate_cpu([det_mij], ['det_m_ab'], '[pp]')
+
+with open("../BSSN_GR/src/det_metric_aeh.cpp", "w") as f_out:
+    f_out.writelines(f.getvalue())
