@@ -137,7 +137,7 @@ function(CheckGitVersion)
 
     if (NOT ${GIT_DIRTY} STREQUAL ${GIT_DIRTY_CACHE} OR NOT EXISTS ${post_configure_file})
 
-        CheckGitDirtyWrite(${GIT_DIRTY})
+        CheckGitDirtyWrite("${GIT_DIRTY}")
 
         set(please_configure ON)
 
