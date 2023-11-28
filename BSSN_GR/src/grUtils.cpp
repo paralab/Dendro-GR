@@ -8,9 +8,27 @@
 //
 
 #include "grUtils.h"
+#include "git_version_and_date.h"
 
 namespace bssn
 {
+
+    void printGitInformation(int rank, std::vector<std::string> arg_s) 
+    {
+        if (!rank) {
+            std::cout << YLW << "  COMPILED ON  -  " << compile_info::compileDate << NRM <<std::endl;
+            std::cout << YLW << "  LATEST GIT HASH - " << compile_info::currGitHash << compile_info::dirtyStatus << std::endl;
+        }
+ 
+        for (size_t ii = 1; ii < arg_s.size(); ++ii) {
+            if (arg_s[ii] == "--compile-info") {
+                if (!rank)
+                    std::cout << "Compile info only flag found, exiting..." << NRM << std::endl << std::endl;
+                MPI_Finalize();
+                exit(0); 
+            }
+        }
+    }
 
     void readParamFile(const char * fName,MPI_Comm comm)
     {
