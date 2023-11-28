@@ -90,7 +90,7 @@ function(CheckGitVersion)
     if (GIT_DIRTY_STAT_1 EQUAL "1" OR GIT_DIRTY_STAT_2 EQUAL "1")
         set(GIT_DIRTY "-dirty")
     else()
-        set(GIT_DIRTY "")
+        set(GIT_DIRTY " (clean repo)")
     endif()
 
     execute_process(

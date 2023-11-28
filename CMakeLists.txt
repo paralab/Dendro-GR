@@ -210,7 +210,8 @@ endif()
 
 add_definitions(-DMATVEC_PROFILE)
 
-include(${CMAKE_SOURCE_DIR}/cmake-modules/CheckGit.cmake)
+set(CHECK_GIT_INCLUDE_PATH ${CMAKE_SOURCE_DIR}/cmake-modules)
+include(${CHECK_GIT_INCLUDE_PATH}/CheckGit.cmake)
 CheckGitSetup()
 
 # === END REQUIRED CONFIGURATIONS FOR DENDRO ===
