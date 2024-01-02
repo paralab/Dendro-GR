@@ -211,12 +211,12 @@ namespace GW
 
 namespace AEH
 {
-    unsigned int AEH_LMAX       = 6;
-    unsigned int AEH_Q_THETA    = 32;
-    unsigned int AEH_Q_PHI      = 32 ;
-    unsigned int AEH_MAXITER    = 50;
-    double AEH_ATOL             = 1e-8;
-    double AEH_RTOL             = 1e-8;
-    unsigned int AEH_SOLVER_FREQ = 100;
+    unsigned int AEH_LMAX        = 6;
+    unsigned int AEH_Q_THETA     = 32;
+    unsigned int AEH_Q_PHI       = 32 ;
+    unsigned int AEH_MAXITER     = 50;
+    double AEH_ATOL              = 1e-8;
+    double AEH_RTOL              = 1e-8;
+    unsigned int AEH_SOLVER_FREQ = 0;
     
 }

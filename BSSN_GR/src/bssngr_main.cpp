@@ -325,7 +325,7 @@ int main (int argc, char** argv)
           
           aeh::SpectralAEHSolver<bssn::BSSNCtx,DendroScalar> aeh_solver(bssnCtx, lmax, ntheta, nphi, false);
           const unsigned int num_lm_modes = aeh_solver.get_num_lm_modes();
-          double rlim[2] ={1e-6, 10};
+          double rlim[2] ={1e-6, 30};
 
           try
           {
