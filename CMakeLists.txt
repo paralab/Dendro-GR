@@ -9,7 +9,7 @@
 # directories such as src/ and dendro/
 # ##############################################################################
 
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.6)
 project(Dendro-5.0 C CXX Fortran)
 
 # the standard we're using is c++11 -- NOTE: this might change to C++17 or newer
@@ -209,6 +209,11 @@ if(USE_FD_INTERP_FOR_UNZIP)
 endif()
 
 add_definitions(-DMATVEC_PROFILE)
+
+set(CHECK_GIT_INCLUDE_PATH ${CMAKE_SOURCE_DIR}/cmake-modules)
+include(${CHECK_GIT_INCLUDE_PATH}/CheckGit.cmake)
+message(STATUS "Setting up adding Git Information directly to compile options, header file should be in ${CHECK_GIT_INCLUDE_PATH}")
+CheckGitSetup()
 
 # === END REQUIRED CONFIGURATIONS FOR DENDRO ===
 

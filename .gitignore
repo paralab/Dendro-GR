@@ -53,3 +53,4 @@ kde
 .vscode
 .python-version
 CMakeFiles/
+.cache/

@@ -129,6 +129,9 @@ namespace bssn
     /**@brief: AMR radius for the BH location based refinement. (BH2) */
     extern double BSSN_BH2_AMR_R;
 
+    /** @brief: AMR ratio for the far factor, this was originally just 2.5, which is why it's the default **/
+    extern double BSSN_AMR_R_RATIO;
+
     /**@brief: BH Mass. (BH1)*/
     extern double BSSN_BH1_MASS;
 
@@ -310,6 +313,9 @@ namespace bssn
 
     /**@brief: refinement mode for the application*/
     extern RefinementMode BSSN_REFINEMENT_MODE;
+
+    /**@brief: option to enable if the set refinement mode should be used for initial grid converge */
+    extern bool BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE;
     
     /**@brief: if true output only the z slice*/
     extern bool BSSN_VTU_Z_SLICE_ONLY;

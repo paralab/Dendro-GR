@@ -8,9 +8,27 @@
 //
 
 #include "grUtils.h"
+#include "git_version_and_date.h"
 
 namespace bssn
 {
+
+    void printGitInformation(int rank, std::vector<std::string> arg_s) 
+    {
+        if (!rank) {
+            std::cout << YLW << "  COMPILED ON  -  " << compile_info::compileDate << NRM <<std::endl;
+            std::cout << YLW << "  LATEST GIT HASH - " << compile_info::currGitHash << compile_info::dirtyStatus << std::endl;
+        }
+ 
+        for (size_t ii = 1; ii < arg_s.size(); ++ii) {
+            if (arg_s[ii] == "--compile-info") {
+                if (!rank)
+                    std::cout << "Compile info only flag found, exiting..." << NRM << std::endl << std::endl;
+                MPI_Finalize();
+                exit(0); 
+            }
+        }
+    }
 
     void readParamFile(const char * fName,MPI_Comm comm)
     {
@@ -61,6 +79,7 @@ namespace bssn
         bssn::BSSN_DIM                        = parFile["BSSN_DIM"];
         bssn::BSSN_MAXDEPTH                   = parFile["BSSN_MAXDEPTH"];
 
+
         bssn::BH1                             = BH((double)parFile["BSSN_BH1"]["MASS"],(double)parFile["BSSN_BH1"]["X"],(double)parFile["BSSN_BH1"]["Y"],(double)parFile["BSSN_BH1"]["Z"],(double)parFile["BSSN_BH1"]["V_X"],(double)parFile["BSSN_BH1"]["V_Y"],(double)parFile["BSSN_BH1"]["V_Z"],(double)parFile["BSSN_BH1"]["SPIN"],(double)parFile["BSSN_BH1"]["SPIN_THETA"],(double)parFile["BSSN_BH1"]["SPIN_PHI"]);
         bssn::BH2                             = BH((double)parFile["BSSN_BH2"]["MASS"],(double)parFile["BSSN_BH2"]["X"],(double)parFile["BSSN_BH2"]["Y"],(double)parFile["BSSN_BH2"]["Z"],(double)parFile["BSSN_BH2"]["V_X"],(double)parFile["BSSN_BH2"]["V_Y"],(double)parFile["BSSN_BH2"]["V_Z"],(double)parFile["BSSN_BH2"]["SPIN"],(double)parFile["BSSN_BH2"]["SPIN_THETA"],(double)parFile["BSSN_BH2"]["SPIN_PHI"]);
         
@@ -88,6 +107,10 @@ namespace bssn
         }
         if (parFile.find("RIT_ETA_WIDTH") != parFile.end()) {
             bssn::RIT_ETA_WIDTH=parFile["RIT_ETA_WIDTH"];
+        }
+
+        if(parFile.find("BSSN_AMR_R_RATIO") != parFile.end()) {
+            bssn::BSSN_AMR_R_RATIO = parFile["BSSN_AMR_R_RATIO"];
         }
 
         bssn::BSSN_LAMBDA[0]                  = (unsigned int) parFile["BSSN_LAMBDA"]["BSSN_LAMBDA_1"];
@@ -170,6 +193,9 @@ namespace bssn
 
         if(parFile.find("BSSN_BH2_CONSTRAINT_R")!=parFile.end())
             bssn::BSSN_BH2_CONSTRAINT_R =parFile["BSSN_BH2_CONSTRAINT_R"];
+
+        if(parFile.find("BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE")!=parFile.end())
+            bssn::BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE = parFile["BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE"];
 
 
         /* Parameters for TPID */
@@ -382,8 +408,11 @@ namespace bssn
             sout<<bssn::BSSN_REFINE_VARIABLE_INDICES[bssn::BSSN_NUM_REFINE_VARS-1]<<"]"<<NRM<<std::endl;
 
             sout<<YLW<<"\tBSSN_REFINEMENT_MODE :"<<bssn::BSSN_REFINEMENT_MODE<<NRM<<std::endl;
-            sout<<YLW<<"\tBSSN_BH1_AMR_R:"<<bssn::BSSN_BH1_AMR_R<<NRM<<std::endl;
-            sout<<YLW<<"\tBSSN_BH2_AMR_R:"<<bssn::BSSN_BH2_AMR_R<<NRM<<std::endl;
+            sout<<YLW<<"\tBSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE :"<<bssn::BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE<<NRM<<std::endl;
+
+            sout<<YLW<<"\tBSSN_BH1_AMR_R: "<<bssn::BSSN_BH1_AMR_R<<NRM<<std::endl;
+            sout<<YLW<<"\tBSSN_BH2_AMR_R: "<<bssn::BSSN_BH2_AMR_R<<NRM<<std::endl;
+            sout<<YLW<<"\tBSSN_AMR_R_RATIO: " << bssn::BSSN_AMR_R_RATIO << NRM << std::endl;
 
             sout<<YLW<<"\tBSSN_BH1_CONSTRAINT_R:"<<bssn::BSSN_BH1_CONSTRAINT_R<<NRM<<std::endl;
             sout<<YLW<<"\tBSSN_BH2_CONSTRAINT_R:"<<bssn::BSSN_BH2_CONSTRAINT_R<<NRM<<std::endl;
@@ -409,7 +438,6 @@ namespace bssn
             for(unsigned int i=0;i<bssn::BSSN_NUM_CONST_VARS_VTU_OUTPUT-1;i++)
                 sout<<bssn::BSSN_VTU_OUTPUT_CONST_INDICES[i]<<", ";
             sout<<bssn::BSSN_VTU_OUTPUT_CONST_INDICES[bssn::BSSN_NUM_CONST_VARS_VTU_OUTPUT-1]<<"]"<<NRM<<std::endl;
-
 
             sout<<YLW<<"\tTPID_TARGET_M_PLUS :"<<TPID::target_M_plus<<NRM<<std::endl;
             sout<<YLW<<"\tTPID_TARGET_M_MINUS :"<<TPID::target_M_minus<<NRM<<std::endl;
@@ -531,6 +559,11 @@ namespace bssn
 
                 break;
 
+            case 5:
+                // minkowski initial data is flat space!
+                bssn:minkowskiInitialData(xx_grid, yy_grid, zz_grid, var);
+
+                break;
             // MORE CAN BE ADDED HERE
 
             default:
@@ -1241,6 +1274,34 @@ namespace bssn
 
 
     }
+
+    void minkowskiInitialData(const double xx1, const double yy1, const double zz1, double *var) {
+        // Flat space initialization!
+        var[VAR::U_ALPHA] = 1;  // lapse
+        var[VAR::U_CHI] = 1;    // chi
+        var[VAR::U_K] = 0;      // trace K
+        var[VAR::U_GT0] = 0;    // Gt0
+        var[VAR::U_GT1] = 0;    // Gt1
+        var[VAR::U_GT2] = 0;    // Gt2
+        var[VAR::U_BETA0] = 0;  // shift 0
+        var[VAR::U_BETA1] = 0;  // shift 1
+        var[VAR::U_BETA2] = 0;  // shift 2
+        var[VAR::U_B0] = 0;     // gaugeB0
+        var[VAR::U_B1] = 0;     // gaugeB1
+        var[VAR::U_B2] = 0;     // gaugeB2
+        var[VAR::U_SYMGT0] = 1; // gt11
+        var[VAR::U_SYMGT1] = 0; // gt12
+        var[VAR::U_SYMGT2] = 0; // gt13
+        var[VAR::U_SYMGT3] = 1; // gt22
+        var[VAR::U_SYMGT4] = 0; // gt23
+        var[VAR::U_SYMGT5] = 1; // gt33
+        var[VAR::U_SYMAT0] = 0; // At11
+        var[VAR::U_SYMAT1] = 0; // At12
+        var[VAR::U_SYMAT2] = 0; // At13
+        var[VAR::U_SYMAT3] = 0; // At22
+        var[VAR::U_SYMAT4] = 0; // At23
+        var[VAR::U_SYMAT5] = 0; // At33
+}
 
     void blockAdaptiveOctree(std::vector<ot::TreeNode>& tmpNodes,const Point& pt_min,const Point & pt_max,const unsigned int regLev,const unsigned int maxDepth,MPI_Comm comm)
     {

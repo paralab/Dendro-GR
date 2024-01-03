@@ -28,6 +28,15 @@
 using json = nlohmann::json;
 namespace bssn
 {
+
+    /**
+     * @brief: Prints compile information, including Git Hash and Compile Date
+     *
+     * @param[in] rank: MPI Rank 
+     * @param[in] arg_s: Vectorized string arguments to program
+     */
+    void printGitInformation(int rank, std::vector<std::string> arg_s);
+
     /**
      * @brief: Read the parameter file and initialize the variables in parameters.h file.
      * @param[in] fName: file name
@@ -107,6 +116,11 @@ namespace bssn
      * @param var : initialized bssn variables for the grid points
      */
     void noiseData(const double xx1,const double yy1,const double zz1, double *var);
+
+    /**
+     * @brief initial flat space data (Minkowski)
+     */
+    void minkowskiInitialData(const double xx1, const double yy1, const double zz1, double *var);
 
     /**
      * @brief fake initial data. 

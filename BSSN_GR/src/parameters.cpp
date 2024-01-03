@@ -59,6 +59,7 @@ namespace bssn
 
     double BSSN_BH1_AMR_R=2.0;
     double BSSN_BH2_AMR_R=2.0;
+    double BSSN_AMR_R_RATIO = 2.5; // ratio for the near to far portion, was originally 2.5
 
     double BSSN_BH1_CONSTRAINT_R=5.0;
     double BSSN_BH2_CONSTRAINT_R=5.0;
@@ -146,6 +147,8 @@ namespace bssn
 
     // by default use WAMR refinement. 
     RefinementMode BSSN_REFINEMENT_MODE = RefinementMode::WAMR;
+
+    bool BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE = false;
 
     bool BSSN_VTU_Z_SLICE_ONLY = true;
 
