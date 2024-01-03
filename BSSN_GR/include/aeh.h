@@ -11,6 +11,7 @@
 #include "mesh.h"
 #include "mpi.h"
 #include "grDef.h"
+#include "derivs.h"
 #include "daUtils.h"
 #include "sph.h"
 #include "parameters.h"
@@ -448,10 +449,10 @@ namespace aeh
         const unsigned int cg_sz   = m_uiMesh->getDegOfFreedom();
         const unsigned int uz_sz   = m_uiMesh->getDegOfFreedomUnZip();
         
-        DendroScalar * gt          = &gr_vars_ptr[VAR::U_SYMGT0 * cg_sz];
-        DendroScalar * At          = &gr_vars_ptr[VAR::U_SYMAT0 * cg_sz];
-        DendroScalar * chi         = &gr_vars_ptr[VAR::U_CHI    * cg_sz];
-        DendroScalar * K           = &gr_vars_ptr[VAR::U_K      * cg_sz];
+        DendroScalar * gt          = &gr_vars_ptr[bssn::VAR::U_SYMGT0 * cg_sz];
+        DendroScalar * At          = &gr_vars_ptr[bssn::VAR::U_SYMAT0 * cg_sz];
+        DendroScalar * chi         = &gr_vars_ptr[bssn::VAR::U_CHI    * cg_sz];
+        DendroScalar * K           = &gr_vars_ptr[bssn::VAR::U_K      * cg_sz];
 
 
         DendroScalar * gt_uz  = m_aeh_vars->gt.get_vec_ptr();
@@ -718,13 +719,13 @@ namespace aeh
         DendroScalar * gr_vars_ptr = gr_vars.get_vec_ptr();
         const unsigned int cg_sz   = m_uiMesh->getDegOfFreedom();
 
-        const DendroScalar* const  gt0 = &gr_vars_ptr[VAR::U_SYMGT0 * cg_sz];
-        const DendroScalar* const  gt1 = &gr_vars_ptr[VAR::U_SYMGT1 * cg_sz];
-        const DendroScalar* const  gt2 = &gr_vars_ptr[VAR::U_SYMGT2 * cg_sz];
-        const DendroScalar* const  gt3 = &gr_vars_ptr[VAR::U_SYMGT3 * cg_sz];
-        const DendroScalar* const  gt4 = &gr_vars_ptr[VAR::U_SYMGT4 * cg_sz];
-        const DendroScalar* const  gt5 = &gr_vars_ptr[VAR::U_SYMGT5 * cg_sz];
-        const DendroScalar* const  chi = &gr_vars_ptr[VAR::U_CHI * cg_sz];
+        const DendroScalar* const  gt0 = &gr_vars_ptr[bssn::VAR::U_SYMGT0 * cg_sz];
+        const DendroScalar* const  gt1 = &gr_vars_ptr[bssn::VAR::U_SYMGT1 * cg_sz];
+        const DendroScalar* const  gt2 = &gr_vars_ptr[bssn::VAR::U_SYMGT2 * cg_sz];
+        const DendroScalar* const  gt3 = &gr_vars_ptr[bssn::VAR::U_SYMGT3 * cg_sz];
+        const DendroScalar* const  gt4 = &gr_vars_ptr[bssn::VAR::U_SYMGT4 * cg_sz];
+        const DendroScalar* const  gt5 = &gr_vars_ptr[bssn::VAR::U_SYMGT5 * cg_sz];
+        const DendroScalar* const  chi = &gr_vars_ptr[bssn::VAR::U_CHI * cg_sz];
         
         T * const det_m_ab = aeh_f_ptr;
         for (unsigned int elem = m_uiMesh->getElementLocalBegin(); elem < m_uiMesh->getElementLocalEnd(); elem++) {
@@ -1093,22 +1094,22 @@ namespace aeh
             //     pData[1] = aeh_h.get_vec_ptr();
 
             //     DendroScalar* gr_evar  = ctx->get_evolution_vars().get_vec_ptr();
-            //     pData[2] = &gr_evar[VAR::U_SYMGT0 * cg_sz];
-            //     pData[3] = &gr_evar[VAR::U_SYMGT1 * cg_sz];
-            //     pData[4] = &gr_evar[VAR::U_SYMGT2 * cg_sz];
-            //     pData[5] = &gr_evar[VAR::U_SYMGT3 * cg_sz];
-            //     pData[6] = &gr_evar[VAR::U_SYMGT4 * cg_sz];
-            //     pData[7] = &gr_evar[VAR::U_SYMGT5 * cg_sz];
+            //     pData[2] = &gr_evar[bssn::VAR::U_SYMGT0 * cg_sz];
+            //     pData[3] = &gr_evar[bssn::VAR::U_SYMGT1 * cg_sz];
+            //     pData[4] = &gr_evar[bssn::VAR::U_SYMGT2 * cg_sz];
+            //     pData[5] = &gr_evar[bssn::VAR::U_SYMGT3 * cg_sz];
+            //     pData[6] = &gr_evar[bssn::VAR::U_SYMGT4 * cg_sz];
+            //     pData[7] = &gr_evar[bssn::VAR::U_SYMGT5 * cg_sz];
 
-            //     pData[8]  = &gr_evar[VAR::U_SYMAT0 * cg_sz];
-            //     pData[9]  = &gr_evar[VAR::U_SYMAT1 * cg_sz];
-            //     pData[10] = &gr_evar[VAR::U_SYMAT2 * cg_sz];
-            //     pData[11] = &gr_evar[VAR::U_SYMAT3 * cg_sz];
-            //     pData[12] = &gr_evar[VAR::U_SYMAT4 * cg_sz];
-            //     pData[13] = &gr_evar[VAR::U_SYMAT5 * cg_sz];
+            //     pData[8]  = &gr_evar[bssn::VAR::U_SYMAT0 * cg_sz];
+            //     pData[9]  = &gr_evar[bssn::VAR::U_SYMAT1 * cg_sz];
+            //     pData[10] = &gr_evar[bssn::VAR::U_SYMAT2 * cg_sz];
+            //     pData[11] = &gr_evar[bssn::VAR::U_SYMAT3 * cg_sz];
+            //     pData[12] = &gr_evar[bssn::VAR::U_SYMAT4 * cg_sz];
+            //     pData[13] = &gr_evar[bssn::VAR::U_SYMAT5 * cg_sz];
 
-            //     pData[14] = &gr_evar[VAR::U_CHI * cg_sz];
-            //     pData[15] = &gr_evar[VAR::U_K * cg_sz];
+            //     pData[14] = &gr_evar[bssn::VAR::U_CHI * cg_sz];
+            //     pData[15] = &gr_evar[bssn::VAR::U_K * cg_sz];
 
 
             //     const char * pNames[]={"F", "H", "gt0", "gt1", "gt2", "gt3", "gt4", "gt5", "At0", "At1", "At2", "At3", "At4", "At5", "At5", "chi", "K" };
