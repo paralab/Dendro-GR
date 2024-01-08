@@ -22,11 +22,12 @@
 int main (int argc, char** argv)
 {
     // 0- NUTS 1-UTS
-    unsigned int ts_mode=0;     
+    // NOTE: UTS is the default
+    unsigned int ts_mode=1; 
     
     if(argc<2)
     {
-        std::cout<<"Usage: "<<argv[0]<<"paramFile TSMode(0){0-Spatially Adaptive Time Stepping(SATS, "<<GRN<<"default"<<NRM<<") , 1- Uniform Time Stepping.  }"<<std::endl;
+        std::cout<<"Usage: "<<argv[0]<<"paramFile TSMode(0){0-Spatially Adaptive Time Stepping(SATS) , 1- Uniform Time Stepping. (" << GRN << "DEFAULT" << NRM << ") }"<<std::endl;
         return 0;
     }
         
@@ -40,6 +41,20 @@ int main (int argc, char** argv)
     int rank,npes;
     MPI_Comm_rank(comm,&rank);
     MPI_Comm_size(comm,&npes);
+
+
+    if (!rank) {
+        std::cout << "======================================" << std::endl;
+        std::cout << GRN << ":::: Now initializing BSSN Solver ::::" << NRM << std::endl;
+        if (ts_mode == 0) {
+            std::cout << YLW << "      - Running with the Non-Uniform/Spatially Adaptive Time Stepper (NUTS/SATS)" << NRM << std::endl;
+        } else {
+
+            std::cout << YLW << "      - Running with the Uniform Time Stepper (UTS)" << NRM << std::endl;
+        }
+
+        std::cout << "======================================" << std::endl;
+    }
 
     // Print out CMAKE options
     if (!rank) {
