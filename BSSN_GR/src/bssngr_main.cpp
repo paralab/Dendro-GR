@@ -380,7 +380,7 @@ int main (int argc, char** argv)
 
                 char fname[256];
                 sprintf(fname,"%s_%d_%d_%d_bh0_aeh.dat",bssn::BSSN_PROFILE_FILE_PREFIX.c_str(), lmax, ntheta, nphi);
-                aeh_solver.solve(bssnCtx->get_bh0_loc(), bssnCtx, hh[0].data(), hh[1].data(), max_iter, rel_tol, abs_tol, rlim);
+                aeh_solver.solve(bssnCtx->get_bh0_loc(), bssnCtx, hh[0].data(), hh[1].data(), max_iter, rel_tol, abs_tol, rlim, 1u);
                 aeh_solver.aeh_to_json(bssnCtx->get_bh0_loc(), bssnCtx, hh[1].data(), fname, std::ios_base::app);
                 std::swap(hh[0] , hh[1]);
               
@@ -400,7 +400,7 @@ int main (int argc, char** argv)
 
                 char fname[256];
                 sprintf(fname,"%s_%d_%d_%d_bh1_aeh.dat",bssn::BSSN_PROFILE_FILE_PREFIX.c_str(), lmax, ntheta, nphi);
-                aeh_solver.solve(bssnCtx->get_bh1_loc(), bssnCtx, hh[2].data(), hh[3].data(), max_iter, rel_tol, abs_tol, rlim);
+                aeh_solver.solve(bssnCtx->get_bh1_loc(), bssnCtx, hh[2].data(), hh[3].data(), max_iter, rel_tol, abs_tol, rlim, 1u);
                 aeh_solver.aeh_to_json(bssnCtx->get_bh1_loc(), bssnCtx, hh[3].data(), fname, std::ios_base::app);
                 std::swap(hh[2],hh[3]);
 

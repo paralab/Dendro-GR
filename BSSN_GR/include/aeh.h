@@ -136,7 +136,7 @@ namespace aeh
              * @param max_iter 
              * @return AEHErrorType 
              */
-            AEHErrorType solve(const Point& origin, Ctx * ctx, const T* const h_init, T*  h_qs, unsigned int max_iter, DendroScalar rel_eps, DendroScalar abs_eps, const DendroScalar* const rlim);
+            AEHErrorType solve(const Point& origin, Ctx * ctx, const T* const h_init, T*  h_qs, unsigned int max_iter, DendroScalar rel_eps, DendroScalar abs_eps, const DendroScalar* const rlim, unsigned int verbose=0);
 
             /**
              * @brief evaluate the expansion norm
@@ -913,7 +913,7 @@ namespace aeh
     }
 
     template<typename Ctx, typename T>
-    AEHErrorType SpectralAEHSolver<Ctx, T>::solve(const Point& origin, Ctx * ctx, const T* const h_init, T* h_qs, unsigned int max_iter, double rel_eps, double abs_eps, const DendroScalar* const rlim)
+    AEHErrorType SpectralAEHSolver<Ctx, T>::solve(const Point& origin, Ctx * ctx, const T* const h_init, T* h_qs, unsigned int max_iter, double rel_eps, double abs_eps, const DendroScalar* const rlim, unsigned int verbose)
     {
         ot::Mesh * m_uiMesh = ctx->get_mesh();
         if(!m_uiMesh->isActive())
@@ -1129,10 +1129,22 @@ namespace aeh
         aeh_f.destroy_vector();
         aeh_h.destroy_vector();
         
-        if(iter==max_iter && (relative_error > rel_eps))
+        if(iter==max_iter && (relative_error > rel_eps && absolute_error > abs_eps))
+        {
+            if (!rank && verbose==1)
+            {
+                std::cout<<"AEH solver did not converge to specified tolerances with "<<max_iter<<" iterations. rel tol = "<<relative_error<<" / "<<rel_eps<<" abs tol = "<<absolute_error<<" / "<<abs_eps;
+                std::cout<<" consider increasing max iterations"<<std::endl;
+            }
             return AEHErrorType::FAIL;
+        }
         else
+        {
+            if (!rank && verbose==1)
+                std::cout<<"AEH solver converged with  "<<iter<<" iterations. rel tol = "<<relative_error<<" / "<<rel_eps<<" abs tol = "<<absolute_error<<" / "<<abs_eps<<std::endl;
             return AEHErrorType::SUCCESS;
+        }
+            
 
     }
 
