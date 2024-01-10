@@ -611,6 +611,10 @@ namespace aeh
     template<typename Ctx, typename T>
     SpectralAEHSolver<Ctx, T>::~SpectralAEHSolver()
     {
+        ot::Mesh * m_uiMesh = m_ctx->get_mesh();
+        if(!m_uiMesh->isActive())
+            return;
+
         m_sph_modes.clear();
         gsl_integration_fixed_free(m_quad_theta);
         gsl_integration_fixed_free(m_quad_theta1);

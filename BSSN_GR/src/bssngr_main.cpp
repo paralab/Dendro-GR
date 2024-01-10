@@ -314,7 +314,7 @@ int main (int argc, char** argv)
               ot::Mesh* pmesh = bssnCtx->get_mesh();
               unsigned int lmin, lmax;
               pmesh->computeMinMaxLevel(lmin,lmax);
-              if(!pmesh->getMPIRank())
+              if(!pmesh->getMPIRankGlobal())
                 printf("post merger grid level = (%d, %d)\n",lmin,lmax);
               bssn::BSSN_RK45_TIME_STEP_SIZE=bssn::BSSN_CFL_FACTOR*((bssn::BSSN_COMPD_MAX[0]-bssn::BSSN_COMPD_MIN[0])*((1u<<(m_uiMaxDepth-lmax))/((double) bssn::BSSN_ELE_ORDER))/((double)(1u<<(m_uiMaxDepth))));
               ts::TSInfo ts_in = bssnCtx->get_ts_info();
@@ -352,12 +352,13 @@ int main (int argc, char** argv)
 
           const bool single_ah         = bssnCtx->is_bh_merged(1.0);
           
-          aeh::SpectralAEHSolver<bssn::BSSNCtx,DendroScalar> aeh_solver(bssnCtx, lmax, ntheta, nphi, false);
-          const unsigned int num_lm_modes = aeh_solver.get_num_lm_modes();
-          double rlim[2] ={1e-6, 30};
-
           try
           {
+            
+            aeh::SpectralAEHSolver<bssn::BSSNCtx,DendroScalar> aeh_solver(bssnCtx, lmax, ntheta, nphi, false);
+            const unsigned int num_lm_modes = aeh_solver.get_num_lm_modes();
+            double rlim[2] ={1e-6, 30};
+
             if(single_ah)
             {
 
@@ -370,7 +371,7 @@ int main (int argc, char** argv)
                 
                 for(unsigned int ll=0; ll < lmax; ll+=2)
                 {
-                    if (!pmesh->getMPIRank())
+                    if (!pmesh->getMPIRankGlobal())
                       std::cout<<"sub cycle lmax = "<<ll<<std::endl;
 
                     aeh::SpectralAEHSolver<bssn::BSSNCtx,DendroScalar> s1(bssnCtx, ll, ntheta, nphi, false, false);
@@ -390,7 +391,7 @@ int main (int argc, char** argv)
                 
                 for(unsigned int ll=0; ll < lmax; ll+=2)
                 {
-                    if (!pmesh->getMPIRank())
+                    if (!pmesh->getMPIRankGlobal())
                       std::cout<<"sub cycle lmax = "<<ll<<std::endl;
 
                     aeh::SpectralAEHSolver<bssn::BSSNCtx,DendroScalar> s1(bssnCtx, ll, ntheta, nphi, false, false);
