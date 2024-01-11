@@ -349,24 +349,21 @@ int main (int argc, char** argv)
           
           const double rel_tol         = AEH::AEH_ATOL;
           const double abs_tol         = AEH::AEH_RTOL;
-
-          const bool single_ah         = bssnCtx->is_bh_merged(1.0);
-          
+          const bool single_ah         = bssnCtx->is_bh_merged(0.1);
+          const ot::Mesh* pmesh        = bssnCtx->get_mesh();
           try
           {
             
             aeh::SpectralAEHSolver<bssn::BSSNCtx,DendroScalar> aeh_solver(bssnCtx, lmax, ntheta, nphi, false);
             const unsigned int num_lm_modes = aeh_solver.get_num_lm_modes();
             double rlim[2] ={1e-6, 30};
+            
 
             if(single_ah)
             {
 
             }else
             {
-              
-              ot::Mesh* pmesh = bssnCtx->get_mesh();
-
               {
                 
                 for(unsigned int ll=0; ll < lmax; ll+=2)
@@ -409,12 +406,30 @@ int main (int argc, char** argv)
               
             }
 
+            bssnCtx->get_mesh()->waitAll();
+            // needed for comm growth
+            par::Mpi_Bcast(hh[0].data(), hh[0].size(), 0, pmesh->getMPIGlobalCommunicator());
+            par::Mpi_Bcast(hh[2].data(), hh[2].size(), 0, pmesh->getMPIGlobalCommunicator());
+            for (unsigned int i=0; i < hh[0].size(); i++)
+            {
+              hh[1][i] = hh[0][i];
+              hh[3][i] = hh[2][i];
+            }
+
           }catch(...)
           {
+            bssnCtx->get_mesh()->waitAll();
+            // needed for comm growth
+            par::Mpi_Bcast(hh[0].data(), hh[0].size(), 0, pmesh->getMPIGlobalCommunicator());
+            par::Mpi_Bcast(hh[2].data(), hh[2].size(), 0, pmesh->getMPIGlobalCommunicator());
+            for (unsigned int i=0; i < hh[0].size(); i++)
+            {
+              hh[1][i] = hh[0][i];
+              hh[3][i] = hh[2][i];
+            }
             std::cout<<"Exception occurred during apparent even horizon solver "<<std::endl;
           }
-          bssnCtx->get_mesh()->waitAll();
-
+          
         }
         
         ets->evolve();
