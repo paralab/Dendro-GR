@@ -31,7 +31,7 @@
 enum RKType { RK3, RK4, RK45 };
 
 namespace bssn {
-
+/**@brief BSSN evolution variables*/
 enum VAR {
     U_ALPHA = 0,
     U_CHI,
@@ -59,7 +59,13 @@ enum VAR {
     U_SYMAT5
 };
 
-// enum VAR_PSI4 {C_PSI4_REAL, C_PSI4_IMG};
+/**
+ * @brief BSSN constraint variables
+ * C_HAM - Hamiltonian constraint
+ * C_MOM - Momentum constraint x, y, z
+ * C_PSI4_REAL - real part of PSI4 scalar
+ * C_PSI4_IMG  - imaginary part of PSI4 scalar
+ */
 enum VAR_CONSTRAINT {
     C_HAM = 0,
     C_MOM0,
