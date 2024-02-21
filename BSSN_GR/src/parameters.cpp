@@ -162,6 +162,323 @@ namespace bssn
     /***@brief: derivs workspace*/
     double* BSSN_DERIV_WORKSPACE=nullptr;
 
+    void readParamTOMLFile(const char * fName, MPI_Comm comm) {
+
+        int rank, npes;
+        MPI_Comm_rank(comm, &rank);
+        MPI_Comm_size(comm, &npes);
+
+        auto parFile = toml::parse(fName);
+        
+        bssn::BSSN_IO_OUTPUT_FREQ             = parFile["BSSN_IO_OUTPUT_FREQ"].as_integer();
+        bssn::BSSN_REMESH_TEST_FREQ           = parFile["BSSN_REMESH_TEST_FREQ"].as_integer();
+        bssn::BSSN_CHECKPT_FREQ               = parFile["BSSN_CHECKPT_FREQ"].as_integer();
+        bssn::BSSN_IO_OUTPUT_GAP              = parFile["BSSN_IO_OUTPUT_GAP"].as_integer();
+        bssn::BSSN_VTU_FILE_PREFIX            = parFile["BSSN_VTU_FILE_PREFIX"].as_string();
+        bssn::BSSN_CHKPT_FILE_PREFIX          = parFile["BSSN_CHKPT_FILE_PREFIX"].as_string();
+
+        bssn::BSSN_PROFILE_FILE_PREFIX        = parFile["BSSN_PROFILE_FILE_PREFIX"].as_string();
+        bssn::BSSN_RESTORE_SOLVER             = parFile["BSSN_RESTORE_SOLVER"].as_integer();
+        bssn::BSSN_ID_TYPE                    = parFile["BSSN_ID_TYPE"].as_integer();
+
+        bssn::BSSN_ENABLE_BLOCK_ADAPTIVITY    = parFile["BSSN_ENABLE_BLOCK_ADAPTIVITY"].as_integer();
+        bssn::BSSN_BLK_MIN_X                  = parFile["BSSN_BLK_MIN_X"].as_floating();
+        bssn::BSSN_BLK_MIN_Y                  = parFile["BSSN_BLK_MIN_Y"].as_floating();
+        bssn::BSSN_BLK_MIN_Z                  = parFile["BSSN_BLK_MIN_Z"].as_floating();
+        bssn::BSSN_BLK_MAX_X                  = parFile["BSSN_BLK_MAX_X"].as_floating();
+        bssn::BSSN_BLK_MAX_Y                  = parFile["BSSN_BLK_MAX_Y"].as_floating();
+        bssn::BSSN_BLK_MAX_Z                  = parFile["BSSN_BLK_MAX_Z"].as_floating();
+
+        bssn::BSSN_DENDRO_GRAIN_SZ            = parFile["BSSN_DENDRO_GRAIN_SZ"].as_integer();
+        bssn::BSSN_ASYNC_COMM_K               = parFile["BSSN_ASYNC_COMM_K"].as_integer();
+        bssn::BSSN_DENDRO_AMR_FAC             = parFile["BSSN_DENDRO_AMR_FAC"].as_floating();
+        bssn::BSSN_LOAD_IMB_TOL               = parFile["BSSN_LOAD_IMB_TOL"].as_floating();
+        bssn::BSSN_RK_TIME_BEGIN              = parFile["BSSN_RK_TIME_BEGIN"].as_floating();
+        bssn::BSSN_RK_TIME_END                = parFile["BSSN_RK_TIME_END"].as_floating();
+        bssn::BSSN_RK_TYPE                    = parFile["BSSN_RK_TYPE"].as_integer();
+        bssn::BSSN_RK45_TIME_STEP_SIZE        = parFile["BSSN_RK45_TIME_STEP_SIZE"].as_floating();
+        bssn::BSSN_RK45_DESIRED_TOL           = parFile["BSSN_RK45_DESIRED_TOL"].as_floating();
+        bssn::BSSN_DIM                        = parFile["BSSN_DIM"].as_integer();
+        bssn::BSSN_MAXDEPTH                   = parFile["BSSN_MAXDEPTH"].as_integer();
+
+        bssn::BH1 = BH(parFile["BSSN_BH1"]["MASS"].as_floating(),
+                       parFile["BSSN_BH1"]["X"].as_floating(),
+                       parFile["BSSN_BH1"]["Y"].as_floating(),
+                       parFile["BSSN_BH1"]["Z"].as_floating(),
+                       parFile["BSSN_BH1"]["V_X"].as_floating(),
+                       parFile["BSSN_BH1"]["V_Y"].as_floating(),
+                       parFile["BSSN_BH1"]["V_Z"].as_floating(),
+                       parFile["BSSN_BH1"]["SPIN"].as_floating(),
+                       parFile["BSSN_BH1"]["SPIN_THETA"].as_floating(),
+                       parFile["BSSN_BH1"]["SPIN_PHI"].as_floating());
+        bssn::BH2 = BH(parFile["BSSN_BH2"]["MASS"].as_floating(),
+                       parFile["BSSN_BH2"]["X"].as_floating(),
+                       parFile["BSSN_BH2"]["Y"].as_floating(),
+                       parFile["BSSN_BH2"]["Z"].as_floating(),
+                       parFile["BSSN_BH2"]["V_X"].as_floating(),
+                       parFile["BSSN_BH2"]["V_Y"].as_floating(),
+                       parFile["BSSN_BH2"]["V_Z"].as_floating(),
+                       parFile["BSSN_BH2"]["SPIN"].as_floating(),
+                       parFile["BSSN_BH2"]["SPIN_THETA"].as_floating(),
+                       parFile["BSSN_BH2"]["SPIN_PHI"].as_floating());
+
+        bssn::BSSN_GRID_MIN_X                 = parFile["BSSN_GRID_MIN_X"].as_floating();
+        bssn::BSSN_GRID_MAX_X                 = parFile["BSSN_GRID_MAX_X"].as_floating();
+        bssn::BSSN_GRID_MIN_Y                 = parFile["BSSN_GRID_MIN_Y"].as_floating();
+        bssn::BSSN_GRID_MAX_Y                 = parFile["BSSN_GRID_MAX_Y"].as_floating();
+        bssn::BSSN_GRID_MIN_Z                 = parFile["BSSN_GRID_MIN_Z"].as_floating();
+        bssn::BSSN_GRID_MAX_Z                 = parFile["BSSN_GRID_MAX_Z"].as_floating();
+        bssn::ETA_CONST                       = parFile["ETA_CONST"].as_floating();
+        bssn::ETA_R0                          = parFile["ETA_R0"].as_floating();
+        bssn::ETA_DAMPING                     = parFile["ETA_DAMPING"].as_floating();
+        bssn::ETA_DAMPING_EXP                 = parFile["ETA_DAMPING_EXP"].as_floating();
+
+        if (parFile.contains("RIT_ETA_FUNCTION")) {
+            bssn::RIT_ETA_FUNCTION = parFile["RIT_ETA_FUNCTION"].as_integer();
+        }
+        if (parFile.contains("RIT_ETA_OUTER")) {
+            bssn::RIT_ETA_OUTER = parFile["RIT_ETA_OUTER"].as_floating();
+        }
+        if (parFile.contains("RIT_ETA_CENTRAL")) {
+            bssn::RIT_ETA_CENTRAL = parFile["RIT_ETA_CENTRAL"].as_floating();
+        }
+        if (parFile.contains("RIT_ETA_WIDTH")) {
+            bssn::RIT_ETA_WIDTH = parFile["RIT_ETA_WIDTH"].as_floating();
+        }
+        if (parFile.contains("BSSN_AMR_R_RATIO")) {
+            bssn::BSSN_AMR_R_RATIO = parFile["BSSN_AMR_R_RATIO"].as_floating();
+        }
+
+        bssn::BSSN_LAMBDA[0]                  = parFile["BSSN_LAMBDA"][0].as_integer();
+        bssn::BSSN_LAMBDA[1]                  = parFile["BSSN_LAMBDA"][1].as_integer();
+        bssn::BSSN_LAMBDA[2]                  = parFile["BSSN_LAMBDA"][2].as_integer();
+        bssn::BSSN_LAMBDA[3]                  = parFile["BSSN_LAMBDA"][3].as_integer();
+        bssn::BSSN_LAMBDA_F[0]                = parFile["BSSN_LAMBDA_F"][0].as_floating();
+        bssn::BSSN_LAMBDA_F[1]                = parFile["BSSN_LAMBDA_F"][1].as_floating();
+
+        bssn::BSSN_XI[0]                      = (unsigned int ) parFile["BSSN_XI"][0].as_integer();
+        bssn::BSSN_XI[1]                      = (unsigned int ) parFile["BSSN_XI"][1].as_integer();
+        bssn::BSSN_XI[2]                      = (unsigned int ) parFile["BSSN_XI"][2].as_integer();
+
+        bssn::BSSN_ELE_ORDER                  = parFile["BSSN_ELE_ORDER"].as_integer();
+        bssn::CHI_FLOOR                       = parFile["CHI_FLOOR"].as_floating();
+        bssn::BSSN_TRK0                       = parFile["BSSN_TRK0"].as_floating();
+        bssn::KO_DISS_SIGMA                   = parFile["KO_DISS_SIGMA"].as_floating();
+
+        bssn::BSSN_ETA_R0                     = parFile["BSSN_ETA_R0"].as_floating();
+        bssn::BSSN_ETA_POWER[0]               = parFile["BSSN_ETA_POWER"][0].as_floating();
+        bssn::BSSN_ETA_POWER[1]               = parFile["BSSN_ETA_POWER"][1].as_floating();
+
+        bssn::BSSN_USE_WAVELET_TOL_FUNCTION   = parFile["BSSN_USE_WAVELET_TOL_FUNCTION"].as_integer();
+        bssn::BSSN_WAVELET_TOL                = parFile["BSSN_WAVELET_TOL"].as_floating();
+        bssn::BSSN_WAVELET_TOL_MAX            = parFile["BSSN_WAVELET_TOL_MAX"].as_floating();
+        bssn::BSSN_WAVELET_TOL_FUNCTION_R0    = parFile["BSSN_WAVELET_TOL_FUNCTION_R0"].as_floating();
+        bssn::BSSN_WAVELET_TOL_FUNCTION_R1    = parFile["BSSN_WAVELET_TOL_FUNCTION_R1"].as_floating();
+        bssn::BSSN_NUM_REFINE_VARS            = parFile["BSSN_NUM_REFINE_VARS"].as_integer();
+
+        for(unsigned int i=0;i<bssn::BSSN_NUM_REFINE_VARS;i++)
+            bssn::BSSN_REFINE_VARIABLE_INDICES[i]=parFile["BSSN_REFINE_VARIABLE_INDICES"][i].as_integer();
+
+        bssn::BSSN_NUM_EVOL_VARS_VTU_OUTPUT=parFile["BSSN_NUM_EVOL_VARS_VTU_OUTPUT"].as_integer();
+        bssn::BSSN_NUM_CONST_VARS_VTU_OUTPUT=parFile["BSSN_NUM_CONST_VARS_VTU_OUTPUT"].as_integer();
+
+        for(unsigned int i=0;i<bssn::BSSN_NUM_EVOL_VARS_VTU_OUTPUT;i++)
+            bssn::BSSN_VTU_OUTPUT_EVOL_INDICES[i]=parFile["BSSN_VTU_OUTPUT_EVOL_INDICES"][i].as_integer();
+
+        for(unsigned int i=0;i<bssn::BSSN_NUM_CONST_VARS_VTU_OUTPUT;i++)
+            bssn::BSSN_VTU_OUTPUT_CONST_INDICES[i]=parFile["BSSN_VTU_OUTPUT_CONST_INDICES"][i].as_integer();
+
+        if (parFile.contains("BSSN_CFL_FACTOR")) 
+            bssn::BSSN_CFL_FACTOR=parFile["BSSN_CFL_FACTOR"].as_floating();
+
+        if(parFile.contains("BSSN_VTU_Z_SLICE_ONLY"))
+            bssn::BSSN_VTU_Z_SLICE_ONLY=parFile["BSSN_VTU_Z_SLICE_ONLY"].as_boolean();
+
+        if (parFile.contains("BSSN_GW_EXTRACT_FREQ"))
+            bssn::BSSN_GW_EXTRACT_FREQ=parFile["BSSN_GW_EXTRACT_FREQ"].as_integer();
+        else
+            bssn::BSSN_GW_EXTRACT_FREQ=std::max(1u,bssn::BSSN_IO_OUTPUT_FREQ>>1u);
+
+        if(parFile.contains("BSSN_BH1_AMR_R"))
+            bssn::BSSN_BH1_AMR_R = parFile["BSSN_BH1_AMR_R"].as_floating();
+
+        if(parFile.contains("BSSN_BH2_AMR_R"))
+            bssn::BSSN_BH2_AMR_R = parFile["BSSN_BH2_AMR_R"].as_floating();
+
+        if(parFile.contains("BSSN_BH1_MAX_LEV"))
+            bssn::BSSN_BH1_MAX_LEV = parFile["BSSN_BH1_MAX_LEV"].as_integer();
+        else
+            bssn::BSSN_BH1_MAX_LEV = bssn::BSSN_MAXDEPTH;
+
+        if(parFile.contains("BSSN_BH2_MAX_LEV"))
+            bssn::BSSN_BH2_MAX_LEV = parFile["BSSN_BH2_MAX_LEV"].as_integer();
+        else
+            bssn::BSSN_BH2_MAX_LEV = bssn::BSSN_MAXDEPTH;
+
+        if(parFile.contains("BSSN_INIT_GRID_ITER"))
+            bssn::BSSN_INIT_GRID_ITER=parFile["BSSN_INIT_GRID_ITER"].as_integer();
+
+        if(parFile.contains("BSSN_GW_REFINE_WTOL"))
+            bssn::BSSN_GW_REFINE_WTOL=parFile["BSSN_GW_REFINE_WTOL"].as_floating();
+
+        if(parFile.contains("BSSN_MINDEPTH"))
+            bssn::BSSN_MINDEPTH =parFile["BSSN_MINDEPTH"].as_integer();
+
+        if(parFile.contains("BSSN_BH1_CONSTRAINT_R"))
+            bssn::BSSN_BH1_CONSTRAINT_R =parFile["BSSN_BH1_CONSTRAINT_R"].as_floating();
+
+        if(parFile.contains("BSSN_BH2_CONSTRAINT_R"))
+            bssn::BSSN_BH2_CONSTRAINT_R =parFile["BSSN_BH2_CONSTRAINT_R"].as_floating();
+
+        if(parFile.contains("BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE"))
+            bssn::BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE = parFile["BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE"].as_boolean();
+
+
+        /* Parameters for TPID */
+        TPID::target_M_plus    = parFile["TPID_TARGET_M_PLUS"].as_floating();
+        TPID::target_M_minus   = parFile["TPID_TARGET_M_MINUS"].as_floating();
+        TPID::par_m_plus       = TPID::target_M_plus;
+        TPID::par_m_minus      = TPID::target_M_minus;
+        TPID::par_b            = parFile["TPID_PAR_B"].as_floating();
+
+        TPID::par_P_plus[0]    = bssn::BH1.getVx(); //parFile["TPID_PAR_P_PLUS"]["X"];
+        TPID::par_P_plus[1]    = bssn::BH1.getVy(); //parFile["TPID_PAR_P_PLUS"]["Y"];
+        TPID::par_P_plus[2]    = bssn::BH1.getVz(); //parFile["TPID_PAR_P_PLUS"]["Z"];
+
+        TPID::par_P_minus[0]   = bssn::BH2.getVx(); //parFile["TPID_PAR_P_MINUS"]["X"];
+        TPID::par_P_minus[1]   = bssn::BH2.getVy(); //parFile["TPID_PAR_P_MINUS"]["Y"];
+        TPID::par_P_minus[2]   = bssn::BH2.getVz(); //parFile["TPID_PAR_P_MINUS"]["Z"];
+
+        TPID::par_S_plus[0] =
+            bssn::BH1.getBHSpin() * sin(bssn::BH1.getBHSpinTheta()) *
+            cos(bssn::BH1.getBHSpinPhi());  // parFile["TPID_PAR_S_PLUS"]["X"];
+        TPID::par_S_plus[1] =
+            bssn::BH1.getBHSpin() * sin(bssn::BH1.getBHSpinTheta()) *
+            sin(bssn::BH1.getBHSpinPhi());  // parFile["TPID_PAR_S_PLUS"]["Y"];
+        TPID::par_S_plus[2] =
+            bssn::BH1.getBHSpin() *
+            cos(bssn::BH1.getBHSpinTheta());  // parFile["TPID_PAR_S_PLUS"]["Z"];
+
+        TPID::par_S_minus[0] =
+            bssn::BH2.getBHSpin() * sin(bssn::BH2.getBHSpinTheta()) *
+            cos(bssn::BH2.getBHSpinPhi());  // parFile["TPID_PAR_S_MINUS"]["X"];
+        TPID::par_S_minus[1] =
+            bssn::BH2.getBHSpin() * sin(bssn::BH2.getBHSpinTheta()) *
+            sin(bssn::BH2.getBHSpinPhi());  // parFile["TPID_PAR_S_MINUS"]["Y"];
+        TPID::par_S_minus[2] =
+            bssn::BH2.getBHSpin() *
+            cos(bssn::BH2.getBHSpinTheta());  // parFile["TPID_PAR_S_MINUS"]["Z"];
+
+        TPID::center_offset[0] = parFile["TPID_CENTER_OFFSET"]["X"].as_floating();
+        TPID::center_offset[1] = parFile["TPID_CENTER_OFFSET"]["Y"].as_floating();
+        TPID::center_offset[2] = parFile["TPID_CENTER_OFFSET"]["Z"].as_floating();
+
+        TPID::initial_lapse_psi_exponent=parFile["TPID_INITIAL_LAPSE_PSI_EXPONENT"].as_floating();
+        TPID::npoints_A=parFile["TPID_NPOINTS_A"].as_integer();
+        TPID::npoints_B=parFile["TPID_NPOINTS_B"].as_integer();
+        TPID::npoints_phi=parFile["TPID_NPOINTS_PHI"].as_integer();
+
+        TPID::give_bare_mass=parFile["TPID_GIVE_BARE_MASS"].as_integer();
+        TPID::initial_lapse=parFile["INITIAL_LAPSE"].as_integer();
+        TPID::solve_momentum_constraint=parFile["TPID_SOLVE_MOMENTUM_CONSTRAINT"].as_integer();
+        TPID::grid_setup_method=parFile["TPID_GRID_SETUP_METHOD"].as_integer();
+        TPID::verbose=parFile["TPID_VERBOSE"].as_integer();
+        TPID::adm_tol=parFile["TPID_ADM_TOL"].as_floating();
+        TPID::Newton_tol=parFile["TPID_NEWTON_TOL"].as_floating();
+
+        if(parFile.contains("TPID_FILEPREFIX"))
+            TPID::FILE_PREFIX=parFile["TPID_FILEPREFIX"].as_string();
+
+        if (parFile.contains("EXTRACTION_VAR_ID") ) 
+            BHLOC::EXTRACTION_VAR_ID=parFile["EXTRACTION_VAR_ID"].as_integer();
+
+        if (parFile.contains("EXTRACTION_TOL"))
+            BHLOC::EXTRACTION_TOL=parFile["EXTRACTION_TOL"].as_floating();
+
+        GW::BSSN_GW_NUM_RADAII=parFile["BSSN_GW_NUM_RADAII"].as_integer();
+        GW::BSSN_GW_NUM_LMODES=parFile["BSSN_GW_NUM_LMODES"].as_integer();
+
+        for(unsigned int i=0;i<GW::BSSN_GW_NUM_RADAII;i++)
+            GW::BSSN_GW_RADAII[i]=parFile["BSSN_GW_RADAII"][i].as_floating();
+
+        for(unsigned int i=0;i<GW::BSSN_GW_NUM_LMODES;i++)
+            GW::BSSN_GW_L_MODES[i]=parFile["BSSN_GW_L_MODES"][i].as_integer();
+
+        if(parFile.contains("BSSN_EH_COARSEN_VAL"))
+            bssn::BSSN_EH_COARSEN_VAL = parFile["BSSN_EH_COARSEN_VAL"].as_floating();
+
+        if(parFile.contains("BSSN_EH_REFINE_VAL"))
+            bssn::BSSN_EH_REFINE_VAL = parFile["BSSN_EH_REFINE_VAL"].as_floating();
+
+        if(parFile.contains("BSSN_REFINEMENT_MODE"))
+            bssn::BSSN_REFINEMENT_MODE = static_cast<bssn::RefinementMode>(parFile["BSSN_REFINEMENT_MODE"].as_integer());
+
+
+        BSSN_OCTREE_MAX[0] = (double)(1u<<bssn::BSSN_MAXDEPTH);
+        BSSN_OCTREE_MAX[1] = (double)(1u<<bssn::BSSN_MAXDEPTH);
+        BSSN_OCTREE_MAX[2] = (double)(1u<<bssn::BSSN_MAXDEPTH);
+
+        BSSN_COMPD_MIN[0]  = bssn::BSSN_GRID_MIN_X;
+        BSSN_COMPD_MIN[1]  = bssn::BSSN_GRID_MIN_Y;
+        BSSN_COMPD_MIN[2]  = bssn::BSSN_GRID_MIN_Z;
+
+        BSSN_COMPD_MAX[0]  = bssn::BSSN_GRID_MAX_X;
+        BSSN_COMPD_MAX[1]  = bssn::BSSN_GRID_MAX_Y;
+        BSSN_COMPD_MAX[2]  = bssn::BSSN_GRID_MAX_Z;
+
+        if (BSSN_NUM_REFINE_VARS > BSSN_NUM_VARS) {
+            std::cout << "Error[parameter file]: Number of refine variables should "
+                         "be less than number of BSSN_NUM_VARS"
+                      << std::endl;
+            exit(0);
+        }
+        if (BSSN_NUM_EVOL_VARS_VTU_OUTPUT > BSSN_NUM_VARS) {
+            std::cout << "Error[parameter file]: Number of evolution VTU variables "
+                         "should be less than number of BSSN_NUM_VARS"
+                      << std::endl;
+            exit(0);
+        }
+        if (BSSN_NUM_CONST_VARS_VTU_OUTPUT > BSSN_CONSTRAINT_NUM_VARS) {
+            std::cout
+                << "Error[parameter file]: Number of constraint VTU variables "
+                   "should be less than number of BSSN_CONSTRAINT_NUM_VARS"
+                << std::endl;
+            exit(0);
+        }
+
+        BSSN_PADDING_WIDTH   = BSSN_ELE_ORDER>>1u;
+        bssn::BSSN_BH_LOC[0] = Point(BH1.getBHCoordX(),BH1.getBHCoordY(),BH1.getBHCoordZ());
+        bssn::BSSN_BH_LOC[1] = Point(BH2.getBHCoordX(),BH2.getBHCoordY(),BH2.getBHCoordZ());
+        bssn::BSSN_BH1_MASS  = BH1.getBHMass();
+        bssn::BSSN_BH2_MASS  = BH2.getBHMass();
+
+
+        // AH parameters
+        // TODO: add these back in once AEH has been merged!
+        // if(parFile.find("AEH_LMAX")!=parFile.end())
+        //     AEH::AEH_LMAX   = parFile["AEH_LMAX"];
+        //
+        // if(parFile.find("AEH_Q_THETA")!=parFile.end())
+        //     AEH::AEH_Q_THETA = parFile["AEH_Q_THETA"];
+        //
+        // if(parFile.find("AEH_Q_PHI")!=parFile.end())
+        //     AEH::AEH_Q_PHI = parFile["AEH_Q_PHI"];
+        //
+        // if(parFile.find("AEH_MAXITER")!=parFile.end())
+        //     AEH::AEH_MAXITER = parFile["AEH_MAXITER"];
+        //
+        // if(parFile.find("AEH_ATOL")!=parFile.end())
+        //     AEH::AEH_ATOL = parFile["AEH_ATOL"];
+        //
+        // if(parFile.find("AEH_RTOL")!=parFile.end())
+        //     AEH::AEH_RTOL = parFile["AEH_RTOL"];
+        //
+        // if(parFile.find("AEH_SOLVER_FREQ")!=parFile.end())
+        //     AEH::AEH_SOLVER_FREQ = parFile["AEH_SOLVER_FREQ"];
+        //
+
+        MPI_Barrier(comm);
+    }
 
 }
 
