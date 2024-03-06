@@ -7,10 +7,10 @@
 BSSN_RESTORE_SOLVER = 0
 
 # Frequency for the VTU Output
-BSSN_IO_OUTPUT_FREQ = 3_000
+BSSN_IO_OUTPUT_FREQ = 10
 
 # Frequency to use for triggering the remeshing based on wavelets
-BSSN_REMESH_TEST_FREQ = 30
+BSSN_REMESH_TEST_FREQ = 10
 
 # Extraction frequency for gravitational waves
 BSSN_GW_EXTRACT_FREQ = 10
@@ -28,13 +28,13 @@ BSSN_CHECKPT_FREQ = 5_000
 BSSN_IO_OUTPUT_GAP = 1
 
 # VTU File Prefix, can be absolute or relative paths
-BSSN_VTU_FILE_PREFIX = "vtu/bssn_gr"
+BSSN_VTU_FILE_PREFIX = "bssn_gr"
 
 # Checkpoint File Prefix, can be absolute or relative paths
-BSSN_CHKPT_FILE_PREFIX = "cp/bssn_cp"
+BSSN_CHKPT_FILE_PREFIX = "bssn_cp"
 
 # Profiling File Prefix, can be absolute or relative paths
-BSSN_PROFILE_FILE_PREFIX = "dat/dgr"
+BSSN_PROFILE_FILE_PREFIX = "dgr"
 
 # Two-Puncture Initial Data (TPID) File Prefix
 TPID_FILEPREFIX = "rit_q1"
@@ -68,7 +68,7 @@ BSSN_LOAD_IMB_TOL = 0.1
 BSSN_DIM = 3
 
 # Maximum Depth of the Mesh/Octree
-BSSN_MAXDEPTH = 15
+BSSN_MAXDEPTH = 9
 # Maximum Depth of the Mesh/Octree
 BSSN_MINDEPTH = 3
 # Element Order, each block gets ELE_ORDER + 1 points it is in charge of, and padding width is ELE_ORDER / 2, should always be **even**
@@ -108,7 +108,7 @@ BSSN_USE_FD_GRID_TRANSFER = false
 BSSN_REFINEMENT_MODE = 3
 
 # The number of iterations that should be done for grid initialization
-BSSN_INIT_GRID_ITER = 10
+BSSN_INIT_GRID_ITER = 5
 
 # If we want to use the set reference mode for initial convergence
 BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE = true
@@ -119,7 +119,7 @@ BSSN_CFL_FACTOR = 0.25
 # The starting time of the simulation
 BSSN_RK_TIME_BEGIN = 0.0
 # The ending time of the simulation
-BSSN_RK_TIME_END = 800.0
+BSSN_RK_TIME_END = 20.0
 
 # RK Method to use (0 -> RK3, 1 -> RK4, 2 -> RK45)
 BSSN_RK_TYPE = 1
@@ -156,7 +156,7 @@ CHI_FLOOR = 0.0001
 BSSN_TRK0 = 0.0
 KO_DISS_SIGMA = 0.4
 BSSN_ETA_R0 = 1.31
-BSSN_ID_TYPE = 0
+BSSN_ID_TYPE = 1
 
 # BSSN Grid Points
 BSSN_GRID_MIN_X = -400.0
