@@ -202,7 +202,7 @@ int main (int argc, char** argv)
 
     if(ts_mode==1)
     {
-      std::cout << GRN << "Now setting up the uniform time stepper!" << std::endl;
+      std::cout << GRN << "Now setting up the uniform time stepper!" << NRM << std::endl;
       bssn::BSSNCtx *  bssnCtx = new bssn::BSSNCtx(mesh);
       ts::ETS<DendroScalar,bssn::BSSNCtx>* ets = new ts::ETS<DendroScalar,bssn::BSSNCtx>(bssnCtx);
       ets->set_evolve_vars(bssnCtx->get_evolution_vars());
@@ -318,7 +318,7 @@ int main (int argc, char** argv)
 
     }
     else {
-        std::cout << RED << "Not starting solver, ts_mode needs to be set to 1!" << std::endl;
+        std::cout << RED << "Not starting solver, ts_mode needs to be set to 1!" << NRM << std::endl;
     }
 
     MPI_Finalize();
