@@ -21,11 +21,16 @@
 int main (int argc, char** argv)
 {
     // 0- NUTS 1-UTS
-    unsigned int ts_mode=0;     
+    unsigned int ts_mode=1;     
     
     if(argc<2)
     {
-        std::cout<<"Usage: "<<argv[0]<<"paramFile TSMode(0){0-Spatially Adaptive Time Stepping(SATS, "<<GRN<<"default"<<NRM<<") , 1- Uniform Time Stepping.  }"<<std::endl;
+        std::cout << "usage: " << argv[0] << " PARAM_FILE [TS_MODE]" << std::endl;
+        std::cout << std::endl << "options:" << std::endl;
+        std::cout << "  PARAM_FILE" << std::endl << "      Path to the parameter file (.json file)" << std::endl;
+        std::cout << "  TS_MODE" << std::endl << "      Time stepper mode." << std::endl;
+        std::cout << "        0 - Spatially Adaptive Time Stepping (SATS, Currently **NOT AVAILABLE**)" << std::endl;
+        std::cout << "        1 - Uniform Time Stepping (UTS, " << GRN << "default" << NRM << ")" << std::endl;
         return 0;
     }
         
