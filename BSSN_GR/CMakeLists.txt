@@ -152,51 +152,51 @@ endif()
 # )
 
 
-add_custom_command(
-    OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_standard_gauge.cpp
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
-    COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged standard const . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_standard_gauge.cpp
-    COMMENT "generating bssn code unstaged standard gauge with constant eta damping (during intial compilation this might take a while. )"
-    VERBATIM USES_TERMINAL
-)
-
-add_custom_command(
-    OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_standard_gauge.cpp
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
-    COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged standard func . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_standard_gauge.cpp
-    COMMENT "generating bssn code unstaged standard gauge with varying (large mass ratios) eta damping (during intial compilation this might take a while. )"
-    VERBATIM USES_TERMINAL
-)
-
-
-add_custom_command(
-    OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_rochester_gauge.cpp
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
-    COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged rochester const . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_rochester_gauge.cpp
-    COMMENT "generating bssn code unstaged rochester gauge with constant eta damping (during intial compilation this might take a while. )"
-    VERBATIM USES_TERMINAL
-)
-
-add_custom_command(
-    OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_rochester_gauge.cpp
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
-    COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged rochester func . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_rochester_gauge.cpp
-    COMMENT "generating bssn code unstaged rochester gauge with constant eta damping (during intial compilation this might take a while. )"
-    VERBATIM USES_TERMINAL
-)
-
-
-add_custom_target(BSSN_CODEGEN
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_standard_gauge.cpp
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_standard_gauge.cpp
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_rochester_gauge.cpp
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_rochester_gauge.cpp
-    )
-
+# add_custom_command(
+#     OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_standard_gauge.cpp
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
+#     COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged standard const . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_standard_gauge.cpp
+#     COMMENT "generating bssn code unstaged standard gauge with constant eta damping (during intial compilation this might take a while. )"
+#     VERBATIM USES_TERMINAL
+# )
+#
+# add_custom_command(
+#     OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_standard_gauge.cpp
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
+#     COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged standard func . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_standard_gauge.cpp
+#     COMMENT "generating bssn code unstaged standard gauge with varying (large mass ratios) eta damping (during intial compilation this might take a while. )"
+#     VERBATIM USES_TERMINAL
+# )
+#
+#
+# add_custom_command(
+#     OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_rochester_gauge.cpp
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
+#     COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged rochester const . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_rochester_gauge.cpp
+#     COMMENT "generating bssn code unstaged rochester gauge with constant eta damping (during intial compilation this might take a while. )"
+#     VERBATIM USES_TERMINAL
+# )
+#
+# add_custom_command(
+#     OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_rochester_gauge.cpp
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
+#     COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged rochester func . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_rochester_gauge.cpp
+#     COMMENT "generating bssn code unstaged rochester gauge with constant eta damping (during intial compilation this might take a while. )"
+#     VERBATIM USES_TERMINAL
+# )
+#
+#
+# add_custom_target(BSSN_CODEGEN
+#     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_standard_gauge.cpp
+#     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_standard_gauge.cpp
+#     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_rochester_gauge.cpp
+#     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_rochester_gauge.cpp
+#     )
+#
 
 set(BSSN_INC include/parameters.h
         include/bh.h
@@ -400,6 +400,7 @@ target_include_directories(bssnSolver PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO/v
 target_include_directories(bssnSolver PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO/zlib/inc)
 target_include_directories(bssnSolver PRIVATE ${MPI_INCLUDE_PATH})
 target_include_directories(bssnSolver PRIVATE ${GSL_INCLUDE_DIRS})
+target_include_directories(bssnSolver PRIVATE ${EXTERNAL_LIB_HEADERS})  # includes for the TOML11 library (and others)
 if(WITH_CUDA)
     target_include_directories(bssnSolver PRIVATE ${CUDA_INCLUDE_DIRS})
     target_link_libraries(bssnSolver bssn_cuda)
@@ -643,7 +644,7 @@ if(BSSN_EXTRACT_GRAVITATIONAL_WAVES)
 endif(BSSN_EXTRACT_GRAVITATIONAL_WAVES)
 
 
-add_dependencies(bssnSolver BSSN_CODEGEN)
+# add_dependencies(bssnSolver BSSN_CODEGEN)
 #add_dependencies(rhsTestBed BSSN_CODEGEN)
 
 
