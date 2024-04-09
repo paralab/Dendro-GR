@@ -685,7 +685,7 @@ void RK_BSSN::performSingleIteration()
         if(m_uiRKType==RKType::RK3)
         {   
             // initial unzip and ghost exchange happens at the rkSolve class.  
-            bssnRHS(m_uiUnzipVarRHS,(const DendroScalar **)m_uiUnzipVar,&(*(blkList.begin())),blkList.size());
+            bssnRHS(m_uiUnzipVarRHS,(const DendroScalar **)m_uiUnzipVar,&(*(blkList.begin())),blkList.size(), current_t);
             zipVars(m_uiUnzipVarRHS,m_uiStage[0]);
                         
             for(unsigned int node=nodeLocalBegin; node<nodeLocalEnd; node++)
@@ -710,7 +710,7 @@ void RK_BSSN::performSingleIteration()
                 unzipVars(m_uiStage[0],m_uiUnzipVar);
             #endif
             
-            bssnRHS(m_uiUnzipVarRHS,(const DendroScalar **)m_uiUnzipVar,&(*(blkList.begin())),blkList.size());
+            bssnRHS(m_uiUnzipVarRHS,(const DendroScalar **)m_uiUnzipVar,&(*(blkList.begin())),blkList.size(), current_t);
             zipVars(m_uiUnzipVarRHS,m_uiStage[1]);
             
             for(unsigned int node=nodeLocalBegin; node<nodeLocalEnd; node++)
@@ -738,7 +738,7 @@ void RK_BSSN::performSingleIteration()
             
             
                 
-            bssnRHS(m_uiUnzipVarRHS,(const DendroScalar **)m_uiUnzipVar,&(*(blkList.begin())),blkList.size());
+            bssnRHS(m_uiUnzipVarRHS,(const DendroScalar **)m_uiUnzipVar,&(*(blkList.begin())),blkList.size(), current_t);
             zipVars(m_uiUnzipVarRHS,m_uiVar);
             
             
@@ -766,7 +766,7 @@ void RK_BSSN::performSingleIteration()
                         ot::test::isUnzipNaN(m_uiMesh,m_uiUnzipVar[index]);
                 #endif
 
-                bssnRHS(m_uiUnzipVarRHS,(const DendroScalar **)m_uiUnzipVar,&(*(blkList.begin())),blkList.size());
+                bssnRHS(m_uiUnzipVarRHS,(const DendroScalar **)m_uiUnzipVar,&(*(blkList.begin())),blkList.size(), current_t);
 
                 #ifdef DEBUG_RK_SOLVER
                     if(!rank)std::cout<<" stage: "<<stage<<" af rhs UNZIP RHS TEST:"<<std::endl;
@@ -817,7 +817,7 @@ void RK_BSSN::performSingleIteration()
                 ot::test::isUnzipNaN(m_uiMesh,m_uiUnzipVar[index]);
             #endif
 
-            bssnRHS(m_uiUnzipVarRHS,(const DendroScalar **)m_uiUnzipVar,&(*(blkList.begin())),blkList.size());
+            bssnRHS(m_uiUnzipVarRHS,(const DendroScalar **)m_uiUnzipVar,&(*(blkList.begin())),blkList.size(), current_t);
             
             #ifdef DEBUG_RK_SOLVER
                 if(!rank)std::cout<<" stage: "<<(bssn::BSSN_RK4_STAGES-1)<<" af rhs UNZIP RHS TEST:"<<std::endl;
@@ -902,7 +902,7 @@ void RK_BSSN::performSingleIteration()
                         #endif
 
 
-                        bssnRHS(m_uiUnzipVarRHS,(const DendroScalar **)m_uiUnzipVar,&(*(blkList.begin())),blkList.size());
+                        bssnRHS(m_uiUnzipVarRHS,(const DendroScalar **)m_uiUnzipVar,&(*(blkList.begin())),blkList.size(), current_t);
 
                         #ifdef DEBUG_RK_SOLVER
                         if(!rank)std::cout<<" stage: "<<stage<<" af rhs UNZIP RHS TEST:"<<std::endl;
@@ -958,7 +958,7 @@ void RK_BSSN::performSingleIteration()
 
 
 
-                    bssnRHS(m_uiUnzipVarRHS,(const DendroScalar **)m_uiUnzipVar,&(*(blkList.begin())),blkList.size());
+                    bssnRHS(m_uiUnzipVarRHS,(const DendroScalar **)m_uiUnzipVar,&(*(blkList.begin())),blkList.size(), current_t);
 
                     #ifdef DEBUG_RK_SOLVER
                         if(!rank)std::cout<<" stage: "<<(bssn::BSSN_RK45_STAGES-1)<<" af rhs UNZIP RHS TEST:"<<std::endl;

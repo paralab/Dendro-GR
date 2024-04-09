@@ -427,7 +427,7 @@ int main (int argc, char** argv)
             ptmax[2]=GRIDZ_TO_Z(blkList[blk].getBlockNode().maxZ())+3*hx[2];
 
 
-            bssnrhs(m_uiUnzipOut,(const double **)m_uiUnzipIn,offset,ptmin, ptmax,sz,bflag);
+            bssnrhs(m_uiUnzipOut,(const double **)m_uiUnzipIn,offset,ptmin, ptmax,sz,bflag, 0.0);
         }
 
         bssn::timer::t_rhs.stop();

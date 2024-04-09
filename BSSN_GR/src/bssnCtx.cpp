@@ -85,7 +85,7 @@ int BSSNCtx::rhs(DVec* in, DVec* out, unsigned int sz, DendroScalar time) {
     const ot::Block* blkList = m_uiMesh->getLocalBlockList().data();
     const unsigned int numBlocks = m_uiMesh->getLocalBlockList().size();
 
-    bssnRHS(unzipOut, (const DendroScalar**)unzipIn, blkList, numBlocks);
+    bssnRHS(unzipOut, (const DendroScalar**)unzipIn, blkList, numBlocks, time);
 
 #ifdef __PROFILE_CTX__
     this->m_uiCtxpt[ts::CTXPROFILE::RHS].stop();

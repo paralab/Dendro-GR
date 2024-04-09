@@ -6,7 +6,7 @@ using namespace std;
 using namespace bssn;
 
 
-void bssnRHS(double **uzipVarsRHS, const double **uZipVars, const ot::Block* blkList, unsigned int numBlocks)
+void bssnRHS(double **uzipVarsRHS, const double **uZipVars, const ot::Block* blkList, unsigned int numBlocks, const double curr_time)
 {
     unsigned int offset;
     double ptmin[3], ptmax[3];
@@ -62,7 +62,7 @@ void bssnRHS(double **uzipVarsRHS, const double **uZipVars, const ot::Block* blk
         ptmax[1]=GRIDY_TO_Y(blkList[blk].getBlockNode().maxY())+PW*dy;
         ptmax[2]=GRIDZ_TO_Z(blkList[blk].getBlockNode().maxZ())+PW*dz;
 
-        bssnrhs(uzipVarsRHS, (const double **)uZipVars, offset, ptmin, ptmax, sz, bflag);
+        bssnrhs(uzipVarsRHS, (const double **)uZipVars, offset, ptmin, ptmax, sz, bflag, curr_time);
         
 
     }
@@ -80,7 +80,7 @@ void bssnRHS(double **uzipVarsRHS, const double **uZipVars, const ot::Block* blk
 void bssnrhs(double **unzipVarsRHS, const double **uZipVars,
              const unsigned int& offset,
              const double *pmin, const double *pmax, const unsigned int *sz,
-             const unsigned int& bflag)
+             const unsigned int& bflag, const double t)
 {
 
 
@@ -294,7 +294,7 @@ void bssnrhs(double **unzipVarsRHS, const double **uZipVars,
 
     bssn::timer::t_rhs.start();
 
-    const  double sigma = KO_DISS_SIGMA;
+      double sigma = KO_DISS_SIGMA;
 
 
     for (unsigned int k = PW; k < nz-PW; k++) {
@@ -307,6 +307,11 @@ void bssnrhs(double **unzipVarsRHS, const double **uZipVars,
             #endif
             for (unsigned int i = PW; i < nx-PW; i++) {
                 const unsigned int pp = i + nx*(j + ny*k);
+
+#ifdef BSSN_KO_SIGMA_SCALE_BY_CONFORMAL
+                sigma = KO_DISS_SIGMA * sqrt(chi[pp]);
+
+#endif
 
                 a_rhs[pp]  += sigma * (grad_0_alpha[pp] + grad_1_alpha[pp] + grad_2_alpha[pp]);
                 b_rhs0[pp] += sigma * (grad_0_beta0[pp] + grad_1_beta0[pp] + grad_2_beta0[pp]);

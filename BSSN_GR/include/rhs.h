@@ -27,12 +27,12 @@
  * @param[in]  blkList: block list. 
  * @param[in]  numBlocks: number of blocks. 
  */
-void bssnRHS(double **uzipVarsRHS, const double **uZipVars, const ot::Block* blkList, unsigned int numBlocks);
+void bssnRHS(double **uzipVarsRHS, const double **uZipVars, const ot::Block* blkList, unsigned int numBlocks, const double curr_time);
 
 void bssnrhs(double **uzipVarsRHS, const double **uZipVars,
              const unsigned int &offset,
              const double *ptmin, const double *ptmax, const unsigned int *sz,
-             const unsigned int &bflag);
+             const unsigned int &bflag, const double t);
 
 
 // void bssnrhs_sep(double **uzipVarsRHS, const double **uZipVars,
