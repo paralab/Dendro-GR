@@ -299,6 +299,12 @@ namespace bssn
         else
             bssn::BSSN_GW_EXTRACT_FREQ=std::max(1u,bssn::BSSN_IO_OUTPUT_FREQ>>1u);
 
+        if (parFile.contains("BSSN_TIME_STEP_OUTPUT_FREQ")) {
+            bssn::BSSN_TIME_STEP_OUTPUT_FREQ = parFile["BSSN_TIME_STEP_OUTPUT_FREQ"].as_integer();
+        } else {
+            bssn::BSSN_TIME_STEP_OUTPUT_FREQ = bssn::BSSN_GW_EXTRACT_FREQ;
+        }
+
         if(parFile.contains("BSSN_BH1_AMR_R"))
             bssn::BSSN_BH1_AMR_R = parFile["BSSN_BH1_AMR_R"].as_floating();
 
