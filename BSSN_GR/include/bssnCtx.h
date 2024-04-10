@@ -146,6 +146,8 @@ class BSSNCtx : public ts::Ctx<BSSNCtx, DendroScalar, unsigned int> {
     /**@brief: should be called for free up the contex memory. */
     int finalize();
 
+    void compute_constraint_variables();
+
     /**@brief: pack and returns the evolution variables to one DVector*/
     DVec& get_evolution_vars();
 

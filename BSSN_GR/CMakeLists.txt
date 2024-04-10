@@ -221,8 +221,8 @@ set(BSSN_INC include/parameters.h
         include/trumpet.h
         )
 
-set(BSSN_SRC src/rkBSSN.cpp
-           src/parameters.cpp
+set(BSSN_SRC src/parameters.cpp
+           # src/rkBSSN.cpp
            src/grUtils.cpp
            src/rhs.cpp
            src/derivs.cpp
@@ -615,30 +615,32 @@ target_link_libraries(checkDerivs dendro5 ${LAPACK_LIBRARIES} ${MPI_LIBRARIES} $
 # target_link_libraries(rhsTestBed dendro5 ${LAPACK_LIBRARIES} ${MPI_LIBRARIES} ${GSL_LIBRARIES} m)
 
 
-set(SOURCE_FILES src/zipUnzipTest.cpp include/zipUnzipTest.h ${BSSN_INC} ${BSSN_SRC} ${CUDA_GR_INCLUDE_H} ${CUDA_GR_SRC_CPP})
-add_executable(zipUnzipTest ${SOURCE_FILES})
-target_include_directories(zipUnzipTest PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-target_include_directories(zipUnzipTest PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_include_directories(zipUnzipTest PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
-target_include_directories(zipUnzipTest PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/include)
-target_include_directories(zipUnzipTest PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/test/include)
-target_include_directories(zipUnzipTest PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/examples/include)
-target_include_directories(zipUnzipTest PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/FEM/include)
-target_include_directories(zipUnzipTest PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/ODE/include)
-target_include_directories(zipUnzipTest PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/LinAlg/include)
-target_include_directories(zipUnzipTest PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO/vtk/include)
-target_include_directories(zipUnzipTest PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO/zlib/inc)
-target_include_directories(zipUnzipTest PRIVATE ${MPI_INCLUDE_PATH})
-target_include_directories(zipUnzipTest PRIVATE ${GSL_INCLUDE_DIRS})
-target_include_directories(zipUnzipTest PRIVATE ${EXTERNAL_LIB_HEADERS})  # includes for the TOML11 library (and others)
+# NOTE: APRIL 10 DFVK - I turned this off for now due to some BSSN tests with extra values
 
-if(WITH_CUDA)
-    target_include_directories(zipUnzipTest PRIVATE ${CUDA_INCLUDE_DIRS})
-    target_link_libraries(zipUnzipTest bssn_cuda)
-    target_link_libraries(zipUnzipTest ${CUDA_LIBRARIES})
-endif()
-
-target_link_libraries(zipUnzipTest dendro5 ${LAPACK_LIBRARIES} ${MPI_LIBRARIES} ${GSL_LIBRARIES} m dendro_git_version_and_date)
+# set(SOURCE_FILES src/zipUnzipTest.cpp include/zipUnzipTest.h ${BSSN_INC} ${BSSN_SRC} ${CUDA_GR_INCLUDE_H} ${CUDA_GR_SRC_CPP})
+# add_executable(zipUnzipTest ${SOURCE_FILES})
+# target_include_directories(zipUnzipTest PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+# target_include_directories(zipUnzipTest PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+# target_include_directories(zipUnzipTest PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
+# target_include_directories(zipUnzipTest PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/include)
+# target_include_directories(zipUnzipTest PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/test/include)
+# target_include_directories(zipUnzipTest PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/examples/include)
+# target_include_directories(zipUnzipTest PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/FEM/include)
+# target_include_directories(zipUnzipTest PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/ODE/include)
+# target_include_directories(zipUnzipTest PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/LinAlg/include)
+# target_include_directories(zipUnzipTest PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO/vtk/include)
+# target_include_directories(zipUnzipTest PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO/zlib/inc)
+# target_include_directories(zipUnzipTest PRIVATE ${MPI_INCLUDE_PATH})
+# target_include_directories(zipUnzipTest PRIVATE ${GSL_INCLUDE_DIRS})
+# target_include_directories(zipUnzipTest PRIVATE ${EXTERNAL_LIB_HEADERS})  # includes for the TOML11 library (and others)
+#
+# if(WITH_CUDA)
+#     target_include_directories(zipUnzipTest PRIVATE ${CUDA_INCLUDE_DIRS})
+#     target_link_libraries(zipUnzipTest bssn_cuda)
+#     target_link_libraries(zipUnzipTest ${CUDA_LIBRARIES})
+# endif()
+#
+# target_link_libraries(zipUnzipTest dendro5 ${LAPACK_LIBRARIES} ${MPI_LIBRARIES} ${GSL_LIBRARIES} m dendro_git_version_and_date)
 
 
 if(BSSN_EXTRACT_GRAVITATIONAL_WAVES)

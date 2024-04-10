@@ -269,7 +269,7 @@ int main (int argc, char** argv)
             if(isRemesh)
             {
               if(!rank_global)
-                  std::cout<<"[ETS] : Remesh is triggered.  \n";
+                  std::cout<< YLW << "[ETS] : Remesh is triggered.  \n";
 
               bssnCtx->remesh_and_gridtransfer(bssn::BSSN_DENDRO_GRAIN_SZ, bssn::BSSN_LOAD_IMB_TOL,bssn::BSSN_SPLIT_FIX);
               bssn::deallocate_bssn_deriv_workspace();
@@ -285,6 +285,13 @@ int main (int argc, char** argv)
               ts::TSInfo ts_in = bssnCtx->get_ts_info();
               ts_in._m_uiTh = bssn::BSSN_RK45_TIME_STEP_SIZE;
               bssnCtx->set_ts_info(ts_in);
+
+              if (!pmesh->getMPIRank()) {
+                 std::cout << GRN << "[ETS] : Remesh sequence finished" << std::endl;
+              }
+
+              // compute the constraint variables to "refresh" them on the grid for potential RHS updates
+              bssnCtx->compute_constraint_variables();
               
             }
         }

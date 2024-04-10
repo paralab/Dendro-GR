@@ -72,6 +72,12 @@ int BSSNCtx::rhs(DVec* in, DVec* out, unsigned int sz, DendroScalar time) {
 
     this->unzip(*in, m_var[VL::CPU_EV_UZ_IN], bssn::BSSN_ASYNC_COMM_K);
 
+    // AT THIS POINT THE CONSTRAINT VARIABLES SHOULD BE CALCULATED.
+    // Just need to set up the proper variable representation.
+    DVec& m_cvar_unz = m_var[VL::CPU_CV_UZ_IN];
+    DendroScalar* consUnzipVar[bssn::BSSN_CONSTRAINT_NUM_VARS];
+    m_cvar_unz.to_2d(consUnzipVar);
+
 #ifdef __PROFILE_CTX__
     this->m_uiCtxpt[ts::CTXPROFILE::RHS].start();
 #endif
@@ -85,7 +91,7 @@ int BSSNCtx::rhs(DVec* in, DVec* out, unsigned int sz, DendroScalar time) {
     const ot::Block* blkList = m_uiMesh->getLocalBlockList().data();
     const unsigned int numBlocks = m_uiMesh->getLocalBlockList().size();
 
-    bssnRHS(unzipOut, (const DendroScalar**)unzipIn, blkList, numBlocks, time);
+    bssnRHS(unzipOut, (const DendroScalar**)unzipIn, blkList, numBlocks, time, (const DendroScalar**)consUnzipVar);
 
 #ifdef __PROFILE_CTX__
     this->m_uiCtxpt[ts::CTXPROFILE::RHS].stop();
@@ -572,12 +578,7 @@ int BSSNCtx::init_grid() {
 
 int BSSNCtx::finalize() { return 0; }
 
-int BSSNCtx::write_vtu() {
-    if (!m_uiMesh->isActive()) return 0;
-
-    if (!(m_uiMesh->getMPIRank())) {
-        std::cout << GRN << "=== Now Writing VTU Output Files! ===" << NRM << std::endl;
-    }
+void BSSNCtx::compute_constraint_variables() {
 
     DVec& m_evar = m_var[VL::CPU_EV];
     DVec& m_evar_unz = m_var[VL::CPU_EV_UZ_IN];
@@ -599,6 +600,10 @@ int BSSNCtx::write_vtu() {
     m_cvar.to_2d(consVar);
 
 #if BSSN_COMPUTE_CONSTRAINTS
+
+    if (!(m_uiMesh->getMPIRank())) {
+        std::cout << YLW << "[BSSN] - Now computing constraints" << NRM << std::endl;
+    }
 
     const std::vector<ot::Block> blkList = m_uiMesh->getLocalBlockList();
 
@@ -655,7 +660,42 @@ int BSSNCtx::write_vtu() {
 #endif
 #endif
 
+    if (!(m_uiMesh->getMPIRank())) {
+        std::cout << YLW << "[BSSN] - Finished computing constraints!" << NRM << std::endl;
+    }
+
 #endif
+
+}
+
+int BSSNCtx::write_vtu() {
+    if (!m_uiMesh->isActive()) return 0;
+
+    if (!(m_uiMesh->getMPIRank())) {
+        std::cout << GRN << "=== Now Writing VTU Output Files! ===" << NRM << std::endl;
+    }
+
+    DVec& m_evar = m_var[VL::CPU_EV];
+    DVec& m_evar_unz = m_var[VL::CPU_EV_UZ_IN];
+    DVec& m_cvar = m_var[VL::CPU_CV];
+    DVec& m_cvar_unz = m_var[VL::CPU_CV_UZ_IN];
+
+    this->unzip(m_evar, m_evar_unz, BSSN_ASYNC_COMM_K);
+
+    DendroScalar* consUnzipVar[bssn::BSSN_CONSTRAINT_NUM_VARS];
+    DendroScalar* consVar[bssn::BSSN_CONSTRAINT_NUM_VARS];
+
+    DendroScalar* evolUnzipVar[bssn::BSSN_NUM_VARS];
+    DendroScalar* evolVar[bssn::BSSN_NUM_VARS];
+
+    m_evar_unz.to_2d(evolUnzipVar);
+    m_cvar_unz.to_2d(consUnzipVar);
+
+    m_evar.to_2d(evolVar);
+    m_cvar.to_2d(consVar);
+
+    // make sure the constraint variables are computed
+    this->compute_constraint_variables();
 
 #ifdef BSSN_ENABLE_VTU_OUTPUT
 

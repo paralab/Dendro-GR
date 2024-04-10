@@ -6,7 +6,7 @@ using namespace std;
 using namespace bssn;
 
 
-void bssnRHS(double **uzipVarsRHS, const double **uZipVars, const ot::Block* blkList, unsigned int numBlocks, const double curr_time)
+void bssnRHS(double **uzipVarsRHS, const double **uZipVars, const ot::Block* blkList, unsigned int numBlocks, const double curr_time, const double **uZipConstVars)
 {
     unsigned int offset;
     double ptmin[3], ptmax[3];
@@ -62,7 +62,7 @@ void bssnRHS(double **uzipVarsRHS, const double **uZipVars, const ot::Block* blk
         ptmax[1]=GRIDY_TO_Y(blkList[blk].getBlockNode().maxY())+PW*dy;
         ptmax[2]=GRIDZ_TO_Z(blkList[blk].getBlockNode().maxZ())+PW*dz;
 
-        bssnrhs(uzipVarsRHS, (const double **)uZipVars, offset, ptmin, ptmax, sz, bflag, curr_time);
+        bssnrhs(uzipVarsRHS, (const double **)uZipVars, offset, ptmin, ptmax, sz, bflag, curr_time, (const double **)uZipConstVars);
         
 
     }
@@ -80,7 +80,7 @@ void bssnRHS(double **uzipVarsRHS, const double **uZipVars, const ot::Block* blk
 void bssnrhs(double **unzipVarsRHS, const double **uZipVars,
              const unsigned int& offset,
              const double *pmin, const double *pmax, const unsigned int *sz,
-             const unsigned int& bflag, const double t)
+             const unsigned int& bflag, const double t, const double**uZipConstVars)
 {
 
 
@@ -109,6 +109,14 @@ void bssnrhs(double **unzipVarsRHS, const double **uZipVars,
     const double * const B0 = &uZipVars[VAR::U_B0][offset];
     const double * const B1 = &uZipVars[VAR::U_B1][offset];
     const double * const B2 = &uZipVars[VAR::U_B2][offset];
+
+    // then the constraints (should be optimized out if not called)
+    const double * const ham = &uZipConstVars[VAR_CONSTRAINT::C_HAM][offset];
+    const double * const mom0 = &uZipConstVars[VAR_CONSTRAINT::C_MOM0][offset];
+    const double * const mom1 = &uZipConstVars[VAR_CONSTRAINT::C_MOM1][offset];
+    const double * const mom2 = &uZipConstVars[VAR_CONSTRAINT::C_MOM2][offset];
+    const double * const psi4_real = &uZipConstVars[VAR_CONSTRAINT::C_PSI4_REAL][offset];
+    const double * const psi4_img = &uZipConstVars[VAR_CONSTRAINT::C_PSI4_IMG][offset];
 
     double * const a_rhs = &unzipVarsRHS[VAR::U_ALPHA][offset];
     double * const chi_rhs = &unzipVarsRHS[VAR::U_CHI][offset];
