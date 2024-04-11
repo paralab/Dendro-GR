@@ -52,6 +52,7 @@ namespace GW
         unsigned int rankActive=mesh->getMPIRank();
         unsigned int npesActive=mesh->getMPICommSize();
         MPI_Comm commActive=mesh->getMPICommunicator();
+        unsigned int globalRank = mesh->getMPIRankGlobal();
 
         unsigned int totalModes=0;
         for(unsigned int l=0;l<BSSN_GW_NUM_LMODES;l++)
@@ -165,7 +166,7 @@ namespace GW
         MPI_Reduce(&(*(psi4L2R.begin())),&(*(psi4L2R_g.begin())),BSSN_GW_NUM_RADAII,MPI_DOUBLE,MPI_SUM,0,commActive);
         MPI_Reduce(&(*(psi4L2I.begin())),&(*(psi4L2I_g.begin())),BSSN_GW_NUM_RADAII,MPI_DOUBLE,MPI_SUM,0,commActive);
 
-        if(!rankActive)
+        if(!globalRank)
         {
 
             int n=BSSN_GW_NUM_RADAII;

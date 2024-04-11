@@ -286,7 +286,7 @@ int main (int argc, char** argv)
               ts_in._m_uiTh = bssn::BSSN_RK45_TIME_STEP_SIZE;
               bssnCtx->set_ts_info(ts_in);
 
-              if (!pmesh->getMPIRank()) {
+              if (!rank_global) {
                  std::cout << GRN << "[ETS] : Remesh sequence finished" << std::endl;
               }
 
