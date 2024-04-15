@@ -994,7 +994,7 @@ int BSSNCtx::restore_checkpt() {
         MPI_Abort(comm, 0);
     } else if (restoreStatusGlobal == 2) {
         if (!rank) {
-            std::cout << "[BSSNCtx] : " << YLW << "WARNING:" << NRM << " No checkpoint files could be found. The program " << GRN << "will continue" << NRM << " from the time start!" << std::endl;
+            std::cout << "[BSSNCtx] : " << YLW << "WARNING:" << NRM << " No checkpoint files could be found. The program " << GRN << "will continue" << NRM << " as BSSN_RESTORE_SOLVER were false!" << std::endl;
         }
         return 2;
     }
