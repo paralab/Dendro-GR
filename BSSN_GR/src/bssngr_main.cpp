@@ -269,7 +269,7 @@ int main (int argc, char** argv)
             if(isRemesh)
             {
               if(!rank_global)
-                  std::cout<< YLW << "[ETS] : Remesh is triggered.  \n";
+                  std::cout<< YLW << "[ETS] : Remesh is triggered." << NRM << std::endl;
 
               bssnCtx->remesh_and_gridtransfer(bssn::BSSN_DENDRO_GRAIN_SZ, bssn::BSSN_LOAD_IMB_TOL,bssn::BSSN_SPLIT_FIX);
               bssn::deallocate_bssn_deriv_workspace();
@@ -287,7 +287,7 @@ int main (int argc, char** argv)
               bssnCtx->set_ts_info(ts_in);
 
               if (!rank_global) {
-                 std::cout << GRN << "[ETS] : Remesh sequence finished" << std::endl;
+                 std::cout << GRN << "[ETS] : Remesh sequence finished" << NRM << std::endl;
               }
 
               // compute the constraint variables to "refresh" them on the grid for potential RHS updates

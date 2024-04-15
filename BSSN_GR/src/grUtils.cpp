@@ -17,7 +17,7 @@ namespace bssn
     {
         if (!rank) {
             std::cout << YLW << "  COMPILED ON  -  " << compile_info::compileDate << NRM <<std::endl;
-            std::cout << YLW << "  LATEST GIT HASH - " << compile_info::currGitHash << compile_info::dirtyStatus << std::endl;
+            std::cout << YLW << "  LATEST GIT HASH - " << compile_info::currGitHash << compile_info::dirtyStatus << NRM << std::endl;
         }
  
         for (size_t ii = 1; ii < arg_s.size(); ++ii) {
@@ -544,8 +544,8 @@ namespace bssn
             sout<<YLW<<"\tBSSN_WAVELET_TOL :"<<bssn::BSSN_WAVELET_TOL<<NRM<<std::endl;
             sout<<YLW<<"\tBSSN_GW_REFINE_WTOL:"<<bssn::BSSN_GW_REFINE_WTOL<<NRM<<std::endl;
             sout<<YLW<<"\tBSSN_WAVELET_TOL_MAX:"<<bssn::BSSN_WAVELET_TOL_MAX<<NRM<<std::endl;
-            sout<<YLW<<"\t:BSSN_WAVELET_TOL_FUNCTION_R0: "<<bssn::BSSN_WAVELET_TOL_FUNCTION_R0<<NRM<<std::endl;
-            sout<<YLW<<"\t:BSSN_WAVELET_TOL_FUNCTION_R1: "<<bssn::BSSN_WAVELET_TOL_FUNCTION_R1<<NRM<<std::endl;
+            sout<<YLW<<"\tBSSN_WAVELET_TOL_FUNCTION_R0: "<<bssn::BSSN_WAVELET_TOL_FUNCTION_R0<<NRM<<std::endl;
+            sout<<YLW<<"\tBSSN_WAVELET_TOL_FUNCTION_R1: "<<bssn::BSSN_WAVELET_TOL_FUNCTION_R1<<NRM<<std::endl;
             sout<<YLW<<"\tBSSN_LOAD_IMB_TOL :"<<bssn::BSSN_LOAD_IMB_TOL<<NRM<<std::endl;
             sout<<YLW<<"\tBSSN_RK_TIME_BEGIN :"<<bssn::BSSN_RK_TIME_BEGIN<<NRM<<std::endl;
             sout<<YLW<<"\tBSSN_RK_TIME_END :"<<bssn::BSSN_RK_TIME_END<<NRM<<std::endl;

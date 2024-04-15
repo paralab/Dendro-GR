@@ -345,8 +345,12 @@ int BSSNCtx::post_timestep_blk(DendroScalar* in, unsigned int dof,
 
 int BSSNCtx::initialize() {
     if (bssn::BSSN_RESTORE_SOLVER) {
-        this->restore_checkpt();
-        return 0;
+        if(!this->restore_checkpt()) {
+            return 0;
+        }
+        if(!m_uiMesh->getMPIRankGlobal()) {
+            std::cout << "[BSSNCtx : initialization]  Continuing normal initialization due to failed checkpoint restoration." << std::endl;
+        }
     }
 
     this->init_grid();
@@ -602,7 +606,7 @@ void BSSNCtx::compute_constraint_variables() {
 #if BSSN_COMPUTE_CONSTRAINTS
 
     if (!(m_uiMesh->getMPIRank())) {
-        std::cout << YLW << "[BSSN] - Now computing constraints" << NRM << std::endl;
+        std::cout << BLU << "[BSSN] - Now computing constraints" << NRM << std::endl;
     }
 
     const std::vector<ot::Block> blkList = m_uiMesh->getLocalBlockList();
@@ -661,7 +665,7 @@ void BSSNCtx::compute_constraint_variables() {
 #endif
 
     if (!(m_uiMesh->getMPIRank())) {
-        std::cout << YLW << "[BSSN] - Finished computing constraints!" << NRM << std::endl;
+        std::cout << BLU << "[BSSN] - Finished computing constraints!" << NRM << std::endl;
     }
 
 #endif
@@ -857,6 +861,10 @@ int BSSNCtx::restore_checkpt() {
     unsigned int activeCommSz;
 
     char fName[256];
+
+    // 0 -> everything is fine
+    // 1 -> file failed to open
+    // 2 -> file doesn't exist
     unsigned int restoreStatus = 0;
     unsigned int restoreStatusGlobal =
         0;  // 0 indicates successfully restorable.
@@ -874,6 +882,15 @@ int BSSNCtx::restore_checkpt() {
         if (!rank) {
             sprintf(fName, "%s_step_%d.cp",
                     bssn::BSSN_CHKPT_FILE_PREFIX.c_str(), cpIndex);
+
+            std::cout << "    Checking to see if " << fName << " is a valid checkpoint file..." << std::endl;
+            
+            if (!std::filesystem::exists(fName)) {
+                // std::cout << YLW << "WARNING: " << NRM << "Checkpoint filename " << fName << " does not exist!" << std::endl;
+                restoreStatus = 2;
+                continue;
+            }
+
             std::ifstream infile(fName);
             if (!infile) {
                 std::cout << fName << " file open failed " << std::endl;
@@ -926,35 +943,45 @@ int BSSNCtx::restore_checkpt() {
     if (!rank) {
         sprintf(fName, "%s_step_%d.cp", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
                 restoreFileIndex);
-        std::ifstream infile(fName);
-        if (!infile) {
-            std::cout << fName << " file open failed " << std::endl;
-            restoreStatus = 1;
+
+
+        // first check to see if the file even exists
+        if (!std::filesystem::exists(fName)) {
+            std::cout << YLW << "WARNING: " << NRM << "Checkpoint filename " << fName << " does not exist!" << std::endl;
+            restoreStatus = 2;
         }
 
         if (restoreStatus == 0) {
-            infile >> checkPoint;
-            m_uiTinfo._m_uiTb = checkPoint["DENDRO_TS_TIME_BEGIN"];
-            m_uiTinfo._m_uiTe = checkPoint["DENDRO_TS_TIME_END"];
-            m_uiTinfo._m_uiT = checkPoint["DENDRO_TS_TIME_CURRENT"];
-            m_uiTinfo._m_uiStep = checkPoint["DENDRO_TS_STEP_CURRENT"];
-            m_uiTinfo._m_uiTh = checkPoint["DENDRO_TS_TIME_STEP_SIZE"];
-            m_uiElementOrder = checkPoint["DENDRO_TS_ELEMENT_ORDER"];
+            std::ifstream infile(fName);
+            if (!infile) {
+                std::cout << fName << " file open failed " << std::endl;
+                restoreStatus = 1;
+            }
 
-            bssn::BSSN_WAVELET_TOL = checkPoint["DENDRO_TS_WAVELET_TOLERANCE"];
-            bssn::BSSN_LOAD_IMB_TOL =
-                checkPoint["DENDRO_TS_LOAD_IMB_TOLERANCE"];
+            if (restoreStatus == 0) {
+                infile >> checkPoint;
+                m_uiTinfo._m_uiTb = checkPoint["DENDRO_TS_TIME_BEGIN"];
+                m_uiTinfo._m_uiTe = checkPoint["DENDRO_TS_TIME_END"];
+                m_uiTinfo._m_uiT = checkPoint["DENDRO_TS_TIME_CURRENT"];
+                m_uiTinfo._m_uiStep = checkPoint["DENDRO_TS_STEP_CURRENT"];
+                m_uiTinfo._m_uiTh = checkPoint["DENDRO_TS_TIME_STEP_SIZE"];
+                m_uiElementOrder = checkPoint["DENDRO_TS_ELEMENT_ORDER"];
 
-            numVars = checkPoint["DENDRO_TS_NUM_VARS"];
-            activeCommSz = checkPoint["DENDRO_TS_ACTIVE_COMM_SZ"];
+                bssn::BSSN_WAVELET_TOL = checkPoint["DENDRO_TS_WAVELET_TOLERANCE"];
+                bssn::BSSN_LOAD_IMB_TOL =
+                    checkPoint["DENDRO_TS_LOAD_IMB_TOLERANCE"];
 
-            m_uiBHLoc[0] = Point((double)checkPoint["DENDRO_BH1_X"],
-                                 (double)checkPoint["DENDRO_BH1_Y"],
-                                 (double)checkPoint["DENDRO_BH1_Z"]);
-            m_uiBHLoc[1] = Point((double)checkPoint["DENDRO_BH2_X"],
-                                 (double)checkPoint["DENDRO_BH2_Y"],
-                                 (double)checkPoint["DENDRO_BH2_Z"]);
-            restoreStep[restoreFileIndex] = m_uiTinfo._m_uiStep;
+                numVars = checkPoint["DENDRO_TS_NUM_VARS"];
+                activeCommSz = checkPoint["DENDRO_TS_ACTIVE_COMM_SZ"];
+
+                m_uiBHLoc[0] = Point((double)checkPoint["DENDRO_BH1_X"],
+                                     (double)checkPoint["DENDRO_BH1_Y"],
+                                     (double)checkPoint["DENDRO_BH1_Z"]);
+                m_uiBHLoc[1] = Point((double)checkPoint["DENDRO_BH2_X"],
+                                     (double)checkPoint["DENDRO_BH2_Y"],
+                                     (double)checkPoint["DENDRO_BH2_Z"]);
+                restoreStep[restoreFileIndex] = m_uiTinfo._m_uiStep;
+            }
         }
     }
 
@@ -965,6 +992,11 @@ int BSSNCtx::restore_checkpt() {
                 << "[BSSNCtx] : Restore step failed, restore file corrupted. "
                 << std::endl;
         MPI_Abort(comm, 0);
+    } else if (restoreStatusGlobal == 2) {
+        if (!rank) {
+            std::cout << "[BSSNCtx] : " << YLW << "WARNING:" << NRM << " No checkpoint files could be found. The program " << GRN << "will continue" << NRM << " from the time start!" << std::endl;
+        }
+        return 2;
     }
 
     MPI_Bcast(&m_uiTinfo, sizeof(ts::TSInfo), MPI_BYTE, 0, comm);
@@ -1087,11 +1119,15 @@ int BSSNCtx::restore_checkpt() {
     unsigned int totalElems = 0;
     par::Mpi_Allreduce(&localSz, &totalElems, 1, MPI_SUM, comm);
 
-    if (!rank)
-        std::cout << " checkpoint at step : " << m_uiTinfo._m_uiStep
+    if (!rank) {
+        std::cout << GRN << "=======================================" << std::endl;
+        std::cout << "CHECKPOINT RESTORE SUCCESSFUL: " << NRM << std::endl;
+        std::cout << "   checkpoint at step : " << m_uiTinfo._m_uiStep
                   << "active Comm. sz: " << activeCommSz
                   << " restore successful: "
-                  << " restored mesh size: " << totalElems << std::endl;
+                  << " restored mesh size: " << totalElems << std::endl << std::endl;
+        std::cout << GRN << "=======================================" << NRM << std::endl;
+    }
 
     m_uiIsETSSynced = false;
     return 0;

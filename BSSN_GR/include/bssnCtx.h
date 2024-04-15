@@ -12,6 +12,7 @@
 
 #pragma once
 #include <iostream>
+#include <filesystem>
 
 #include "TwoPunctures.h"
 #include "bssn_constraints.h"
