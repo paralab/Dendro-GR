@@ -37,7 +37,7 @@ namespace bssn
 
     bool BSSN_KO_SIGMA_SCALE_BY_CONFORMAL = false;
     double BSSN_EPSILON_CAKO_GAUGE = 0.99;
-    double BSSN_EPSILON_CAKO_OTHER = 0.99;
+    double BSSN_EPSILON_CAKO_OTHER = 0.3;
 
     double BSSN_LOAD_IMB_TOL=0.1;
     unsigned int BSSN_SPLIT_FIX=2;
