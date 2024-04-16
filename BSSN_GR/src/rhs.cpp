@@ -351,9 +351,9 @@ void bssnrhs(double **unzipVarsRHS, const double **uZipVars,
                     Gt_rhs1[pp] += sigma_other * sigma * (grad_0_Gt1[pp] + grad_1_Gt1[pp] + grad_2_Gt1[pp]);
                     Gt_rhs2[pp] += sigma_other * sigma * (grad_0_Gt2[pp] + grad_1_Gt2[pp] + grad_2_Gt2[pp]);
 
-                    B_rhs0[pp] += sigma_other * sigma * (grad_0_B0[pp] + grad_1_B0[pp] + grad_2_B0[pp]);
-                    B_rhs1[pp] += sigma_other * sigma * (grad_0_B1[pp] + grad_1_B1[pp] + grad_2_B1[pp]);
-                    B_rhs2[pp] += sigma_other * sigma * (grad_0_B2[pp] + grad_1_B2[pp] + grad_2_B2[pp]);
+                    B_rhs0[pp] += sigma_gauge * sigma * (grad_0_B0[pp] + grad_1_B0[pp] + grad_2_B0[pp]);
+                    B_rhs1[pp] += sigma_gauge * sigma * (grad_0_B1[pp] + grad_1_B1[pp] + grad_2_B1[pp]);
+                    B_rhs2[pp] += sigma_gauge * sigma * (grad_0_B2[pp] + grad_1_B2[pp] + grad_2_B2[pp]);
                 } else {
                     a_rhs[pp]  += sigma * (grad_0_alpha[pp] + grad_1_alpha[pp] + grad_2_alpha[pp]);
                     b_rhs0[pp] += sigma * (grad_0_beta0[pp] + grad_1_beta0[pp] + grad_2_beta0[pp]);
