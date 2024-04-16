@@ -9,6 +9,7 @@
 
 #include "grUtils.h"
 #include "git_version_and_date.h"
+#include "parameters.h"
 
 namespace bssn
 {
@@ -139,6 +140,16 @@ namespace bssn
                 bssn::DISSIPATION_TYPE=parFile["DISSIPATION_TYPE"];
             }
             bssn::KO_DISS_SIGMA=parFile["KO_DISS_SIGMA"];
+
+            if (parFile.find("BSSN_KO_SIGMA_SCALE_BY_CONFORMAL") != parFile.end()) {
+                bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL = parFile["BSSN_KO_SIGMA_SCALE_BY_CONFORMAL"];
+            }
+            if (parFile.find("BSSN_EPSILON_CAKO_GAUGE") != parFile.end()) {
+                bssn::BSSN_EPSILON_CAKO_GAUGE = parFile["BSSN_EPSILON_CAKO_GAUGE"];
+            }
+            if (parFile.find("BSSN_EPSILON_CAKO_OTHER") != parFile.end()) {
+                bssn::BSSN_EPSILON_CAKO_OTHER = parFile["BSSN_EPSILON_CAKO_OTHER"];
+            }
 
   	        //Parameters for eta_damping function
 	          bssn::BSSN_ETA_R0=parFile["BSSN_ETA_R0"];
@@ -380,6 +391,9 @@ namespace bssn
         par::Mpi_Bcast(&BSSN_WAVELET_TOL_FUNCTION_R0,1,0,comm);
         par::Mpi_Bcast(&BSSN_WAVELET_TOL_FUNCTION_R1,1,0,comm);
 
+        par::Mpi_Bcast(&BSSN_KO_SIGMA_SCALE_BY_CONFORMAL,1,0,comm);
+        par::Mpi_Bcast(&BSSN_EPSILON_CAKO_GAUGE,1,0,comm);
+        par::Mpi_Bcast(&BSSN_EPSILON_CAKO_OTHER,1,0,comm);
 
         par::Mpi_Bcast(&BSSN_CFL_FACTOR,1,0,comm);
         par::Mpi_Bcast(&BSSN_LOAD_IMB_TOL,1,0,comm);
@@ -667,6 +681,12 @@ namespace bssn
             for(unsigned int i=0;i<GW::BSSN_GW_NUM_LMODES;i++)
                 sout<<" ,"<<GW::BSSN_GW_L_MODES[i];
             sout<<"}"<<NRM<<std::endl;
+
+            sout<<YLW<<"\tBSSN_KO_SIGMA_SCALE_BY_CONFORMAL: " << (bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL ? "true" : "false") << NRM << std::endl;
+            if (bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL) {
+                sout << YLW << "\t\tBSSN_PSILON_CAKO_GAUGE: " << bssn::BSSN_EPSILON_CAKO_GAUGE << NRM << std::endl;
+                sout << YLW << "\t\tBSSN_PSILON_CAKO_OTHER: " << bssn::BSSN_EPSILON_CAKO_OTHER << NRM << std::endl;
+        }
 
         }
         

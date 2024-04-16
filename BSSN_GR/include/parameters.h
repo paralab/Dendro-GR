@@ -52,6 +52,19 @@ namespace bssn
     /**@brief CFL stability number number (specifies how dt=BSSN_CFL_FACTOR*dx)*/
     extern double BSSN_CFL_FACTOR;
 
+
+    /** @brief The ability to scale KO Diss by the conformal factor
+     *
+     * This comes from the followign paper: https://arxiv.org/pdf/2404.01137.pdf
+     */
+    extern bool BSSN_KO_SIGMA_SCALE_BY_CONFORMAL;
+    
+    /** @brief The amount to scale each of the gauge variables by when conformal KO scaling is on */
+    extern double BSSN_EPSILON_CAKO_GAUGE;
+
+    /** @brief The amount to scale each of the other variables by when conformal KO scaling is on */
+    extern double BSSN_EPSILON_CAKO_OTHER;
+
     /**@brief min bh domain add these to the parameter file.*/
     extern double BSSN_COMPD_MIN[3];
     /**@brief min bh domain @todo add these to the parameter file. */

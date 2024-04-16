@@ -35,6 +35,10 @@ namespace bssn
 
     double BSSN_CFL_FACTOR=0.1;
 
+    bool BSSN_KO_SIGMA_SCALE_BY_CONFORMAL = false;
+    double BSSN_EPSILON_CAKO_GAUGE = 0.99;
+    double BSSN_EPSILON_CAKO_OTHER = 0.99;
+
     double BSSN_LOAD_IMB_TOL=0.1;
     unsigned int BSSN_SPLIT_FIX=2;
     unsigned int BSSN_ASYNC_COMM_K=4;
@@ -247,6 +251,16 @@ namespace bssn
         }
         if (parFile.contains("BSSN_AMR_R_RATIO")) {
             bssn::BSSN_AMR_R_RATIO = parFile["BSSN_AMR_R_RATIO"].as_floating();
+        }
+
+        if (parFile.contains("BSSN_KO_SIGMA_SCALE_BY_CONFORMAL")) {
+            bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL = parFile["BSSN_KO_SIGMA_SCALE_BY_CONFORMAL"].as_boolean();
+        }
+        if (parFile.contains("BSSN_EPSILON_CAKO_GAUGE")) {
+            bssn::BSSN_EPSILON_CAKO_GAUGE = parFile["BSSN_EPSILON_CAKO_GAUGE"].as_floating();
+        }
+        if (parFile.contains("BSSN_EPSILON_CAKO_OTHER")) {
+            bssn::BSSN_EPSILON_CAKO_OTHER = parFile["BSSN_EPSILON_CAKO_OTHER"].as_floating();
         }
 
         bssn::BSSN_LAMBDA[0]                  = parFile["BSSN_LAMBDA"][0].as_integer();

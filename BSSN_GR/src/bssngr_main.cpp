@@ -207,7 +207,8 @@ int main (int argc, char** argv)
 
     if(ts_mode==1)
     {
-      std::cout << GRN << "Now setting up the uniform time stepper!" << NRM << std::endl;
+      if (!rank)
+          std::cout << GRN << "Now setting up the uniform time stepper!" << NRM << std::endl;
       bssn::BSSNCtx *  bssnCtx = new bssn::BSSNCtx(mesh);
       ts::ETS<DendroScalar,bssn::BSSNCtx>* ets = new ts::ETS<DendroScalar,bssn::BSSNCtx>(bssnCtx);
       ets->set_evolve_vars(bssnCtx->get_evolution_vars());

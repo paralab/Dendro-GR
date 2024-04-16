@@ -1,6 +1,7 @@
 #include "rhs.h"
 #include "gr.h"
 #include "hadrhs.h"
+#include "parameters.h"
 
 using namespace std;
 using namespace bssn;
@@ -302,7 +303,7 @@ void bssnrhs(double **unzipVarsRHS, const double **uZipVars,
 
     bssn::timer::t_rhs.start();
 
-      double sigma = KO_DISS_SIGMA;
+    double sigma = KO_DISS_SIGMA;
 
 
     for (unsigned int k = PW; k < nz-PW; k++) {
@@ -316,41 +317,75 @@ void bssnrhs(double **unzipVarsRHS, const double **uZipVars,
             for (unsigned int i = PW; i < nx-PW; i++) {
                 const unsigned int pp = i + nx*(j + ny*k);
 
-#ifdef BSSN_KO_SIGMA_SCALE_BY_CONFORMAL
-                sigma = KO_DISS_SIGMA * sqrt(chi[pp]);
+                // as part of the improved techniques paper (https://arxiv.org/pdf/2404.01137.pdf) they mentioned
+                // scaling the KO dissipation of the RHS by sqrt(chi) with a strong amount for the gauge variaables
+                // and a smaller amount for the non-gauge variables. This is an option the user can use.
+                if (bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL) {
+                    sigma = KO_DISS_SIGMA * sqrt(chi[pp]);
+                    double sigma_gauge = sigma * bssn::BSSN_EPSILON_CAKO_GAUGE;
+                    double sigma_other = sigma * bssn::BSSN_EPSILON_CAKO_OTHER;
+                    a_rhs[pp]  += sigma_gauge * sigma * (grad_0_alpha[pp] + grad_1_alpha[pp] + grad_2_alpha[pp]);
+                    b_rhs0[pp] += sigma_gauge * sigma * (grad_0_beta0[pp] + grad_1_beta0[pp] + grad_2_beta0[pp]);
+                    b_rhs1[pp] += sigma_gauge * sigma * (grad_0_beta1[pp] + grad_1_beta1[pp] + grad_2_beta1[pp]);
+                    b_rhs2[pp] += sigma_gauge * sigma * (grad_0_beta2[pp] + grad_1_beta2[pp] + grad_2_beta2[pp]);
 
-#endif
+                    gt_rhs00[pp] += sigma_other * sigma * (grad_0_gt0[pp] + grad_1_gt0[pp] + grad_2_gt0[pp]);
+                    gt_rhs01[pp] += sigma_other * sigma * (grad_0_gt1[pp] + grad_1_gt1[pp] + grad_2_gt1[pp]);
+                    gt_rhs02[pp] += sigma_other * sigma * (grad_0_gt2[pp] + grad_1_gt2[pp] + grad_2_gt2[pp]);
+                    gt_rhs11[pp] += sigma_other * sigma * (grad_0_gt3[pp] + grad_1_gt3[pp] + grad_2_gt3[pp]);
+                    gt_rhs12[pp] += sigma_other * sigma * (grad_0_gt4[pp] + grad_1_gt4[pp] + grad_2_gt4[pp]);
+                    gt_rhs22[pp] += sigma_other * sigma * (grad_0_gt5[pp] + grad_1_gt5[pp] + grad_2_gt5[pp]);
 
-                a_rhs[pp]  += sigma * (grad_0_alpha[pp] + grad_1_alpha[pp] + grad_2_alpha[pp]);
-                b_rhs0[pp] += sigma * (grad_0_beta0[pp] + grad_1_beta0[pp] + grad_2_beta0[pp]);
-                b_rhs1[pp] += sigma * (grad_0_beta1[pp] + grad_1_beta1[pp] + grad_2_beta1[pp]);
-                b_rhs2[pp] += sigma * (grad_0_beta2[pp] + grad_1_beta2[pp] + grad_2_beta2[pp]);
+                    chi_rhs[pp]  += sigma_other * sigma * (grad_0_chi[pp] + grad_1_chi[pp] + grad_2_chi[pp]);
 
-                gt_rhs00[pp] += sigma * (grad_0_gt0[pp] + grad_1_gt0[pp] + grad_2_gt0[pp]);
-                gt_rhs01[pp] += sigma * (grad_0_gt1[pp] + grad_1_gt1[pp] + grad_2_gt1[pp]);
-                gt_rhs02[pp] += sigma * (grad_0_gt2[pp] + grad_1_gt2[pp] + grad_2_gt2[pp]);
-                gt_rhs11[pp] += sigma * (grad_0_gt3[pp] + grad_1_gt3[pp] + grad_2_gt3[pp]);
-                gt_rhs12[pp] += sigma * (grad_0_gt4[pp] + grad_1_gt4[pp] + grad_2_gt4[pp]);
-                gt_rhs22[pp] += sigma * (grad_0_gt5[pp] + grad_1_gt5[pp] + grad_2_gt5[pp]);
+                    At_rhs00[pp] += sigma_other * sigma * (grad_0_At0[pp] + grad_1_At0[pp] + grad_2_At0[pp]);
+                    At_rhs01[pp] += sigma_other * sigma * (grad_0_At1[pp] + grad_1_At1[pp] + grad_2_At1[pp]);
+                    At_rhs02[pp] += sigma_other * sigma * (grad_0_At2[pp] + grad_1_At2[pp] + grad_2_At2[pp]);
+                    At_rhs11[pp] += sigma_other * sigma * (grad_0_At3[pp] + grad_1_At3[pp] + grad_2_At3[pp]);
+                    At_rhs12[pp] += sigma_other * sigma * (grad_0_At4[pp] + grad_1_At4[pp] + grad_2_At4[pp]);
+                    At_rhs22[pp] += sigma_other * sigma * (grad_0_At5[pp] + grad_1_At5[pp] + grad_2_At5[pp]);
 
-                chi_rhs[pp]  += sigma * (grad_0_chi[pp] + grad_1_chi[pp] + grad_2_chi[pp]);
+                    K_rhs[pp] += sigma_other * sigma * (grad_0_K[pp] + grad_1_K[pp] + grad_2_K[pp]);
 
-                At_rhs00[pp] += sigma * (grad_0_At0[pp] + grad_1_At0[pp] + grad_2_At0[pp]);
-                At_rhs01[pp] += sigma * (grad_0_At1[pp] + grad_1_At1[pp] + grad_2_At1[pp]);
-                At_rhs02[pp] += sigma * (grad_0_At2[pp] + grad_1_At2[pp] + grad_2_At2[pp]);
-                At_rhs11[pp] += sigma * (grad_0_At3[pp] + grad_1_At3[pp] + grad_2_At3[pp]);
-                At_rhs12[pp] += sigma * (grad_0_At4[pp] + grad_1_At4[pp] + grad_2_At4[pp]);
-                At_rhs22[pp] += sigma * (grad_0_At5[pp] + grad_1_At5[pp] + grad_2_At5[pp]);
+                    Gt_rhs0[pp] += sigma_other * sigma * (grad_0_Gt0[pp] + grad_1_Gt0[pp] + grad_2_Gt0[pp]);
+                    Gt_rhs1[pp] += sigma_other * sigma * (grad_0_Gt1[pp] + grad_1_Gt1[pp] + grad_2_Gt1[pp]);
+                    Gt_rhs2[pp] += sigma_other * sigma * (grad_0_Gt2[pp] + grad_1_Gt2[pp] + grad_2_Gt2[pp]);
 
-                K_rhs[pp] += sigma * (grad_0_K[pp] + grad_1_K[pp] + grad_2_K[pp]);
+                    B_rhs0[pp] += sigma_other * sigma * (grad_0_B0[pp] + grad_1_B0[pp] + grad_2_B0[pp]);
+                    B_rhs1[pp] += sigma_other * sigma * (grad_0_B1[pp] + grad_1_B1[pp] + grad_2_B1[pp]);
+                    B_rhs2[pp] += sigma_other * sigma * (grad_0_B2[pp] + grad_1_B2[pp] + grad_2_B2[pp]);
+                } else {
+                    a_rhs[pp]  += sigma * (grad_0_alpha[pp] + grad_1_alpha[pp] + grad_2_alpha[pp]);
+                    b_rhs0[pp] += sigma * (grad_0_beta0[pp] + grad_1_beta0[pp] + grad_2_beta0[pp]);
+                    b_rhs1[pp] += sigma * (grad_0_beta1[pp] + grad_1_beta1[pp] + grad_2_beta1[pp]);
+                    b_rhs2[pp] += sigma * (grad_0_beta2[pp] + grad_1_beta2[pp] + grad_2_beta2[pp]);
 
-                Gt_rhs0[pp] += sigma * (grad_0_Gt0[pp] + grad_1_Gt0[pp] + grad_2_Gt0[pp]);
-                Gt_rhs1[pp] += sigma * (grad_0_Gt1[pp] + grad_1_Gt1[pp] + grad_2_Gt1[pp]);
-                Gt_rhs2[pp] += sigma * (grad_0_Gt2[pp] + grad_1_Gt2[pp] + grad_2_Gt2[pp]);
+                    gt_rhs00[pp] += sigma * (grad_0_gt0[pp] + grad_1_gt0[pp] + grad_2_gt0[pp]);
+                    gt_rhs01[pp] += sigma * (grad_0_gt1[pp] + grad_1_gt1[pp] + grad_2_gt1[pp]);
+                    gt_rhs02[pp] += sigma * (grad_0_gt2[pp] + grad_1_gt2[pp] + grad_2_gt2[pp]);
+                    gt_rhs11[pp] += sigma * (grad_0_gt3[pp] + grad_1_gt3[pp] + grad_2_gt3[pp]);
+                    gt_rhs12[pp] += sigma * (grad_0_gt4[pp] + grad_1_gt4[pp] + grad_2_gt4[pp]);
+                    gt_rhs22[pp] += sigma * (grad_0_gt5[pp] + grad_1_gt5[pp] + grad_2_gt5[pp]);
 
-                B_rhs0[pp] += sigma * (grad_0_B0[pp] + grad_1_B0[pp] + grad_2_B0[pp]);
-                B_rhs1[pp] += sigma * (grad_0_B1[pp] + grad_1_B1[pp] + grad_2_B1[pp]);
-                B_rhs2[pp] += sigma * (grad_0_B2[pp] + grad_1_B2[pp] + grad_2_B2[pp]);
+                    chi_rhs[pp]  += sigma * (grad_0_chi[pp] + grad_1_chi[pp] + grad_2_chi[pp]);
+
+                    At_rhs00[pp] += sigma * (grad_0_At0[pp] + grad_1_At0[pp] + grad_2_At0[pp]);
+                    At_rhs01[pp] += sigma * (grad_0_At1[pp] + grad_1_At1[pp] + grad_2_At1[pp]);
+                    At_rhs02[pp] += sigma * (grad_0_At2[pp] + grad_1_At2[pp] + grad_2_At2[pp]);
+                    At_rhs11[pp] += sigma * (grad_0_At3[pp] + grad_1_At3[pp] + grad_2_At3[pp]);
+                    At_rhs12[pp] += sigma * (grad_0_At4[pp] + grad_1_At4[pp] + grad_2_At4[pp]);
+                    At_rhs22[pp] += sigma * (grad_0_At5[pp] + grad_1_At5[pp] + grad_2_At5[pp]);
+
+                    K_rhs[pp] += sigma * (grad_0_K[pp] + grad_1_K[pp] + grad_2_K[pp]);
+
+                    Gt_rhs0[pp] += sigma * (grad_0_Gt0[pp] + grad_1_Gt0[pp] + grad_2_Gt0[pp]);
+                    Gt_rhs1[pp] += sigma * (grad_0_Gt1[pp] + grad_1_Gt1[pp] + grad_2_Gt1[pp]);
+                    Gt_rhs2[pp] += sigma * (grad_0_Gt2[pp] + grad_1_Gt2[pp] + grad_2_Gt2[pp]);
+
+                    B_rhs0[pp] += sigma * (grad_0_B0[pp] + grad_1_B0[pp] + grad_2_B0[pp]);
+                    B_rhs1[pp] += sigma * (grad_0_B1[pp] + grad_1_B1[pp] + grad_2_B1[pp]);
+                    B_rhs2[pp] += sigma * (grad_0_B2[pp] + grad_1_B2[pp] + grad_2_B2[pp]);
+                }
             }
         }
     }
