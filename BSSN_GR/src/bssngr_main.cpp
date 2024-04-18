@@ -264,7 +264,7 @@ int main (int argc, char** argv)
         }
          
 
-        if( (step % bssn::BSSN_REMESH_TEST_FREQ) == 0 )
+        if( (step % bssn::BSSN_REMESH_TEST_FREQ) == 0 && step != 0)
         {
             bool isRemesh = bssnCtx->is_remesh();
             if(isRemesh)
@@ -295,6 +295,20 @@ int main (int argc, char** argv)
               bssnCtx->compute_constraint_variables();
               
             }
+        }
+
+        // things that should happen **only** on time step 0
+        if (step == 0) {
+            if (!rank_global) {
+                std::cout << BLU << "[ETS] : Timestep 0 - ensuring a few things are taken care of..." << NRM << std::endl;
+            }
+            // for our scaling operation, we want to make sure that the constraints are computed and handled
+            bssnCtx->compute_constraint_variables();
+
+            if (!rank_global) {
+                std::cout << BLU << "[ETS] : Timestep 0 - Finished with things that should always be done at time 0!" << NRM << std::endl;
+            }
+
         }
 
         if((step % bssn::BSSN_GW_EXTRACT_FREQ) == 0 )
