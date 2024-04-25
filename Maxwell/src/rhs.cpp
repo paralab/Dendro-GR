@@ -184,10 +184,10 @@ maxwell::timer::t_deriv.start();
  
 maxwell::timer::t_deriv.stop();
 
-  register double x;
-  register double y;
-  register double z;
-  register unsigned int pp;
+  DendroRegister double x;
+  DendroRegister double y;
+  DendroRegister double z;
+  DendroRegister unsigned int pp;
 //DAVE'S CODE STARTS HERE
   double *jx = new double[n];
   for(int counter = 0; counter < n; counter++){

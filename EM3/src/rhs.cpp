@@ -116,10 +116,10 @@ void em3rhs(double **unzipVarsRHS, const double **uZipVars,
 
   em3::timer::t_deriv.stop();
 
-  register double x;
-  register double y;
-  register double z;
-  register unsigned int pp;
+  DendroRegister double x;
+  DendroRegister double y;
+  DendroRegister double z;
+  DendroRegister unsigned int pp;
 
   double r;
   double eta;
