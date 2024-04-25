@@ -180,12 +180,11 @@ namespace bssn
         bssn::BSSN_IO_OUTPUT_GAP              = parFile["BSSN_IO_OUTPUT_GAP"].as_integer();
         bssn::BSSN_VTU_FILE_PREFIX            = parFile["BSSN_VTU_FILE_PREFIX"].as_string();
         bssn::BSSN_CHKPT_FILE_PREFIX          = parFile["BSSN_CHKPT_FILE_PREFIX"].as_string();
-
         bssn::BSSN_PROFILE_FILE_PREFIX        = parFile["BSSN_PROFILE_FILE_PREFIX"].as_string();
         bssn::BSSN_RESTORE_SOLVER             = parFile["BSSN_RESTORE_SOLVER"].as_integer();
-        bssn::BSSN_ID_TYPE                    = parFile["BSSN_ID_TYPE"].as_integer();
 
         bssn::BSSN_ENABLE_BLOCK_ADAPTIVITY    = parFile["BSSN_ENABLE_BLOCK_ADAPTIVITY"].as_integer();
+        bssn::BSSN_ID_TYPE                    = parFile["BSSN_ID_TYPE"].as_integer();
         bssn::BSSN_BLK_MIN_X                  = parFile["BSSN_BLK_MIN_X"].as_floating();
         bssn::BSSN_BLK_MIN_Y                  = parFile["BSSN_BLK_MIN_Y"].as_floating();
         bssn::BSSN_BLK_MIN_Z                  = parFile["BSSN_BLK_MIN_Z"].as_floating();
@@ -232,6 +231,7 @@ namespace bssn
         bssn::BSSN_GRID_MAX_Y                 = parFile["BSSN_GRID_MAX_Y"].as_floating();
         bssn::BSSN_GRID_MIN_Z                 = parFile["BSSN_GRID_MIN_Z"].as_floating();
         bssn::BSSN_GRID_MAX_Z                 = parFile["BSSN_GRID_MAX_Z"].as_floating();
+
         bssn::ETA_CONST                       = parFile["ETA_CONST"].as_floating();
         bssn::ETA_R0                          = parFile["ETA_R0"].as_floating();
         bssn::ETA_DAMPING                     = parFile["ETA_DAMPING"].as_floating();
@@ -249,10 +249,7 @@ namespace bssn
         if (parFile.contains("RIT_ETA_WIDTH")) {
             bssn::RIT_ETA_WIDTH = parFile["RIT_ETA_WIDTH"].as_floating();
         }
-        if (parFile.contains("BSSN_AMR_R_RATIO")) {
-            bssn::BSSN_AMR_R_RATIO = parFile["BSSN_AMR_R_RATIO"].as_floating();
-        }
-
+    
         if (parFile.contains("BSSN_KO_SIGMA_SCALE_BY_CONFORMAL")) {
             bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL = parFile["BSSN_KO_SIGMA_SCALE_BY_CONFORMAL"].as_boolean();
         }
@@ -274,9 +271,14 @@ namespace bssn
         bssn::BSSN_XI[1]                      = (unsigned int ) parFile["BSSN_XI"][1].as_integer();
         bssn::BSSN_XI[2]                      = (unsigned int ) parFile["BSSN_XI"][2].as_integer();
 
-        bssn::BSSN_ELE_ORDER                  = parFile["BSSN_ELE_ORDER"].as_integer();
+        if (parFile.contains("BSSN_ELE_ORDER"))
+            bssn::BSSN_ELE_ORDER                  = parFile["BSSN_ELE_ORDER"].as_integer();
+
         bssn::CHI_FLOOR                       = parFile["CHI_FLOOR"].as_floating();
         bssn::BSSN_TRK0                       = parFile["BSSN_TRK0"].as_floating();
+        if (parFile.contains("DISSIPATION_TYPE")) 
+            bssn::DISSIPATION_TYPE = parFile["DISSIPATION_TYPE"].as_integer();
+
         bssn::KO_DISS_SIGMA                   = parFile["KO_DISS_SIGMA"].as_floating();
 
         bssn::BSSN_ETA_R0                     = parFile["BSSN_ETA_R0"].as_floating();
@@ -288,8 +290,8 @@ namespace bssn
         bssn::BSSN_WAVELET_TOL_MAX            = parFile["BSSN_WAVELET_TOL_MAX"].as_floating();
         bssn::BSSN_WAVELET_TOL_FUNCTION_R0    = parFile["BSSN_WAVELET_TOL_FUNCTION_R0"].as_floating();
         bssn::BSSN_WAVELET_TOL_FUNCTION_R1    = parFile["BSSN_WAVELET_TOL_FUNCTION_R1"].as_floating();
-        bssn::BSSN_NUM_REFINE_VARS            = parFile["BSSN_NUM_REFINE_VARS"].as_integer();
 
+        bssn::BSSN_NUM_REFINE_VARS            = parFile["BSSN_NUM_REFINE_VARS"].as_integer();
         for(unsigned int i=0;i<bssn::BSSN_NUM_REFINE_VARS;i++)
             bssn::BSSN_REFINE_VARIABLE_INDICES[i]=parFile["BSSN_REFINE_VARIABLE_INDICES"][i].as_integer();
 
@@ -318,6 +320,10 @@ namespace bssn
 
         if(parFile.contains("BSSN_BH2_AMR_R"))
             bssn::BSSN_BH2_AMR_R = parFile["BSSN_BH2_AMR_R"].as_floating();
+
+        if (parFile.contains("BSSN_AMR_R_RATIO")) {
+            bssn::BSSN_AMR_R_RATIO = parFile["BSSN_AMR_R_RATIO"].as_floating();
+        }
 
         if(parFile.contains("BSSN_BH1_MAX_LEV"))
             bssn::BSSN_BH1_MAX_LEV = parFile["BSSN_BH1_MAX_LEV"].as_integer();
@@ -468,28 +474,27 @@ namespace bssn
 
 
         // AH parameters
-        // TODO: add these back in once AEH has been merged!
-        // if(parFile.find("AEH_LMAX")!=parFile.end())
-        //     AEH::AEH_LMAX   = parFile["AEH_LMAX"];
-        //
-        // if(parFile.find("AEH_Q_THETA")!=parFile.end())
-        //     AEH::AEH_Q_THETA = parFile["AEH_Q_THETA"];
-        //
-        // if(parFile.find("AEH_Q_PHI")!=parFile.end())
-        //     AEH::AEH_Q_PHI = parFile["AEH_Q_PHI"];
-        //
-        // if(parFile.find("AEH_MAXITER")!=parFile.end())
-        //     AEH::AEH_MAXITER = parFile["AEH_MAXITER"];
-        //
-        // if(parFile.find("AEH_ATOL")!=parFile.end())
-        //     AEH::AEH_ATOL = parFile["AEH_ATOL"];
-        //
-        // if(parFile.find("AEH_RTOL")!=parFile.end())
-        //     AEH::AEH_RTOL = parFile["AEH_RTOL"];
-        //
-        // if(parFile.find("AEH_SOLVER_FREQ")!=parFile.end())
-        //     AEH::AEH_SOLVER_FREQ = parFile["AEH_SOLVER_FREQ"];
-        //
+        if(parFile.contains("AEH_LMAX"))
+            AEH::AEH_LMAX   = parFile["AEH_LMAX"].as_integer();
+
+        if(parFile.contains("AEH_Q_THETA"))
+            AEH::AEH_Q_THETA = parFile["AEH_Q_THETA"].as_integer();
+
+        if(parFile.contains("AEH_Q_PHI"))
+            AEH::AEH_Q_PHI = parFile["AEH_Q_PHI"].as_integer();
+
+        if(parFile.contains("AEH_MAXITER"))
+            AEH::AEH_MAXITER = parFile["AEH_MAXITER"].as_integer();
+
+        if(parFile.contains("AEH_ATOL"))
+            AEH::AEH_ATOL = parFile["AEH_ATOL"].as_floating();
+
+        if(parFile.contains("AEH_RTOL"))
+            AEH::AEH_RTOL = parFile["AEH_RTOL"].as_floating();
+
+        if(parFile.contains("AEH_SOLVER_FREQ"))
+            AEH::AEH_SOLVER_FREQ = parFile["AEH_SOLVER_FREQ"].as_integer();
+
 
         MPI_Barrier(comm);
     }

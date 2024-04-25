@@ -50,7 +50,7 @@ namespace bssn
     void readParamJSONFile(const char * fName,MPI_Comm comm)
     {
         json parFile;
-        int rank, npes;
+        int  rank, npes;
         MPI_Comm_rank(comm, &rank);
         MPI_Comm_size(comm, &npes);
 
@@ -66,10 +66,10 @@ namespace bssn
         }
         infile >> parFile;
 
-        bssn::BSSN_IO_OUTPUT_FREQ = parFile["BSSN_IO_OUTPUT_FREQ"];
+        bssn::BSSN_IO_OUTPUT_FREQ   = parFile["BSSN_IO_OUTPUT_FREQ"];
         bssn::BSSN_REMESH_TEST_FREQ = parFile["BSSN_REMESH_TEST_FREQ"];
-        bssn::BSSN_CHECKPT_FREQ = parFile["BSSN_CHECKPT_FREQ"];
-        bssn::BSSN_IO_OUTPUT_GAP = parFile["BSSN_IO_OUTPUT_GAP"];
+        bssn::BSSN_CHECKPT_FREQ     = parFile["BSSN_CHECKPT_FREQ"];
+        bssn::BSSN_IO_OUTPUT_GAP    = parFile["BSSN_IO_OUTPUT_GAP"];
         bssn::BSSN_VTU_FILE_PREFIX =
             parFile["BSSN_VTU_FILE_PREFIX"].get<std::string>();
         bssn::BSSN_CHKPT_FILE_PREFIX =
@@ -80,58 +80,58 @@ namespace bssn
 
         bssn::BSSN_ENABLE_BLOCK_ADAPTIVITY =
             parFile["BSSN_ENABLE_BLOCK_ADAPTIVITY"];
-        bssn::BSSN_ID_TYPE = parFile["BSSN_ID_TYPE"];
-        bssn::BSSN_BLK_MIN_X = parFile["BSSN_BLK_MIN_X"];
-        bssn::BSSN_BLK_MIN_Y = parFile["BSSN_BLK_MIN_Y"];
-        bssn::BSSN_BLK_MIN_Z = parFile["BSSN_BLK_MIN_Z"];
-        bssn::BSSN_BLK_MAX_X = parFile["BSSN_BLK_MAX_X"];
-        bssn::BSSN_BLK_MAX_Y = parFile["BSSN_BLK_MAX_Y"];
-        bssn::BSSN_BLK_MAX_Z = parFile["BSSN_BLK_MAX_Z"];
+        bssn::BSSN_ID_TYPE             = parFile["BSSN_ID_TYPE"];
+        bssn::BSSN_BLK_MIN_X           = parFile["BSSN_BLK_MIN_X"];
+        bssn::BSSN_BLK_MIN_Y           = parFile["BSSN_BLK_MIN_Y"];
+        bssn::BSSN_BLK_MIN_Z           = parFile["BSSN_BLK_MIN_Z"];
+        bssn::BSSN_BLK_MAX_X           = parFile["BSSN_BLK_MAX_X"];
+        bssn::BSSN_BLK_MAX_Y           = parFile["BSSN_BLK_MAX_Y"];
+        bssn::BSSN_BLK_MAX_Z           = parFile["BSSN_BLK_MAX_Z"];
 
-        bssn::BSSN_DENDRO_GRAIN_SZ = parFile["BSSN_DENDRO_GRAIN_SZ"];
-        bssn::BSSN_ASYNC_COMM_K = parFile["BSSN_ASYNC_COMM_K"];
-        bssn::BSSN_DENDRO_AMR_FAC = parFile["BSSN_DENDRO_AMR_FAC"];
-        bssn::BSSN_LOAD_IMB_TOL = parFile["BSSN_LOAD_IMB_TOL"];
-        bssn::BSSN_RK_TIME_BEGIN = parFile["BSSN_RK_TIME_BEGIN"];
-        bssn::BSSN_RK_TIME_END = parFile["BSSN_RK_TIME_END"];
-        bssn::BSSN_RK_TYPE = parFile["BSSN_RK_TYPE"];
+        bssn::BSSN_DENDRO_GRAIN_SZ     = parFile["BSSN_DENDRO_GRAIN_SZ"];
+        bssn::BSSN_ASYNC_COMM_K        = parFile["BSSN_ASYNC_COMM_K"];
+        bssn::BSSN_DENDRO_AMR_FAC      = parFile["BSSN_DENDRO_AMR_FAC"];
+        bssn::BSSN_LOAD_IMB_TOL        = parFile["BSSN_LOAD_IMB_TOL"];
+        bssn::BSSN_RK_TIME_BEGIN       = parFile["BSSN_RK_TIME_BEGIN"];
+        bssn::BSSN_RK_TIME_END         = parFile["BSSN_RK_TIME_END"];
+        bssn::BSSN_RK_TYPE             = parFile["BSSN_RK_TYPE"];
         bssn::BSSN_RK45_TIME_STEP_SIZE = parFile["BSSN_RK45_TIME_STEP_SIZE"];
-        bssn::BSSN_RK45_DESIRED_TOL = parFile["BSSN_RK45_DESIRED_TOL"];
-        bssn::BSSN_DIM = parFile["BSSN_DIM"];
-        bssn::BSSN_MAXDEPTH = parFile["BSSN_MAXDEPTH"];
+        bssn::BSSN_RK45_DESIRED_TOL    = parFile["BSSN_RK45_DESIRED_TOL"];
+        bssn::BSSN_DIM                 = parFile["BSSN_DIM"];
+        bssn::BSSN_MAXDEPTH            = parFile["BSSN_MAXDEPTH"];
 
-        bssn::BH1 = BH((double)parFile["BSSN_BH1"]["MASS"],
-                       (double)parFile["BSSN_BH1"]["X"],
-                       (double)parFile["BSSN_BH1"]["Y"],
-                       (double)parFile["BSSN_BH1"]["Z"],
-                       (double)parFile["BSSN_BH1"]["V_X"],
-                       (double)parFile["BSSN_BH1"]["V_Y"],
-                       (double)parFile["BSSN_BH1"]["V_Z"],
-                       (double)parFile["BSSN_BH1"]["SPIN"],
-                       (double)parFile["BSSN_BH1"]["SPIN_THETA"],
-                       (double)parFile["BSSN_BH1"]["SPIN_PHI"]);
-        bssn::BH2 = BH((double)parFile["BSSN_BH2"]["MASS"],
-                       (double)parFile["BSSN_BH2"]["X"],
-                       (double)parFile["BSSN_BH2"]["Y"],
-                       (double)parFile["BSSN_BH2"]["Z"],
-                       (double)parFile["BSSN_BH2"]["V_X"],
-                       (double)parFile["BSSN_BH2"]["V_Y"],
-                       (double)parFile["BSSN_BH2"]["V_Z"],
-                       (double)parFile["BSSN_BH2"]["SPIN"],
-                       (double)parFile["BSSN_BH2"]["SPIN_THETA"],
-                       (double)parFile["BSSN_BH2"]["SPIN_PHI"]);
+        bssn::BH1                      = BH((double)parFile["BSSN_BH1"]["MASS"],
+                                            (double)parFile["BSSN_BH1"]["X"],
+                                            (double)parFile["BSSN_BH1"]["Y"],
+                                            (double)parFile["BSSN_BH1"]["Z"],
+                                            (double)parFile["BSSN_BH1"]["V_X"],
+                                            (double)parFile["BSSN_BH1"]["V_Y"],
+                                            (double)parFile["BSSN_BH1"]["V_Z"],
+                                            (double)parFile["BSSN_BH1"]["SPIN"],
+                                            (double)parFile["BSSN_BH1"]["SPIN_THETA"],
+                                            (double)parFile["BSSN_BH1"]["SPIN_PHI"]);
+        bssn::BH2                      = BH((double)parFile["BSSN_BH2"]["MASS"],
+                                            (double)parFile["BSSN_BH2"]["X"],
+                                            (double)parFile["BSSN_BH2"]["Y"],
+                                            (double)parFile["BSSN_BH2"]["Z"],
+                                            (double)parFile["BSSN_BH2"]["V_X"],
+                                            (double)parFile["BSSN_BH2"]["V_Y"],
+                                            (double)parFile["BSSN_BH2"]["V_Z"],
+                                            (double)parFile["BSSN_BH2"]["SPIN"],
+                                            (double)parFile["BSSN_BH2"]["SPIN_THETA"],
+                                            (double)parFile["BSSN_BH2"]["SPIN_PHI"]);
 
-        bssn::BSSN_GRID_MIN_X = parFile["BSSN_GRID_MIN_X"];
-        bssn::BSSN_GRID_MAX_X = parFile["BSSN_GRID_MAX_X"];
-        bssn::BSSN_GRID_MIN_Y = parFile["BSSN_GRID_MIN_Y"];
-        bssn::BSSN_GRID_MAX_Y = parFile["BSSN_GRID_MAX_Y"];
-        bssn::BSSN_GRID_MIN_Z = parFile["BSSN_GRID_MIN_Z"];
-        bssn::BSSN_GRID_MAX_Z = parFile["BSSN_GRID_MAX_Z"];
+        bssn::BSSN_GRID_MIN_X          = parFile["BSSN_GRID_MIN_X"];
+        bssn::BSSN_GRID_MAX_X          = parFile["BSSN_GRID_MAX_X"];
+        bssn::BSSN_GRID_MIN_Y          = parFile["BSSN_GRID_MIN_Y"];
+        bssn::BSSN_GRID_MAX_Y          = parFile["BSSN_GRID_MAX_Y"];
+        bssn::BSSN_GRID_MIN_Z          = parFile["BSSN_GRID_MIN_Z"];
+        bssn::BSSN_GRID_MAX_Z          = parFile["BSSN_GRID_MAX_Z"];
 
-        bssn::ETA_CONST = parFile["ETA_CONST"];
-        bssn::ETA_R0 = parFile["ETA_R0"];
-        bssn::ETA_DAMPING = parFile["ETA_DAMPING"];
-        bssn::ETA_DAMPING_EXP = parFile["ETA_DAMPING_EXP"];
+        bssn::ETA_CONST                = parFile["ETA_CONST"];
+        bssn::ETA_R0                   = parFile["ETA_R0"];
+        bssn::ETA_DAMPING              = parFile["ETA_DAMPING"];
+        bssn::ETA_DAMPING_EXP          = parFile["ETA_DAMPING_EXP"];
 
         if (parFile.find("RIT_ETA_FUNCTION") != parFile.end()) {
             bssn::RIT_ETA_FUNCTION = parFile["RIT_ETA_FUNCTION"];
@@ -157,9 +157,9 @@ namespace bssn
         bssn::BSSN_LAMBDA_F[0] = parFile["BSSN_LAMBDA_F"]["BSSN_LAMBDA_F0"];
         bssn::BSSN_LAMBDA_F[1] = parFile["BSSN_LAMBDA_F"]["BSSN_LAMBDA_F1"];
 
-        bssn::BSSN_XI[0] = (unsigned int)parFile["BSSN_XI"]["BSSN_XI_0"];
-        bssn::BSSN_XI[1] = (unsigned int)parFile["BSSN_XI"]["BSSN_XI_1"];
-        bssn::BSSN_XI[2] = (unsigned int)parFile["BSSN_XI"]["BSSN_XI_2"];
+        bssn::BSSN_XI[0]       = (unsigned int)parFile["BSSN_XI"]["BSSN_XI_0"];
+        bssn::BSSN_XI[1]       = (unsigned int)parFile["BSSN_XI"]["BSSN_XI_1"];
+        bssn::BSSN_XI[2]       = (unsigned int)parFile["BSSN_XI"]["BSSN_XI_2"];
 
         if (parFile.find("BSSN_ELE_ORDER") != parFile.end())
             bssn::BSSN_ELE_ORDER = parFile["BSSN_ELE_ORDER"];
@@ -183,13 +183,13 @@ namespace bssn
         }
 
         // Parameters for eta_damping function
-        bssn::BSSN_ETA_R0 = parFile["BSSN_ETA_R0"];
+        bssn::BSSN_ETA_R0       = parFile["BSSN_ETA_R0"];
         bssn::BSSN_ETA_POWER[0] = parFile["BSSN_ETA_POWER"]["BSSN_ETA_POWER_1"];
         bssn::BSSN_ETA_POWER[1] = parFile["BSSN_ETA_POWER"]["BSSN_ETA_POWER_2"];
 
         bssn::BSSN_USE_WAVELET_TOL_FUNCTION =
             parFile["BSSN_USE_WAVELET_TOL_FUNCTION"];
-        bssn::BSSN_WAVELET_TOL = parFile["BSSN_WAVELET_TOL"];
+        bssn::BSSN_WAVELET_TOL     = parFile["BSSN_WAVELET_TOL"];
         bssn::BSSN_WAVELET_TOL_MAX = parFile["BSSN_WAVELET_TOL_MAX"];
         bssn::BSSN_WAVELET_TOL_FUNCTION_R0 =
             parFile["BSSN_WAVELET_TOL_FUNCTION_R0"];
@@ -263,11 +263,11 @@ namespace bssn
             bssn::BSSN_BH2_CONSTRAINT_R = parFile["BSSN_BH2_CONSTRAINT_R"];
 
         /* Parameters for TPID */
-        TPID::target_M_plus = parFile["TPID_TARGET_M_PLUS"];
+        TPID::target_M_plus  = parFile["TPID_TARGET_M_PLUS"];
         TPID::target_M_minus = parFile["TPID_TARGET_M_MINUS"];
-        TPID::par_m_plus = TPID::target_M_plus;
-        TPID::par_m_minus = TPID::target_M_minus;
-        TPID::par_b = parFile["TPID_PAR_B"];
+        TPID::par_m_plus     = TPID::target_M_plus;
+        TPID::par_m_minus    = TPID::target_M_minus;
+        TPID::par_b          = parFile["TPID_PAR_B"];
 
         TPID::par_P_plus[0] =
             bssn::BH1.getVx();  // parFile["TPID_PAR_P_PLUS"]["X"];
@@ -311,18 +311,18 @@ namespace bssn
 
         TPID::initial_lapse_psi_exponent =
             parFile["TPID_INITIAL_LAPSE_PSI_EXPONENT"];
-        TPID::npoints_A = parFile["TPID_NPOINTS_A"];
-        TPID::npoints_B = parFile["TPID_NPOINTS_B"];
-        TPID::npoints_phi = parFile["TPID_NPOINTS_PHI"];
+        TPID::npoints_A      = parFile["TPID_NPOINTS_A"];
+        TPID::npoints_B      = parFile["TPID_NPOINTS_B"];
+        TPID::npoints_phi    = parFile["TPID_NPOINTS_PHI"];
 
         TPID::give_bare_mass = parFile["TPID_GIVE_BARE_MASS"];
-        TPID::initial_lapse = parFile["INITIAL_LAPSE"];
+        TPID::initial_lapse  = parFile["INITIAL_LAPSE"];
         TPID::solve_momentum_constraint =
             parFile["TPID_SOLVE_MOMENTUM_CONSTRAINT"];
         TPID::grid_setup_method = parFile["TPID_GRID_SETUP_METHOD"];
-        TPID::verbose = parFile["TPID_VERBOSE"];
-        TPID::adm_tol = parFile["TPID_ADM_TOL"];
-        TPID::Newton_tol = parFile["TPID_NEWTON_TOL"];
+        TPID::verbose           = parFile["TPID_VERBOSE"];
+        TPID::adm_tol           = parFile["TPID_ADM_TOL"];
+        TPID::Newton_tol        = parFile["TPID_NEWTON_TOL"];
 
         if (parFile.find("TPID_FILEPREFIX") != parFile.end())
             TPID::FILE_PREFIX = parFile["TPID_FILEPREFIX"].get<std::string>();
@@ -335,21 +335,12 @@ namespace bssn
             BHLOC::EXTRACTION_TOL = parFile["EXTRACTION_TOL"];
         }
 
-        if (parFile.find("BSSN_AMR_R_RATIO") != parFile.end()) {
-            bssn::BSSN_AMR_R_RATIO = parFile["BSSN_AMR_R_RATIO"];
-        }
-
         if (parFile.find("BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE") !=
             parFile.end())
             bssn::BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE =
                 parFile["BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE"];
 
         /* Parameters for TPID */
-
-        vtu_len = BSSN_VTU_FILE_PREFIX.size();
-        chp_len = BSSN_CHKPT_FILE_PREFIX.size();
-        prf_len = BSSN_PROFILE_FILE_PREFIX.size();
-        tpf_len = TPID::FILE_PREFIX.size();
 
         GW::BSSN_GW_NUM_RADAII = parFile["BSSN_GW_NUM_RADAII"];
         GW::BSSN_GW_NUM_LMODES = parFile["BSSN_GW_NUM_LMODES"];
@@ -374,13 +365,13 @@ namespace bssn
         BSSN_OCTREE_MAX[1] = (double)(1u << bssn::BSSN_MAXDEPTH);
         BSSN_OCTREE_MAX[2] = (double)(1u << bssn::BSSN_MAXDEPTH);
 
-        BSSN_COMPD_MIN[0] = bssn::BSSN_GRID_MIN_X;
-        BSSN_COMPD_MIN[1] = bssn::BSSN_GRID_MIN_Y;
-        BSSN_COMPD_MIN[2] = bssn::BSSN_GRID_MIN_Z;
+        BSSN_COMPD_MIN[0]  = bssn::BSSN_GRID_MIN_X;
+        BSSN_COMPD_MIN[1]  = bssn::BSSN_GRID_MIN_Y;
+        BSSN_COMPD_MIN[2]  = bssn::BSSN_GRID_MIN_Z;
 
-        BSSN_COMPD_MAX[0] = bssn::BSSN_GRID_MAX_X;
-        BSSN_COMPD_MAX[1] = bssn::BSSN_GRID_MAX_Y;
-        BSSN_COMPD_MAX[2] = bssn::BSSN_GRID_MAX_Z;
+        BSSN_COMPD_MAX[0]  = bssn::BSSN_GRID_MAX_X;
+        BSSN_COMPD_MAX[1]  = bssn::BSSN_GRID_MAX_Y;
+        BSSN_COMPD_MAX[2]  = bssn::BSSN_GRID_MAX_Z;
 
         if (BSSN_NUM_REFINE_VARS > BSSN_NUM_VARS) {
             std::cout << "Error[parameter file]: Number of refine variables "
