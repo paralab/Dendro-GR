@@ -15,6 +15,7 @@
 #include <filesystem>
 
 #include "TwoPunctures.h"
+#include "aeh.h"
 #include "bssn_constraints.h"
 #include "checkPoint.h"
 #include "ctx.h"
@@ -60,6 +61,10 @@ class BSSNCtx : public ts::Ctx<BSSNCtx, DendroScalar, unsigned int> {
     /**@brief: default deconstructor*/
     ~BSSNCtx();
 
+    /**@brief get bh locations*/
+    const Point& get_bh0_loc() const { return m_uiBHLoc[0]; }
+    const Point& get_bh1_loc() const { return m_uiBHLoc[1]; }
+
     /**
      * @brief sets time adaptive offset
      * @param tadapoffst
@@ -87,6 +92,19 @@ class BSSNCtx : public ts::Ctx<BSSNCtx, DendroScalar, unsigned int> {
      * @return int : status. (0) on success.
      */
     int rhs(DVec* in, DVec* out, unsigned int sz, DendroScalar time);
+
+    /**
+     * @brief computes AEH expansion function on the spacelike hypersurface.
+     *
+     * @param in : zipped input
+     * @param out : zipped output
+     * @param sz  : number of variables.
+     * @param time : current time.
+     * @return int : status. (0) on success.
+     */
+
+    int aeh_expansion(const Point& origin, aeh::AEH_VARS* m_aeh_vars,
+                      DVec& aeh_f, DVec& aeh_h, const DendroScalar* const rlim);
 
     /**
      * @brief block wise RHS.

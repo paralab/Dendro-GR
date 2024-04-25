@@ -17,6 +17,7 @@
 #include "rkBSSN.h"
 #include "sdc.h"
 #include "bssnCtx.h"
+#include "aeh.h"
 
 int main (int argc, char** argv)
 {
@@ -44,6 +45,20 @@ int main (int argc, char** argv)
     int rank,npes;
     MPI_Comm_rank(comm,&rank);
     MPI_Comm_size(comm,&npes);
+
+
+    if (!rank) {
+        std::cout << "======================================" << std::endl;
+        std::cout << GRN << ":::: Now initializing BSSN Solver ::::" << NRM << std::endl;
+        if (ts_mode == 0) {
+            std::cout << YLW << "      - Running with the Non-Uniform/Spatially Adaptive Time Stepper (NUTS/SATS)" << NRM << std::endl;
+        } else {
+
+            std::cout << YLW << "      - Running with the Uniform Time Stepper (UTS)" << NRM << std::endl;
+        }
+
+        std::cout << "======================================" << std::endl;
+    }
 
     // Print out CMAKE options
     if (!rank) {
@@ -221,6 +236,7 @@ int main (int argc, char** argv)
           ets->set_ets_coefficients(ts::ETSType::RK5);
 
       ets->init();
+
       #if defined __PROFILE_CTX__ && defined __PROFILE_ETS__
         std::ofstream outfile;
         char fname [256];
@@ -243,6 +259,29 @@ int main (int argc, char** argv)
       #endif
       bool is_merge_executed = false;
       double t1 = MPI_Wtime();
+
+      std::vector<DendroScalar> hh[4];
+      const unsigned int ah_num_sh = (AEH::AEH_LMAX + 1) * (AEH::AEH_LMAX + 1);
+      
+      hh[0].resize(ah_num_sh, 0);
+      hh[1].resize(ah_num_sh, 0);
+      hh[2].resize(ah_num_sh, 0);
+      hh[3].resize(ah_num_sh, 0);
+      
+      double r_plus  = 0.5 * sqrt(std::pow(TPID::par_m_plus , 2)  - 1 * (std::pow(TPID::par_S_plus[0],2) + std::pow(TPID::par_S_plus[1],2) + std::pow(TPID::par_S_plus[2],2)));
+      double r_minus = 0.5 * sqrt(std::pow(TPID::par_m_minus, 2)  - 1 * (std::pow(TPID::par_S_minus[0],2) + std::pow(TPID::par_S_minus[1],2) + std::pow(TPID::par_S_minus[2],2)));
+
+      for (unsigned int i=0; i < hh[0].size(); i++)
+      {
+        hh[0][i]=0.0;
+        hh[1][i]=0.0;
+        hh[2][i]=0.0;
+        hh[3][i]=0.0;
+      }
+
+      hh[0][0] = r_plus  * sqrt(4 * M_PI);
+      hh[2][0] = r_minus * sqrt(4 * M_PI);
+      
       while(ets->curr_time() < bssn::BSSN_RK_TIME_END)
       {
         const DendroIntL   step = ets->curr_step();
@@ -259,10 +298,11 @@ int main (int argc, char** argv)
         {
           // bssn::BSSN_REMESH_TEST_FREQ=3 * bssn::BSSN_REMESH_TEST_FREQ_AFTER_MERGER;
           // bssn::BSSN_MINDEPTH=5;
-          bssn::BSSN_REMESH_TEST_FREQ=bssn::BSSN_REMESH_TEST_FREQ_AFTER_MERGER;  
+          bssn::BSSN_REFINEMENT_MODE          = bssn::RefinementMode::WAMR;
+          bssn::BSSN_USE_WAVELET_TOL_FUNCTION = 1;
+          bssn::BSSN_REMESH_TEST_FREQ = bssn::BSSN_REMESH_TEST_FREQ_AFTER_MERGER;  
           bssn::BSSN_GW_EXTRACT_FREQ  = bssn::BSSN_GW_EXTRACT_FREQ_AFTER_MERGER;
         }
-         
 
         if( (step % bssn::BSSN_REMESH_TEST_FREQ) == 0 && step != 0)
         {
@@ -280,7 +320,7 @@ int main (int argc, char** argv)
               ot::Mesh* pmesh = bssnCtx->get_mesh();
               unsigned int lmin, lmax;
               pmesh->computeMinMaxLevel(lmin,lmax);
-              if(!pmesh->getMPIRank())
+              if(!pmesh->getMPIRankGlobal())
                 printf("post merger grid level = (%d, %d)\n",lmin,lmax);
               bssn::BSSN_RK45_TIME_STEP_SIZE=bssn::BSSN_CFL_FACTOR*((bssn::BSSN_COMPD_MAX[0]-bssn::BSSN_COMPD_MIN[0])*((1u<<(m_uiMaxDepth-lmax))/((double) bssn::BSSN_ELE_ORDER))/((double)(1u<<(m_uiMaxDepth))));
               ts::TSInfo ts_in = bssnCtx->get_ts_info();
@@ -323,7 +363,101 @@ int main (int argc, char** argv)
         }
         
         if( (step % bssn::BSSN_CHECKPT_FREQ) == 0 )
+        {
           bssnCtx->write_checkpt();
+          bssnCtx->get_mesh()->waitAll();
+        }
+
+        if((AEH::AEH_SOLVER_FREQ > 0) && (step % AEH::AEH_SOLVER_FREQ)==0){
+          const int lmax               = AEH::AEH_LMAX;
+          const int ntheta             = AEH::AEH_Q_THETA;
+          const int nphi               = AEH::AEH_Q_PHI;
+          const unsigned int max_iter  = AEH::AEH_MAXITER;
+          
+          const double rel_tol         = AEH::AEH_ATOL;
+          const double abs_tol         = AEH::AEH_RTOL;
+          const bool single_ah         = bssnCtx->is_bh_merged(0.1);
+          const ot::Mesh* pmesh        = bssnCtx->get_mesh();
+          try
+          {
+            
+            aeh::SpectralAEHSolver<bssn::BSSNCtx,DendroScalar> aeh_solver(bssnCtx, lmax, ntheta, nphi, false);
+            const unsigned int num_lm_modes = aeh_solver.get_num_lm_modes();
+            double rlim[2] ={1e-6, 30};
+            
+
+            if(single_ah)
+            {
+
+            }else
+            {
+              {
+                
+                for(unsigned int ll=0; ll < lmax; ll+=2)
+                {
+                    if (!pmesh->getMPIRankGlobal())
+                      std::cout<<"sub cycle lmax = "<<ll<<std::endl;
+
+                    aeh::SpectralAEHSolver<bssn::BSSNCtx,DendroScalar> s1(bssnCtx, ll, ntheta, nphi, false, false);
+                    s1.solve(bssnCtx->get_bh0_loc(), bssnCtx, hh[0].data(), hh[1].data(), max_iter, rel_tol, abs_tol, rlim);
+                    std::swap(hh[0] , hh[1]);
+                }
+
+                char fname[256];
+                sprintf(fname,"%s_%d_%d_%d_bh0_aeh.dat",bssn::BSSN_PROFILE_FILE_PREFIX.c_str(), lmax, ntheta, nphi);
+                aeh_solver.solve(bssnCtx->get_bh0_loc(), bssnCtx, hh[0].data(), hh[1].data(), max_iter, rel_tol, abs_tol, rlim, 1u);
+                aeh_solver.aeh_to_json(bssnCtx->get_bh0_loc(), bssnCtx, hh[1].data(), fname, std::ios_base::app);
+                std::swap(hh[0] , hh[1]);
+              
+              }
+
+              {
+                
+                for(unsigned int ll=0; ll < lmax; ll+=2)
+                {
+                    if (!pmesh->getMPIRankGlobal())
+                      std::cout<<"sub cycle lmax = "<<ll<<std::endl;
+
+                    aeh::SpectralAEHSolver<bssn::BSSNCtx,DendroScalar> s1(bssnCtx, ll, ntheta, nphi, false, false);
+                    s1.solve(bssnCtx->get_bh1_loc(), bssnCtx, hh[2].data(), hh[3].data(), max_iter, rel_tol, abs_tol, rlim);
+                    std::swap(hh[2],hh[3]);
+                }
+
+                char fname[256];
+                sprintf(fname,"%s_%d_%d_%d_bh1_aeh.dat",bssn::BSSN_PROFILE_FILE_PREFIX.c_str(), lmax, ntheta, nphi);
+                aeh_solver.solve(bssnCtx->get_bh1_loc(), bssnCtx, hh[2].data(), hh[3].data(), max_iter, rel_tol, abs_tol, rlim, 1u);
+                aeh_solver.aeh_to_json(bssnCtx->get_bh1_loc(), bssnCtx, hh[3].data(), fname, std::ios_base::app);
+                std::swap(hh[2],hh[3]);
+
+              }
+              
+            }
+
+            bssnCtx->get_mesh()->waitAll();
+            // needed for comm growth
+            par::Mpi_Bcast(hh[0].data(), hh[0].size(), 0, pmesh->getMPIGlobalCommunicator());
+            par::Mpi_Bcast(hh[2].data(), hh[2].size(), 0, pmesh->getMPIGlobalCommunicator());
+            for (unsigned int i=0; i < hh[0].size(); i++)
+            {
+              hh[1][i] = hh[0][i];
+              hh[3][i] = hh[2][i];
+            }
+
+          }catch(...)
+          {
+            bssnCtx->get_mesh()->waitAll();
+            // needed for comm growth
+            par::Mpi_Bcast(hh[0].data(), hh[0].size(), 0, pmesh->getMPIGlobalCommunicator());
+            par::Mpi_Bcast(hh[2].data(), hh[2].size(), 0, pmesh->getMPIGlobalCommunicator());
+            for (unsigned int i=0; i < hh[0].size(); i++)
+            {
+              hh[1][i] = hh[0][i];
+              hh[3][i] = hh[2][i];
+            }
+            std::cout<<"Exception occurred during apparent even horizon solver "<<std::endl;
+          }
+          
+        }
         
         ets->evolve();
       }

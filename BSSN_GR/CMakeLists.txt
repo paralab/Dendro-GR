@@ -211,8 +211,7 @@ set(BSSN_INC include/parameters.h
         include/TPUtilities.h
         include/TwoPunctures.h
         include/dataUtils.h
-        include/aeh_solver.h
-        #include/bssnCtx.h
+        include/aeh.h
         include/trumpet.h
         )
 
@@ -232,7 +231,6 @@ set(BSSN_SRC src/parameters.cpp
            src/TwoPunctures.cpp
            src/dataUtils.cpp
            src/hadrhs.F90
-           #src/bssnCtx.cpp
            src/trumpet.cpp
         )
 

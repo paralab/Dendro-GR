@@ -448,3 +448,29 @@ namespace GW
     
     
 }
+
+namespace AEH
+{
+    /**@brief lmax used for AH surface parameterization*/
+    extern unsigned int AEH_LMAX;
+    
+    /**@brief quadrature points in the theta direction*/
+    extern unsigned int AEH_Q_THETA;
+    
+    /**@brief quadrature points in the phi direction*/
+    extern unsigned int AEH_Q_PHI;
+    
+    /**@brief number of max. iterations for AH solver*/
+    extern unsigned int AEH_MAXITER;
+    
+    /**@brief absolute tolerance for AH convergence*/
+    extern double AEH_ATOL;
+    
+    /**@brief relative tolerance for AH convergence*/
+    extern double AEH_RTOL;
+
+    extern unsigned int AEH_SOLVER_FREQ;
+
+
+    
+}
