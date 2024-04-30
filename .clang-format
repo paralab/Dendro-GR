@@ -7,7 +7,8 @@ AlignConsecutiveMacros: true
 AlignConsecutiveAssignments:
   Enabled: true
   AcrossEmptyLines: true
-AlignConsecutiveDeclarations: true
+  AcrossComments: true
+AlignConsecutiveDeclarations: false
 AlignEscapedNewlines: Left
 AlignOperands:   true
 AlignTrailingComments: true
@@ -167,4 +168,3 @@ TabWidth:        8
 UseCRLF:         false
 UseTab:          Never
 ...
-

@@ -29,7 +29,6 @@ void bssnRHS(double **uzipVarsRHS, const double **uZipVars,
              const ot::Block *blkList, unsigned int numBlocks,
              const double curr_time, const double **uZipConstVars);
 
-
 void bssnrhs(double **uzipVarsRHS, const double **uZipVars,
              const unsigned int &offset, const double *ptmin,
              const double *ptmax, const unsigned int *sz,
