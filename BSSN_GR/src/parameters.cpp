@@ -388,9 +388,12 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
     TPID::par_m_minus    = TPID::target_M_minus;
     TPID::par_b          = parFile["TPID_PAR_B"].as_floating();
 
-    TPID::par_P_plus[0] = bssn::BH1.getVx();  // parFile["TPID_PAR_P_PLUS"]["X"];
-    TPID::par_P_plus[1] = bssn::BH1.getVy();  // parFile["TPID_PAR_P_PLUS"]["Y"];
-    TPID::par_P_plus[2] = bssn::BH1.getVz();  // parFile["TPID_PAR_P_PLUS"]["Z"];
+    TPID::par_P_plus[0] =
+        bssn::BH1.getVx();  // parFile["TPID_PAR_P_PLUS"]["X"];
+    TPID::par_P_plus[1] =
+        bssn::BH1.getVy();  // parFile["TPID_PAR_P_PLUS"]["Y"];
+    TPID::par_P_plus[2] =
+        bssn::BH1.getVz();  // parFile["TPID_PAR_P_PLUS"]["Z"];
 
     TPID::par_P_minus[0] =
         bssn::BH2.getVx();  // parFile["TPID_PAR_P_MINUS"]["X"];

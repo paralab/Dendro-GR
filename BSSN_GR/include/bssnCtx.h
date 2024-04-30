@@ -102,7 +102,6 @@ class BSSNCtx : public ts::Ctx<BSSNCtx, DendroScalar, unsigned int> {
      * @param time : current time.
      * @return int : status. (0) on success.
      */
-
     int aeh_expansion(const Point& origin, aeh::AEH_VARS* m_aeh_vars,
                       DVec& aeh_f, DVec& aeh_h, const DendroScalar* const rlim);
 
