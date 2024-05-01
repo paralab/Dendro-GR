@@ -54,6 +54,14 @@ class BSSNCtx : public ts::Ctx<BSSNCtx, DendroScalar, unsigned int> {
 
     Point m_uiBHLoc[2];
 
+   private:
+    // TODO: move these into the main Ctx object and have the remesh logic work
+    // there
+
+    DendroIntL m_uiGlobalMeshElements;
+    DendroIntL m_uiGlobalGridPoints;
+    bool m_uiWroteGridInfoHeader = false;
+
    public:
     /**@brief: default constructor*/
     BSSNCtx(ot::Mesh* pMesh);
@@ -178,6 +186,19 @@ class BSSNCtx : public ts::Ctx<BSSNCtx, DendroScalar, unsigned int> {
     /**@brief: prints any messages to the terminal output. */
     int terminal_output();
 
+    /**
+     * @brief: writes information about the simulation to a .dat file
+     *
+     * Some of the information saved here:
+     *   - Step
+     *   - Wall Time from last step
+     *   - Simulation time ( t / M)
+     *   - Active communicator size
+     *   - Number of mesh elements
+     *   - Current dt
+     */
+    void write_grid_summary_data();
+
     /**@brief: returns the async communication batch size. */
     unsigned int get_async_batch_sz() { return bssn::BSSN_ASYNC_COMM_K; }
 
@@ -226,6 +247,8 @@ class BSSNCtx : public ts::Ctx<BSSNCtx, DendroScalar, unsigned int> {
     };
 
     int grid_transfer(const ot::Mesh* m_new);
+
+    void calculate_full_grid_size();
 };
 
 }  // end of namespace bssn

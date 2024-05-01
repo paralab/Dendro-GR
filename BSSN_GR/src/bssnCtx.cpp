@@ -12,6 +12,8 @@
 
 #include "bssnCtx.h"
 
+#include "parameters.h"
+
 namespace bssn {
 BSSNCtx::BSSNCtx(ot::Mesh* pMesh) : Ctx() {
     m_uiMesh = pMesh;
@@ -385,6 +387,9 @@ int BSSNCtx::initialize() {
     DVec& m_evar     = m_var[VL::CPU_EV];
     DVec& m_evar_unz = m_var[VL::CPU_EV_UZ_IN];
 
+    // calculate the initial size of the grid
+    this->calculate_full_grid_size();
+
     do {
         this->unzip(m_evar, m_evar_unz, bssn::BSSN_ASYNC_COMM_K);
         m_evar_unz.to_2d(unzipVar);
@@ -410,28 +415,21 @@ int BSSNCtx::initialize() {
                 this->remesh(bssn::BSSN_DENDRO_GRAIN_SZ,
                              bssn::BSSN_LOAD_IMB_TOL, bssn::BSSN_SPLIT_FIX);
 
-            oldElements   = m_uiMesh->getNumLocalMeshElements();
             newElements   = newMesh->getNumLocalMeshElements();
-
-            oldGridPoints = m_uiMesh->getNumLocalMeshNodes();
             newGridPoints = newMesh->getNumLocalMeshNodes();
 
-            par::Mpi_Allreduce(&oldElements, &oldElements_g, 1, MPI_SUM, gcomm);
             par::Mpi_Allreduce(&newElements, &newElements_g, 1, MPI_SUM, gcomm);
-
-            par::Mpi_Allreduce(&oldGridPoints, &oldGridPoints_g, 1, MPI_SUM,
-                               m_uiMesh->getMPIGlobalCommunicator());
             par::Mpi_Allreduce(&newGridPoints, &newGridPoints_g, 1, MPI_SUM,
                                m_uiMesh->getMPIGlobalCommunicator());
 
             if (!rank_global) {
                 std::cout << "[bssnCtx] iter : " << iterCount
                           << " (Remesh triggered) ->  old mesh : "
-                          << oldElements_g << " new mesh : " << newElements_g
-                          << std::endl;
+                          << m_uiGlobalMeshElements
+                          << " new mesh : " << newElements_g << std::endl;
                 std::cout << "[bssnCtx] iter : " << iterCount
                           << " (Remesh triggered) ->  old mesh (zip nodes) : "
-                          << oldGridPoints_g
+                          << m_uiGlobalGridPoints
                           << " new mesh (zip nodes) : " << newGridPoints_g
                           << std::endl;
             }
@@ -440,6 +438,10 @@ int BSSNCtx::initialize() {
 
             std::swap(m_uiMesh, newMesh);
             delete newMesh;
+
+            // then update the size of the grid, no need to recompute
+            m_uiGlobalMeshElements = newElements_g;
+            m_uiGlobalGridPoints   = newGridPoints_g;
 
 #ifdef __CUDACC__
             device::MeshGPU*& dptr_mesh = this->get_meshgpu_device_ptr();
@@ -1237,6 +1239,61 @@ int BSSNCtx::terminal_output() {
     }
 
     return 0;
+}
+
+void BSSNCtx::write_grid_summary_data() {
+    if (m_uiMesh->isActive()) {
+        if (!m_uiMesh->getMPIRankGlobal()) {
+            std::string fname =
+                bssn::BSSN_PROFILE_FILE_PREFIX + "_GridInfo.dat";
+            try {
+                std::ofstream file_grid_data;
+                file_grid_data.open(fname, std::ofstream::app);
+                file_grid_data.precision(12);
+                file_grid_data << std::scientific;
+
+                if (!m_uiWroteGridInfoHeader) {
+                    file_grid_data << "timeStep,simTime,commSize,wTime,"
+                                      "meshSize,totalGridPoints,stepSize\n";
+
+                    m_uiWroteGridInfoHeader = true;
+                }
+
+                file_grid_data << bssn::BSSN_CURRENT_RK_STEP << ",";
+                file_grid_data << bssn::BSSN_CURRENT_RK_COORD_TIME << ",";
+                file_grid_data << m_uiMesh->getMPICommSize() << ",";
+                file_grid_data << MPI_Wtime() << ",";
+                file_grid_data << m_uiGlobalMeshElements << ",";
+                file_grid_data << m_uiGlobalGridPoints << ",";
+                file_grid_data << bssn::BSSN_RK45_TIME_STEP_SIZE << "\n";
+                file_grid_data.close();
+            } catch (const std::exception& e) {
+                std::cout << "Error occured while writing grid summary data!"
+                          << std::endl;
+                return;
+            }
+            std::cout << "[BSSNCtx]: Finished writing grid summary data to "
+                      << fname << std::endl;
+        }
+    }
+
+    return;
+}
+
+void BSSNCtx::calculate_full_grid_size() {
+    if (m_uiMesh->isActive()) {
+        // number of mesh elements
+        DendroIntL mesh_elements = m_uiMesh->getNumLocalMeshElements();
+
+        DendroIntL grid_points   = m_uiMesh->getNumLocalMeshNodes();
+
+        // perform an all reduce on the mesh
+        par::Mpi_Reduce(&mesh_elements, &m_uiGlobalMeshElements, 1, MPI_SUM, 0,
+                        m_uiMesh->getMPICommunicator());
+
+        par::Mpi_Reduce(&grid_points, &m_uiGlobalGridPoints, 1, MPI_SUM, 0,
+                        m_uiMesh->getMPICommunicator());
+    }
 }
 
 int BSSNCtx::grid_transfer(const ot::Mesh* m_new) {

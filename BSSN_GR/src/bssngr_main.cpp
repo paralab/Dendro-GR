@@ -406,6 +406,7 @@ bssn:
                     bssn::deallocate_bssn_deriv_workspace();
                     bssn::allocate_bssn_deriv_workspace(bssnCtx->get_mesh(), 1);
                     ets->sync_with_mesh();
+                    bssnCtx->calculate_full_grid_size();
 
                     ot::Mesh* pmesh = bssnCtx->get_mesh();
                     unsigned int lmin, lmax;
@@ -432,6 +433,7 @@ bssn:
                     // grid for potential RHS updates
                     bssnCtx->compute_constraint_variables();
                 }
+                bssnCtx->write_grid_summary_data();
             }
 
             // things that should happen **only** on time step 0
@@ -445,6 +447,9 @@ bssn:
                 // for our scaling operation, we want to make sure that the
                 // constraints are computed and handled
                 bssnCtx->compute_constraint_variables();
+
+                // make sure we write about the grid size at time 0
+                bssnCtx->write_grid_summary_data();
 
                 if (!rank_global) {
                     std::cout << BLU
