@@ -444,6 +444,10 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
     if (parFile.contains("TPID_FILEPREFIX"))
         TPID::FILE_PREFIX = parFile["TPID_FILEPREFIX"].as_string();
 
+    if (parFile.contains("TPID_REPLACE_LAPSE_WITH_SQRT_CHI"))
+        TPID::replace_lapse_with_sqrt_chi =
+            parFile["TPID_REPLACE_LAPSE_WITH_SQRT_CHI"].as_boolean();
+
     if (parFile.contains("EXTRACTION_VAR_ID"))
         BHLOC::EXTRACTION_VAR_ID = parFile["EXTRACTION_VAR_ID"].as_integer();
 
@@ -560,6 +564,7 @@ int verbose                       = 1;
 double adm_tol                    = 1.0e-10;
 double Newton_tol                 = 1.0e-10;
 std::string FILE_PREFIX           = "tpid";
+bool replace_lapse_with_sqrt_chi  = false;
 }  // namespace TPID
 
 namespace BHLOC {

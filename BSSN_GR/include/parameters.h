@@ -402,6 +402,7 @@ extern int verbose;
 extern double adm_tol;
 extern double Newton_tol;
 extern std::string FILE_PREFIX;
+extern bool replace_lapse_with_sqrt_chi;
 }  // namespace TPID
 
 /**@brief parameters related to BH location extraction*/

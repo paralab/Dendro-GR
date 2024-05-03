@@ -322,6 +322,8 @@ void TwoPunctures(const double xx1, const double yy1, const double zz1,
 
     if (TPID::multiply_old_lapse) vars[VAR::U_ALPHA] *= old_alp;
 
+    if (TPID::replace_lapse_with_sqrt_chi) vars[VAR::U_ALPHA] = pow(chi, 0.5);
+
     if (0) {
         /* Keep the result around for the next time */
         free_dvector(F, 0, ntotal - 1);

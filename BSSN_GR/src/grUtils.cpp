@@ -320,6 +320,10 @@ void readParamJSONFile(const char* fName, MPI_Comm comm) {
     if (parFile.find("TPID_FILEPREFIX") != parFile.end())
         TPID::FILE_PREFIX = parFile["TPID_FILEPREFIX"].get<std::string>();
 
+    if (parFile.find("TPID_REPLACE_LAPSE_WITH_SQRT_CHI") != parFile.end())
+        TPID::replace_lapse_with_sqrt_chi =
+            parFile["TPID_REPLACE_LAPSE_WITH_SQRT_CHI"];
+
     if (parFile.find("EXTRACTION_VAR_ID") != parFile.end()) {
         BHLOC::EXTRACTION_VAR_ID = parFile["EXTRACTION_VAR_ID"];
     }
