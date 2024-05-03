@@ -208,7 +208,7 @@ void bssnrhs(double **unzipVarsRHS, const double **uZipVars,
                 // clang-format off
 // formatting is off for this chunk to make it more readable, but still identifiable as compiler defs
 #ifdef BSSN_ENABLE_SSL_IN_RHS
-  #pragma("BSSN: USING SSL GAUGE ADDITION")
+  #pragma message("BSSN: USING SSL GAUGE ADDITION")
   #ifdef USE_ROCHESTER_GAUGE
     #pragma message("BSSN: using rochester gauge")
     #ifdef USE_ETA_FUNC
@@ -231,6 +231,7 @@ void bssnrhs(double **unzipVarsRHS, const double **uZipVars,
   #endif
 // else for USE_SSL_GAUGE
 #else
+  #pragma message("BSSN: Not enabling SSL")
   #ifdef USE_ROCHESTER_GAUGE
     #pragma message("BSSN: using rochester gauge")
     #ifdef USE_ETA_FUNC
