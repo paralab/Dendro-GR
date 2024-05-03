@@ -36,6 +36,7 @@ option(BSSN_USE_6TH_ORDER_DERIVS "use 6th order derivs" ON)
 option(BSSN_USE_8TH_ORDER_DERIVS "use 8th order derivs" OFF)
 option(BSSN_ENABLE_AVX "use vectorized computation for RHS (intel compilers only)" OFF)
 option(BSSN_VERBOSE_LOGGING "Enable more verbose logging (only useful during debug)" OFF)
+option(BSSN_ENABLE_SSL_IN_RHS "Enable the SSL changes in RHS" OFF)
 
 
 if(BSSN_ENABLE_AVX)
@@ -122,6 +123,11 @@ endif()
 
 if(BSSN_VERBOSE_LOGGING)
     add_definitions(-DBSSN_VERBOSE_LOGGING)
+endif()
+
+
+if(BSSN_ENABLE_SSL_IN_RHS)
+    add_definitions(-DBSSN_ENABLE_SSL_IN_RHS)
 endif()
 
 
