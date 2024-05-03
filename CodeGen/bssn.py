@@ -707,11 +707,10 @@ def main(staged_type, gauge, eta_damp, prefix, enable_ssl):
         print("// CODEGEN: SSL was enabled, adding term to gauge condition!")
 
     if staged_type == "staged":
-
         print("//Codgen: generating staged version ")
         if gauge == "rochester":
             print("//Codgen: using rochester gauge")
-            if eta == "func":
+            if eta_damp == "func":
                 print("//Codgen: using eta func damping")
                 bssn_rochester_puncture_gauge(eta_func, True, prefix, enable_ssl)
             else:
@@ -720,7 +719,7 @@ def main(staged_type, gauge, eta_damp, prefix, enable_ssl):
 
         else:
             print("//Codgen: using standard gauge")
-            if eta == "func":
+            if eta_damp == "func":
                 print("//Codgen: using eta func damping")
                 bssn_puncture_gauge(eta_func, True, prefix, enable_ssl)
             else:
@@ -731,7 +730,7 @@ def main(staged_type, gauge, eta_damp, prefix, enable_ssl):
         print("//Codgen: generating unstage version ")
         if gauge == "rochester":
             print("//Codgen: using rochester gauge")
-            if eta == "func":
+            if eta_damp == "func":
                 print("//Codgen: using eta func damping")
                 bssn_rochester_puncture_gauge(eta_func, False, prefix, enable_ssl)
             else:
@@ -740,7 +739,7 @@ def main(staged_type, gauge, eta_damp, prefix, enable_ssl):
 
         else:
             print("//Codgen: using standard gauge")
-            if eta == "func":
+            if eta_damp == "func":
                 print("//Codgen: using eta func damping")
                 bssn_puncture_gauge(eta_func, False, prefix, enable_ssl)
             else:
