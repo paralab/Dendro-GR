@@ -5,9 +5,8 @@
 import argparse
 import sys as sys
 
-from sympy import *
-
 import dendro
+from sympy import *
 
 ###################################################################
 # initialize
@@ -68,12 +67,11 @@ eta_func = (
     / ((1 - chi**ep1) ** ep2)
 )
 
-"""
-BSSN puncture gauge (HAD/ traditional BSSN puncture gaugue) with const eta damping 
-"""
-
 
 def bssn_puncture_gauge(eta_damp, isStaged=False, prefix="", sslGaugeCondition=False):
+    """
+    BSSN puncture gauge (HAD/ traditional BSSN puncture gaugue) with const eta damping
+    """
 
     if not isStaged:
 
@@ -396,14 +394,12 @@ def bssn_puncture_gauge(eta_damp, isStaged=False, prefix="", sslGaugeCondition=F
             dendro.generate_separate([outs[i]], [vnames[i]], "[pp]")
 
 
-"""
- Uses Rochester puncture gauge.     
-"""
-
-
 def bssn_rochester_puncture_gauge(
     eta_damp, isStaged=False, prefix="", sslGaugeCondition=False
 ):
+    """
+    Uses Rochester puncture gauge.
+    """
 
     if not isStaged:
 
@@ -763,28 +759,27 @@ if __name__ == "__main__":
         "-t",
         "--staged_type",
         choices=["staged", "unstaged"],
+        default="unstaged",
         help="If we should use staged or unstaged code",
-        required=True,
     )
     parser.add_argument(
         "-g",
         "--gauge",
         choices=["standard", "rochester"],
+        default="standard",
         help="The gauge type",
-        required=True,
     )
     parser.add_argument(
         "-e",
         "--eta_damp",
         choices=["const", "func"],
+        default="const",
         help="The eta damping type, a function or a constant",
-        required=True,
     )
     parser.add_argument(
         "-p",
         "--prefix",
         help="The file prefix for staged version",
-        required=False,
         default="output_",
     )
     parser.add_argument(
@@ -795,7 +790,5 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-
-    print(vars(args))
 
     main(**vars(args))
