@@ -1,6 +1,7 @@
 '''
  BSSN core variables . 
 '''
+import argparse
 import sys as sys
 import dendro
 from sympy import *
@@ -52,6 +53,8 @@ ad = dendro.ad
 kod= dendro.kod
 d2 = dendro.d2
 
+t = symbols("t")
+
 dendro.set_metric(gt)
 igt = dendro.get_inverse_metric()
 
@@ -61,7 +64,7 @@ eta_func = R0*sqrt(sum([igt[i,j]*d(i,chi)*d(j,chi) for i,j in dendro.e_ij]))/((1
 '''
 BSSN puncture gauge (HAD/ traditional BSSN puncture gaugue) with const eta damping 
 '''
-def bssn_puncture_gauge(eta_damp , isStaged=False , prefix=""):
+def bssn_puncture_gauge(eta_damp , isStaged=False, prefix="", sslGaugeCondition=False):
 
     if(not isStaged):
 
@@ -70,7 +73,13 @@ def bssn_puncture_gauge(eta_damp , isStaged=False , prefix=""):
         C2_spatial = dendro.get_complete_christoffel(chi)
         [R, Rt, Rphi, CalGt] = dendro.compute_ricci(Gt, chi)
         
-        a_rhs = l1*dendro.lie(b, a) - 2*a*K 
+        if sslGaugeCondition:
+            W = chi**.5
+            h = .6
+            sig = 20
+            a_rhs = l1* dendro.lie(b, a) - 2 * a * K - W * (h * exp(-t**2 / (2*sig**2)))*(a - W)
+        else:
+            a_rhs = l1*dendro.lie(b, a) - 2*a*K 
         
         b_rhs = [(Rational(3,4) * (lf0 + lf1*a) * B[i] + l2 * dendro.vec_j_ad_j(b, b[i])) for i in dendro.e_i ] 
             
@@ -142,7 +151,13 @@ def bssn_puncture_gauge(eta_damp , isStaged=False , prefix=""):
         C2_spatial = dendro.get_complete_christoffel(chi)
         [R, Rt, Rphi, CalGt] = dendro.compute_ricci(Gt, chi)
         
-        a_rhs = l1*dendro.lie(b, a) - 2*a*K 
+        if sslGaugeCondition:
+            W = chi**.5
+            h = .6
+            sig = 20
+            a_rhs = l1* dendro.lie(b, a) - 2 * a * K - W * (h * exp(-t**2 / (2*sig**2)))*(a - W)
+        else:
+            a_rhs = l1*dendro.lie(b, a) - 2*a*K 
         
         b_rhs = [(Rational(3,4) * (lf0 + lf1*a) * B[i] + l2 * dendro.vec_j_ad_j(b, b[i])) for i in dendro.e_i ] 
             
@@ -198,7 +213,7 @@ def bssn_puncture_gauge(eta_damp , isStaged=False , prefix=""):
 '''
  Uses Rochester puncture gauge.     
 '''        
-def bssn_rochester_puncture_gauge(eta_damp,isStaged=False,prefix=""):
+def bssn_rochester_puncture_gauge(eta_damp,isStaged=False,prefix="", sslGaugeCondition=False):
 
     if(not isStaged):
 
@@ -207,7 +222,14 @@ def bssn_rochester_puncture_gauge(eta_damp,isStaged=False,prefix=""):
         C2_spatial = dendro.get_complete_christoffel(chi)
         [R, Rt, Rphi, CalGt] = dendro.compute_ricci(Gt, chi)
 
-        a_rhs = l1*dendro.lie(b, a) - 2*a*K 
+
+        if sslGaugeCondition:
+            W = chi**.5
+            h = .6
+            sig = 20
+            a_rhs = l1* dendro.lie(b, a) - 2 * a * K - W * (h * exp(-t**2 / (2*sig**2)))*(a - W)
+        else:
+            a_rhs = l1*dendro.lie(b, a) - 2*a*K 
     
         b_rhs = [( xi2 * dendro.vec_j_ad_j(b, b[i])  + Rational(3,4) * xi3 * Gt[i] - eta_damp*b[i]) for i in dendro.e_i ] 
         
@@ -273,7 +295,13 @@ def bssn_rochester_puncture_gauge(eta_damp,isStaged=False,prefix=""):
         C2_spatial = dendro.get_complete_christoffel(chi)
         [R, Rt, Rphi, CalGt] = dendro.compute_ricci(Gt, chi)
 
-        a_rhs = l1*dendro.lie(b, a) - 2*a*K 
+        if sslGaugeCondition:
+            W = chi**.5
+            h = .6
+            sig = 20
+            a_rhs = l1* dendro.lie(b, a) - 2 * a * K - W * (h * exp(-t**2 / (2*sig**2)))*(a - W)
+        else:
+            a_rhs = l1*dendro.lie(b, a) - 2*a*K 
     
         b_rhs = [( xi2 * dendro.vec_j_ad_j(b, b[i])  + Rational(3,4) * xi3 * Gt[i] - eta_damp*b[i]) for i in dendro.e_i ] 
         
@@ -322,54 +350,69 @@ def bssn_rochester_puncture_gauge(eta_damp,isStaged=False,prefix=""):
 
 
 
-def main():
-    if(len(sys.argv)<4):
-        print("Error in the bssn code generation.")
-        print("usage: python3 bssn.py type[staged|unstaged] gauge[standard, rochester] eta_damp[const|func] prefix[folder parth for staged version]")
-        sys.exit(0);
+def main(staged_type, gauge, eta_damp, prefix, enable_ssl):
 
-    if(sys.argv[1]=="staged"):
+
+    if enable_ssl:
+        print("// CODEGEN: SSL was enabled, adding term to gauge condition!")
+
+    if(staged_type == "staged"):
         
         print("//Codgen: generating staged version ")
-        if(sys.argv[2]== "rochester"):
+        if(gauge== "rochester"):
             print("//Codgen: using rochester gauge")
-            if(sys.argv[3]=="func"):
+            if(eta=="func"):
                 print("//Codgen: using eta func damping")
-                bssn_rochester_puncture_gauge(eta_func,True,sys.argv[4])
+                bssn_rochester_puncture_gauge(eta_func,True,prefix, enable_ssl)
             else:
                 print("//Codgen: using eta const damping")
-                bssn_rochester_puncture_gauge(eta,True,sys.argv[4])
+                bssn_rochester_puncture_gauge(eta,True,prefix, enable_ssl)
 
         else:
             print("//Codgen: using standard gauge")
-            if(sys.argv[3]=="func"):
+            if(eta=="func"):
                 print("//Codgen: using eta func damping")
-                bssn_puncture_gauge(eta_func,True,sys.argv[4])
+                bssn_puncture_gauge(eta_func,True,prefix, enable_ssl)
             else:
                 print("//Codgen: using eta const damping")
-                bssn_puncture_gauge(eta,True,sys.argv[4])
+                bssn_puncture_gauge(eta,True,prefix, enable_ssl)
 
 
     else:
         print("//Codgen: generating unstage version ")
-        if(sys.argv[2]== "rochester"):
+        if(gauge== "rochester"):
             print("//Codgen: using rochester gauge")
-            if(sys.argv[3]=="func"):
+            if(eta=="func"):
                 print("//Codgen: using eta func damping")
-                bssn_rochester_puncture_gauge(eta_func,False,sys.argv[4])
+                bssn_rochester_puncture_gauge(eta_func,False,prefix, enable_ssl)
             else:
                 print("//Codgen: using eta const damping")
-                bssn_rochester_puncture_gauge(eta,False,sys.argv[4])
+                bssn_rochester_puncture_gauge(eta,False,prefix, enable_ssl)
 
         else:
             print("//Codgen: using standard gauge")
-            if(sys.argv[3]=="func"):
+            if(eta=="func"):
                 print("//Codgen: using eta func damping")
-                bssn_puncture_gauge(eta_func,False,sys.argv[4])
+                bssn_puncture_gauge(eta_func,False,prefix, enable_ssl)
             else:
                 print("//Codgen: using eta const damping")
-                bssn_puncture_gauge(eta,False,sys.argv[4])
+                bssn_puncture_gauge(eta,False,prefix, enable_ssl)
 
         
 if __name__ == "__main__":
-    main()
+
+    parser = argparse.ArgumentParser(prog="BSSN Code Generation", description="Generate the Code for the BSSN RHS equations.")
+    
+
+    parser.add_argument("-t", "--staged_type", choices=["staged", "unstaged"], help="If we should use staged or unstaged code", required=True)
+    parser.add_argument("-g", "--gauge", choices=["standard", "rochester"], help="The gauge type", required=True)
+    parser.add_argument("-e", "--eta_damp", choices=["const", "func"], help="The eta damping type, a function or a constant", required=True)
+    parser.add_argument("-p", "--prefix", help="The file prefix for staged version", required=False, default="output_")
+    parser.add_argument("-s","--enable_ssl", action="store_true", help="Whether or not to generate with the SSL code")
+
+    args = parser.parse_args()
+
+    print(vars(args))
+
+
+    main(**vars(args))
