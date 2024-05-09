@@ -21,30 +21,32 @@ unsigned int BSSN_TIME_STEP_OUTPUT_FREQ = 10;
 unsigned int BSSN_GW_EXTRACT_FREQ  = std::max(1u, BSSN_IO_OUTPUT_FREQ >> 1u);
 
 unsigned int BSSN_REMESH_TEST_FREQ = 10;
-unsigned int BSSN_REMESH_TEST_FREQ_AFTER_MERGER = 10;
-unsigned int BSSN_GW_EXTRACT_FREQ_AFTER_MERGER  = 10;
-double BSSN_IO_OUTPUT_GAP                       = 1.0;
+unsigned int BSSN_REMESH_TEST_FREQ_AFTER_MERGER        = 10;
+unsigned int BSSN_GW_EXTRACT_FREQ_AFTER_MERGER         = 10;
+double BSSN_IO_OUTPUT_GAP                              = 1.0;
 
-unsigned int BSSN_USE_WAVELET_TOL_FUNCTION      = 0;
-double BSSN_WAVELET_TOL                         = 0.0001;
-double BSSN_GW_REFINE_WTOL                      = 1e-4;
-double BSSN_WAVELET_TOL_MAX                     = 0.001;
-double BSSN_WAVELET_TOL_FUNCTION_R0             = 10.0;
-double BSSN_WAVELET_TOL_FUNCTION_R1             = 50.0;
+unsigned int BSSN_USE_WAVELET_TOL_FUNCTION             = 0;
+double BSSN_WAVELET_TOL                                = 0.0001;
+double BSSN_GW_REFINE_WTOL                             = 1e-4;
+double BSSN_WAVELET_TOL_MAX                            = 0.001;
+double BSSN_WAVELET_TOL_FUNCTION_R0                    = 10.0;
+double BSSN_WAVELET_TOL_FUNCTION_R1                    = 50.0;
 
-double BSSN_CFL_FACTOR                          = 0.1;
+double BSSN_CFL_FACTOR                                 = 0.1;
 
-bool BSSN_KO_SIGMA_SCALE_BY_CONFORMAL           = false;
-double BSSN_EPSILON_CAKO_GAUGE                  = 0.99;
-double BSSN_EPSILON_CAKO_OTHER                  = 0.3;
+bool BSSN_KO_SIGMA_SCALE_BY_CONFORMAL                  = false;
+bool BSSN_KO_SIGMA_SCALE_BY_CONFORMAL_POST_MERGER_ONLY = false;
+double BSSN_EPSILON_CAKO_GAUGE                         = 0.99;
+double BSSN_EPSILON_CAKO_OTHER                         = 0.3;
+bool BSSN_CAKO_ENABLED                                 = false;
 
-double BSSN_LOAD_IMB_TOL                        = 0.1;
-unsigned int BSSN_SPLIT_FIX                     = 2;
-unsigned int BSSN_ASYNC_COMM_K                  = 4;
-double BSSN_RK_TIME_BEGIN                       = 0;
-double BSSN_RK_TIME_END                         = 10;
+double BSSN_LOAD_IMB_TOL                               = 0.1;
+unsigned int BSSN_SPLIT_FIX                            = 2;
+unsigned int BSSN_ASYNC_COMM_K                         = 4;
+double BSSN_RK_TIME_BEGIN                              = 0;
+double BSSN_RK_TIME_END                                = 10;
 
-double BSSN_RK45_DESIRED_TOL                    = 1e-6;
+double BSSN_RK45_DESIRED_TOL                           = 1e-6;
 
 unsigned int BSSN_RK_TYPE;
 
@@ -264,6 +266,20 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
         bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL =
             parFile["BSSN_KO_SIGMA_SCALE_BY_CONFORMAL"].as_boolean();
     }
+
+    if (parFile.contains("BSSN_KO_SIGMA_SCALE_BY_CONFORMAL_POST_MERGER_ONLY")) {
+        bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL_POST_MERGER_ONLY =
+            parFile["BSSN_KO_SIGMA_SCALE_BY_CONFORMAL_POST_MERGER_ONLY"]
+                .as_boolean();
+    }
+
+    if (bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL_POST_MERGER_ONLY) {
+        bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL = false;
+    }
+    if (bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL) {
+        bssn::BSSN_CAKO_ENABLED = true;
+    }
+
     if (parFile.contains("BSSN_EPSILON_CAKO_GAUGE")) {
         bssn::BSSN_EPSILON_CAKO_GAUGE =
             parFile["BSSN_EPSILON_CAKO_GAUGE"].as_floating();

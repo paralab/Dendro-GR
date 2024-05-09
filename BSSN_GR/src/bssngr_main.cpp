@@ -17,6 +17,7 @@
 #include "meshUtils.h"
 #include "mpi.h"
 #include "octUtils.h"
+#include "parameters.h"
 #include "rkBSSN.h"
 #include "sdc.h"
 
@@ -391,6 +392,11 @@ bssn:
                     bssn::BSSN_REMESH_TEST_FREQ_AFTER_MERGER;
                 bssn::BSSN_GW_EXTRACT_FREQ =
                     bssn::BSSN_GW_EXTRACT_FREQ_AFTER_MERGER;
+
+                // ONLY ENABLE CAKO DURING MERGER
+                if (bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL_POST_MERGER_ONLY) {
+                    bssn::BSSN_CAKO_ENABLED = true;
+                }
             }
 
             if ((step % bssn::BSSN_REMESH_TEST_FREQ) == 0 && step != 0) {

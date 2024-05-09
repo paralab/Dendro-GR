@@ -58,6 +58,12 @@ extern double BSSN_CFL_FACTOR;
  */
 extern bool BSSN_KO_SIGMA_SCALE_BY_CONFORMAL;
 
+/** @brief The ability to scale KO Diss by the conformal factor
+ *
+ * This comes from the followign paper: https://arxiv.org/pdf/2404.01137.pdf
+ */
+extern bool BSSN_KO_SIGMA_SCALE_BY_CONFORMAL_POST_MERGER_ONLY;
+
 /** @brief The amount to scale each of the gauge variables by when conformal KO
  * scaling is on */
 extern double BSSN_EPSILON_CAKO_GAUGE;
@@ -65,6 +71,13 @@ extern double BSSN_EPSILON_CAKO_GAUGE;
 /** @brief The amount to scale each of the other variables by when conformal KO
  * scaling is on */
 extern double BSSN_EPSILON_CAKO_OTHER;
+
+/** @brief The boolean that controls whether or not the CAKO should be enabled
+ *
+ * This is only an internal variable. The BSSN_KO_SIGMA_SCALE_BY_CONFORMAL
+ * controls if it should turn on
+ */
+extern bool BSSN_CAKO_ENABLED;
 
 /**@brief min bh domain add these to the parameter file.*/
 extern double BSSN_COMPD_MIN[3];

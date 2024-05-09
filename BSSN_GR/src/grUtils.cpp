@@ -171,6 +171,20 @@ void readParamJSONFile(const char* fName, MPI_Comm comm) {
         bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL =
             parFile["BSSN_KO_SIGMA_SCALE_BY_CONFORMAL"];
     }
+
+    if (parFile.find("BSSN_KO_SIGMA_SCALE_BY_CONFORMAL_POST_MERGER_ONLY") !=
+        parFile.end()) {
+        bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL_POST_MERGER_ONLY =
+            parFile["BSSN_KO_SIGMA_SCALE_BY_CONFORMAL_POST_MERGER_ONLY"];
+    }
+
+    if (bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL_POST_MERGER_ONLY) {
+        bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL = false;
+    }
+    if (bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL) {
+        bssn::BSSN_CAKO_ENABLED = true;
+    }
+
     if (parFile.find("BSSN_EPSILON_CAKO_GAUGE") != parFile.end()) {
         bssn::BSSN_EPSILON_CAKO_GAUGE = parFile["BSSN_EPSILON_CAKO_GAUGE"];
     }

@@ -344,7 +344,7 @@ void bssnrhs(double **unzipVarsRHS, const double **uZipVars,
                 // the KO dissipation of the RHS by sqrt(chi) with a strong
                 // amount for the gauge variaables and a smaller amount for the
                 // non-gauge variables. This is an option the user can use.
-                if (bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL) {
+                if (bssn::BSSN_CAKO_ENABLED) {
                     sigma              = sqrt(chi[pp]);
                     double sigma_gauge = sigma * bssn::BSSN_EPSILON_CAKO_GAUGE;
                     double sigma_other = sigma * bssn::BSSN_EPSILON_CAKO_OTHER;
