@@ -467,6 +467,13 @@ int BSSNCtx::initialize() {
 
     unsigned int lmin, lmax;
     m_uiMesh->computeMinMaxLevel(lmin, lmax);
+
+    // calculate the minimum dx
+    bssn::BSSN_CURRENT_MIN_DX =
+        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+         ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
+         ((double)(1u << (m_uiMaxDepth))));
+
     bssn::BSSN_RK45_TIME_STEP_SIZE =
         bssn::BSSN_CFL_FACTOR *
         ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
@@ -1132,6 +1139,17 @@ int BSSNCtx::restore_checkpt() {
     unsigned int totalElems = 0;
     par::Mpi_Allreduce(&localSz, &totalElems, 1, MPI_SUM, comm);
 
+    // NOTE: this chunk is only needed to restore the minimum dx size that's
+    // needed in some computations. Since the initialization ends as soon as the
+    // restore is complete, it's important to recalculate this since it won't be
+    // called again until a remesh
+    unsigned int lmin, lmax;
+    m_uiMesh->computeMinMaxLevel(lmin, lmax);
+    bssn::BSSN_CURRENT_MIN_DX =
+        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+         ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
+         ((double)(1u << (m_uiMaxDepth))));
+
     if (!rank) {
         std::cout << GRN
                   << "=======================================" << std::endl;
@@ -1140,6 +1158,8 @@ int BSSNCtx::restore_checkpt() {
                   << "active Comm. sz: " << activeCommSz
                   << " restore successful: "
                   << " restored mesh size: " << totalElems << std::endl
+                  << std::endl;
+        std::cout << " restored mesh min dx: " << bssn::BSSN_CURRENT_MIN_DX
                   << std::endl;
         std::cout << GRN << "=======================================" << NRM
                   << std::endl;

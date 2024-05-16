@@ -52,6 +52,10 @@ static const unsigned int BSSN_NUM_VARS_INTENL =
 /**@brief CFL stability number number (specifies how dt=BSSN_CFL_FACTOR*dx)*/
 extern double BSSN_CFL_FACTOR;
 
+/** @brief the minimum dx spacing of the grid, this needs to be stored and
+ * updated */
+extern double BSSN_CURRENT_MIN_DX;
+
 /** @brief The ability to scale KO Diss by the conformal factor
  *
  * This comes from the followign paper: https://arxiv.org/pdf/2404.01137.pdf
@@ -78,6 +82,9 @@ extern double BSSN_EPSILON_CAKO_OTHER;
  * controls if it should turn on
  */
 extern bool BSSN_CAKO_ENABLED;
+
+/** @brief the parameter that controls the CAHD strength */
+extern double BSSN_CAHD_C;
 
 /**@brief min bh domain add these to the parameter file.*/
 extern double BSSN_COMPD_MIN[3];

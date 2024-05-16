@@ -292,6 +292,13 @@ bssn:
                      "======================================================"
                   << std::endl;
     }
+
+    // calculate the minimum dx
+    bssn::BSSN_CURRENT_MIN_DX =
+        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+         ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
+         ((double)(1u << (m_uiMaxDepth))));
+
     bssn::BSSN_RK45_TIME_STEP_SIZE =
         bssn::BSSN_CFL_FACTOR *
         ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
@@ -420,6 +427,14 @@ bssn:
                     if (!pmesh->getMPIRankGlobal())
                         printf("post merger grid level = (%d, %d)\n", lmin,
                                lmax);
+
+                    // calculate the minimum dx
+                    bssn::BSSN_CURRENT_MIN_DX =
+                        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+                         ((1u << (m_uiMaxDepth - lmax)) /
+                          ((double)bssn::BSSN_ELE_ORDER)) /
+                         ((double)(1u << (m_uiMaxDepth))));
+
                     bssn::BSSN_RK45_TIME_STEP_SIZE =
                         bssn::BSSN_CFL_FACTOR *
                         ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *

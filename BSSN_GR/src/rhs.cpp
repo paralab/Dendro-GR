@@ -155,6 +155,15 @@ void bssnrhs(double **unzipVarsRHS, const double **uZipVars,
                                             BSSN_LAMBDA[2], BSSN_LAMBDA[3]};
     const double lambda_f[2]             = {BSSN_LAMBDA_F[0], BSSN_LAMBDA_F[1]};
 
+    // for CAHD we need also need dt, dx_i, and dx_min
+    const double dt                      = bssn::BSSN_RK45_TIME_STEP_SIZE;
+    // dx_i is the current dx (which is our hx)
+    const double dx_i                    = hx;
+    // dx_min is the minimum resolution of the entire grid
+    const double dx_min                  = bssn::BSSN_CURRENT_MIN_DX;
+    // and then the new parameter
+    const double BSSN_CAHD_C             = bssn::BSSN_CAHD_C;
+
     int idx[3];
     const unsigned int PW = bssn::BSSN_PADDING_WIDTH;
     const unsigned int n  = sz[0] * sz[1] * sz[2];

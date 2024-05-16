@@ -192,6 +192,10 @@ void readParamJSONFile(const char* fName, MPI_Comm comm) {
         bssn::BSSN_EPSILON_CAKO_OTHER = parFile["BSSN_EPSILON_CAKO_OTHER"];
     }
 
+    if (parFile.find("BSSN_CAHD_C") != parFile.end()) {
+        bssn::BSSN_CAHD_C = parFile["BSSN_CAHD_C"];
+    }
+
     // Parameters for eta_damping function
     bssn::BSSN_ETA_R0       = parFile["BSSN_ETA_R0"];
     bssn::BSSN_ETA_POWER[0] = parFile["BSSN_ETA_POWER"]["BSSN_ETA_POWER_1"];

@@ -447,6 +447,11 @@ void RK_BSSN::initialGridConverge() {
 
     unsigned int lmin, lmax;
     m_uiMesh->computeMinMaxLevel(lmin, lmax);
+    // calculate the minimum dx
+    bssn::BSSN_CURRENT_MIN_DX =
+        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+         ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
+         ((double)(1u << (m_uiMaxDepth))));
     bssn::BSSN_RK45_TIME_STEP_SIZE =
         bssn::BSSN_CFL_FACTOR *
         ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
@@ -1457,6 +1462,13 @@ void RK_BSSN::rkSolve() {
 
                 unsigned int lmin, lmax;
                 m_uiMesh->computeMinMaxLevel(lmin, lmax);
+
+                // calculate the minimum dx
+                bssn::BSSN_CURRENT_MIN_DX =
+                    ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+                     ((1u << (m_uiMaxDepth - lmax)) /
+                      ((double)bssn::BSSN_ELE_ORDER)) /
+                     ((double)(1u << (m_uiMaxDepth))));
                 bssn::BSSN_RK45_TIME_STEP_SIZE =
                     bssn::BSSN_CFL_FACTOR *
                     ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *

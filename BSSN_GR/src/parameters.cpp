@@ -39,6 +39,7 @@ bool BSSN_KO_SIGMA_SCALE_BY_CONFORMAL_POST_MERGER_ONLY = false;
 double BSSN_EPSILON_CAKO_GAUGE                         = 0.99;
 double BSSN_EPSILON_CAKO_OTHER                         = 0.3;
 bool BSSN_CAKO_ENABLED                                 = false;
+double BSSN_CAHD_C                                     = 0.0;
 
 double BSSN_LOAD_IMB_TOL                               = 0.1;
 unsigned int BSSN_SPLIT_FIX                            = 2;
@@ -113,6 +114,10 @@ double BSSN_OCTREE_MAX[3] = {(double)(1u << BSSN_MAXDEPTH),
 double BSSN_RK45_TIME_STEP_SIZE = BSSN_CFL_FACTOR *
                                   (BSSN_COMPD_MAX[0] - BSSN_COMPD_MIN[0]) *
                                   (1.0 / (double)(1u << BSSN_MAXDEPTH));
+
+// calculate the minimum dx
+double BSSN_CURRENT_MIN_DX = (BSSN_COMPD_MAX[0] - BSSN_COMPD_MIN[0]) *
+                             (1.0 / (double)(1u << BSSN_MAXDEPTH));
 
 unsigned int BSSN_LAMBDA[4]                              = {1, 1, 1, 1};
 double BSSN_LAMBDA_F[2]                                  = {1.0, 0.0};
@@ -287,6 +292,10 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
     if (parFile.contains("BSSN_EPSILON_CAKO_OTHER")) {
         bssn::BSSN_EPSILON_CAKO_OTHER =
             parFile["BSSN_EPSILON_CAKO_OTHER"].as_floating();
+    }
+
+    if (parFile.contains("BSSN_CAHD_C")) {
+        bssn::BSSN_CAHD_C = parFile["BSSN_CAHD_C"].as_floating();
     }
 
     bssn::BSSN_LAMBDA[0]   = parFile["BSSN_LAMBDA"][0].as_integer();
