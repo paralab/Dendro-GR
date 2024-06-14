@@ -231,8 +231,8 @@ psi4_4_img = (
     inv_chi
     * inv_chi
     * (
-        m_real_A_vec * (m_img_A_vec - Rational(1, 2) * m_img_d_chi)
-        + m_img_A_vec * (m_real_A_vec - Rational(1, 2) * m_real_d_chi)
+        m_real_A_vec * (m_img_A_vec + Rational(1, 2) * m_img_d_chi)
+        + m_img_A_vec * (m_real_A_vec + Rational(1, 2) * m_real_d_chi)
     )
 )
 
@@ -287,6 +287,6 @@ mom = [item for sublist in mom.tolist() for item in sublist]
 # generate code
 ###################################################################
 # uncomment to terminal code gen
-# outs = [psi4_real, psi4_img, ham, mom]
-# vnames = ['psi4_real', 'psi4_img', 'ham', 'mom']
-# dendro.generate_cpu(outs, vnames, '[pp]')
+outs = [psi4_real, psi4_img, ham, mom]
+vnames = ['psi4_real', 'psi4_img', 'ham', 'mom']
+dendro.generate_cpu(outs, vnames, '[pp]')
