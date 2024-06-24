@@ -221,5 +221,9 @@ namespace AEH
     double AEH_ATOL              = 1e-8;
     double AEH_RTOL              = 1e-8;
     unsigned int AEH_SOLVER_FREQ = 0;
+
+    double AEH_ALPHA             = 1.0;
+    double AEH_BETA              = 0.1;
+
     
 }

@@ -455,6 +455,12 @@ namespace AEH
 
     extern unsigned int AEH_SOLVER_FREQ;
 
+    /***@brief AEH update A = (alpha / (lmax * (lmax + 1)))  + beta  and B= beta/alpha and dlambda = A / (1 + B * l * (l + 1) ) */
+    extern double AEH_ALPHA;
+
+    /***@brief AEH update A = (alpha / (lmax * (lmax + 1)))  + beta  and B= beta/alpha and dlambda = A / (1 + B * l * (l + 1) ) */
+    extern double AEH_BETA;
+
 
     
 }

@@ -56,6 +56,12 @@ namespace aeh
         private:
             /**@brief pointer to the GR context class*/
             Ctx * m_ctx  = nullptr;
+            
+            /***@breif maximum l allowed.*/
+            unsigned int m_lmax=0;
+
+            /**@breif currently using lmax value */
+            unsigned int m_ll=0;
 
             /**@brief spherical modes used for the AEH solver*/
             std::vector<LM_MODE> m_sph_modes;
@@ -84,7 +90,15 @@ namespace aeh
             std::vector<T> m_sin_qphi;
             std::vector<T> m_cos_qphi;
 
+            std::vector<DendroIntL> m_active_ele_local_id;
+            std::vector<DendroIntL> m_active_blk_local_id;
+            DendroScalar m_rlim[2];
+
+            Point m_origin=Point();
+
             AEHSolverType m_solver_type= AEHSolverType::FAST_FLOW;
+
+            
             
         public:
             /**
@@ -94,10 +108,16 @@ namespace aeh
              * @param l_max : Spectral expansion using l=0 to l=l_max, and corresponding m-modes 
              * @param azimuthal_symmetry : Use azimuthal symmetry or not. (m=0) modes
              */
-            SpectralAEHSolver(Ctx* ctx, unsigned int l_max, unsigned int q_theta, unsigned int q_phi, bool azimuthal_symmetry=false, bool verbose=true);
+            SpectralAEHSolver(Point origin, Ctx* ctx, unsigned int l_max, unsigned int q_theta, unsigned int q_phi, const DendroScalar* const rlim, bool azimuthal_symmetry=false, bool verbose=true);
             
             /**@brief deconstructor for AEH solver object*/
             ~SpectralAEHSolver();
+
+            /**@breif set the current active lmodes */
+            void set_lmodes(unsigned int ll) {m_ll = ll;}
+            
+            /**@brief get the current l modes */
+            unsigned int get_lmodes() {return m_ll};
 
             /**@brief set aeh solver type*/
             void set_solver_type(AEHSolverType type) {m_solver_type=type;}
@@ -116,7 +136,7 @@ namespace aeh
              * @param h_qs 
              * @return int 
              */
-            int eval_aeh_level_set(const Point& origin, ot::Mesh* m_uiMesh, T* const aeh_f_ptr, const T* const h_qs, const DendroScalar* const rlim);
+            int eval_aeh_level_set(ot::Mesh* m_uiMesh, T* const aeh_f_ptr, const T* const h_qs);
 
 
             /**
@@ -127,7 +147,7 @@ namespace aeh
              * @param h_qs 
              * @return int 
              */
-            int eval_det_induced_metric(const Point& origin, Ctx* ctx, ot::Mesh* m_uiMesh, T* const aeh_f_ptr, const T* const h_qs, const DendroScalar* const rlim);
+            int eval_det_induced_metric(Ctx* ctx, ot::Mesh* m_uiMesh, T* const aeh_f_ptr, const T* const h_qs);
 
             /**
              * @brief main AEH solver update
@@ -136,7 +156,7 @@ namespace aeh
              * @param max_iter 
              * @return AEHErrorType 
              */
-            AEHErrorType solve(const Point& origin, Ctx * ctx, const T* const h_init, T*  h_qs, unsigned int max_iter, DendroScalar rel_eps, DendroScalar abs_eps, const DendroScalar* const rlim, unsigned int verbose=0);
+            AEHErrorType solve(Ctx * ctx, const T* const h_init, T*  h_qs, unsigned int max_iter, DendroScalar rel_eps, DendroScalar abs_eps, double alpha, double beta, unsigned int verbose=0);
 
             /**
              * @brief evaluate the expansion norm
@@ -146,11 +166,10 @@ namespace aeh
              * @param aeh_f : workspace var for level set evaluation
              * @param aeh_h : workspace var for expansion evaluation
              * @param interp_coords : workspace for interpolation coordinates
-             * @param rlim 
              * @param norm_type 
              * @return DendroScalar 
              */
-            DendroScalar eval_expansion_norm(const Point& origin, Ctx* ctx, const T* const h_qs, DVec& aeh_f, DVec& aeh_h, std::vector<T>& interp_coords, const DendroScalar* const rlim, unsigned int norm_type);
+            DendroScalar eval_expansion_norm(Ctx* ctx, const T* const h_qs, DVec& aeh_f, DVec& aeh_h, std::vector<T>& interp_coords, unsigned int norm_type);
 
             /**
              * @brief 
@@ -160,9 +179,8 @@ namespace aeh
              * @param h_qs 
              * @param qoi 
              * @param ws_v1 
-             * @param rlim 
              */
-            void aeh_quasi_measurements(const Point& origin, Ctx * ctx, const T* const h_qs, AEH_QoI & qoi, const DendroScalar* const rlim);
+            void aeh_quasi_measurements(Ctx * ctx, const T* const h_qs, AEH_QoI & qoi);
 
 
             /**
@@ -173,18 +191,19 @@ namespace aeh
              * @param fname file name
              * @param mode file write mode
              */
-            int aeh_to_json(const Point& origin, Ctx * ctx,  T* h_qs, char*fname, std::ios_base::openmode mode);
+            int aeh_to_json(Ctx * ctx,  T* h_qs, char*fname, std::ios_base::openmode mode);
 
             
 
         private:
-            DendroScalar rhs_00(const Point& origin, Ctx* ctx, DendroScalar a, T* h_qs, DVec& aeh_f, DVec& aeh_h, std::vector<T>& interp_coords, const DendroScalar* const rlim)
+            DendroScalar rhs_00(Ctx* ctx, DendroScalar a, T* h_qs, DVec& aeh_f, DVec& aeh_h, std::vector<T>& interp_coords)
             {
 
                 ot::Mesh* m_uiMesh = ctx->get_mesh();
                 if(!(m_uiMesh->isActive()))
                     return -1;
-
+                
+                const Point & origin = m_origin;
                 T * aeh_f_ptr = aeh_f.get_vec_ptr();
                 T * aeh_h_ptr = aeh_h.get_vec_ptr();
                 
@@ -199,8 +218,8 @@ namespace aeh
 
                 
                 
-                this->eval_aeh_level_set(origin, m_uiMesh, aeh_f_ptr, h_qs, rlim);
-                ctx->aeh_expansion(origin, m_aeh_vars, aeh_f, aeh_h, rlim);
+                this->eval_aeh_level_set(m_uiMesh, aeh_f_ptr, h_qs);
+                ctx->aeh_expansion(origin, m_aeh_vars, aeh_f, aeh_h, m_rlim);
 
                 m_uiMesh->readFromGhostBegin(aeh_h.get_vec_ptr(), 1);
 
@@ -215,7 +234,13 @@ namespace aeh
 
                         T r_val = (T)0;
                         for(unsigned int lm_idx=0; lm_idx < m_sph_modes.size(); lm_idx++)
+                        {
+                            int l = m_sph_modes[lm_idx].first;
+                            if (l > m_ll)
+                                continue;
+                            
                             r_val+= real_spherical_harmonic(m_sph_modes[lm_idx].first, m_sph_modes[lm_idx].second, m_qtheta[qt], m_qphi[qp]) * h_qs[lm_idx];
+                        }
                         
                         interp_coords[3 * q_idx + 0] = origin.x() + (r_val) * m_sin_qtheta[qt] * m_cos_qphi[qp];
                         interp_coords[3 * q_idx + 1] = origin.y() + (r_val) * m_sin_qtheta[qt] * m_sin_qphi[qp];
@@ -261,19 +286,20 @@ namespace aeh
 
             }
 
-            DendroScalar solve_00_bisection(const Point& origin, DendroScalar a, DendroScalar b, Ctx * ctx, T*  h_qs, DVec& aeh_f, DVec& aeh_h, std::vector<T>& interp_coords, DendroScalar eps, DendroScalar r_max)
+            DendroScalar solve_00_bisection(DendroScalar a, DendroScalar b, Ctx * ctx, T*  h_qs, DVec& aeh_f, DVec& aeh_h, std::vector<T>& interp_coords, DendroScalar eps)
             {
                 ot::Mesh * m_uiMesh = ctx->get_mesh();
                 if(!(m_uiMesh->isActive()))
                     return -1.0;
-
+                
+                const Point & origin = m_origin;
                 int rank = m_uiMesh->getMPIRank();
                 int npes = m_uiMesh->getMPICommSize();
                 
                 DendroScalar h_00 = h_qs[0];
 
-                DendroScalar f_a  = rhs_00(origin, ctx, a, h_qs, aeh_f, aeh_h, interp_coords, r_max);
-                DendroScalar f_b  = rhs_00(origin, ctx, b, h_qs, aeh_f, aeh_h, interp_coords, r_max);
+                DendroScalar f_a  = rhs_00(origin, ctx, a, h_qs, aeh_f, aeh_h, interp_coords);
+                DendroScalar f_b  = rhs_00(origin, ctx, b, h_qs, aeh_f, aeh_h, interp_coords);
                 
                 if (f_a * f_b >= 0)
                 {
@@ -288,7 +314,7 @@ namespace aeh
                 {
                     // Find middle point
                     c   = (a+b)/2;
-                    DendroScalar f_c = rhs_00(origin, ctx, c, h_qs, aeh_f, aeh_h, interp_coords, r_max);  
+                    DendroScalar f_c = rhs_00(origin, ctx, c, h_qs, aeh_f, aeh_h, interp_coords);  
 
                     if(!rank)
                         printf("lm=(0,0)  h_00 = %.8E ,  abs(H(h)) = %.8E\n", c, abs(f_c));
@@ -298,7 +324,7 @@ namespace aeh
                     {
                         return c;
                     }
-                    DendroScalar f_a = rhs_00(origin, ctx, a, h_qs, aeh_f, aeh_h, interp_coords, r_max);  
+                    DendroScalar f_a = rhs_00(origin, ctx, a, h_qs, aeh_f, aeh_h, interp_coords);  
                     // Decide the side to repeat the steps
                     if (f_c * f_a < 0)
                         b = c;
@@ -309,12 +335,13 @@ namespace aeh
                 return c;
             }
 
-            DendroScalar solve_00_newton(const Point& origin, Ctx * ctx, T*  h_qs, DVec& aeh_f, DVec& aeh_h, std::vector<T>& interp_coords, DendroScalar eps, const DendroScalar* const rlim)
+            DendroScalar solve_00_newton(Ctx * ctx, T*  h_qs, DVec& aeh_f, DVec& aeh_h, std::vector<T>& interp_coords, DendroScalar eps)
             {
                 ot::Mesh * m_uiMesh = ctx->get_mesh();
                 if(!(m_uiMesh->isActive()))
                     return -1.0;
-
+                
+                const Point & origin = m_origin;
                 int rank = m_uiMesh->getMPIRank();
                 int npes = m_uiMesh->getMPICommSize();
                 
@@ -325,12 +352,12 @@ namespace aeh
                 unsigned int iter     =  0;
                 unsigned int max_iter = 100;
                 DendroScalar grad_f   = 0.0;
-                DendroScalar fa  = rhs_00(origin, ctx, x     , h_qs, aeh_f, aeh_h, interp_coords, rlim);
+                DendroScalar fa       = rhs_00(ctx, x     , h_qs, aeh_f, aeh_h, interp_coords);
                 do
                 {
                     DendroScalar dh  = sqrt(std::numeric_limits<DendroScalar>::epsilon()) * x;
-                    DendroScalar fp  = rhs_00(origin, ctx, x + dh, h_qs, aeh_f, aeh_h, interp_coords, rlim);
-                    DendroScalar fm  = rhs_00(origin, ctx, x - dh, h_qs, aeh_f, aeh_h, interp_coords, rlim);
+                    DendroScalar fp  = rhs_00(ctx, x + dh, h_qs, aeh_f, aeh_h, interp_coords);
+                    DendroScalar fm  = rhs_00(ctx, x - dh, h_qs, aeh_f, aeh_h, interp_coords);
 
                     grad_f = 0.5 * (fp - fm) / dh;
                     DendroScalar alpha  = 1e0;
@@ -347,10 +374,10 @@ namespace aeh
                     do
                     {
                         b     = x - alpha * (fa/grad_f);
-                        if (b <rlim[0] || b > rlim[1])
+                        if (b <m_rlim[0] || b > m_rlim[1])
                             fb=1e10;
                         else
-                            fb    = rhs_00(origin, ctx, abs(b), h_qs, aeh_f, aeh_h, interp_coords, rlim);    
+                            fb    = rhs_00(ctx, abs(b), h_qs, aeh_f, aeh_h, interp_coords);    
                         
                         alpha = alpha * 0.1;
 
@@ -372,7 +399,7 @@ namespace aeh
     };
 
     template<typename Ctx, typename T>
-    SpectralAEHSolver<Ctx, T>::SpectralAEHSolver(Ctx* ctx, unsigned int l_max, unsigned int q_theta, unsigned int q_phi, bool azimuthal_symmetry, bool verbose)
+    SpectralAEHSolver<Ctx, T>::SpectralAEHSolver(Point origin, Ctx* ctx, unsigned int l_max, unsigned int q_theta, unsigned int q_phi, const DendroScalar* const rlim, bool azimuthal_symmetry, bool verbose)
     {
         m_ctx = ctx;
         ot::Mesh * m_uiMesh = ctx->get_mesh();
@@ -381,6 +408,83 @@ namespace aeh
             return;
 
         const int rank = m_uiMesh->getMPIRank();
+        m_lmax         = l_max;
+        m_origin       = origin;
+
+        m_rlim[0]      = rlim[0];
+        m_rlim[1]      = rlim[1];
+
+        const ot::TreeNode* pNodes = &(*(m_uiMesh->getAllElements().begin()));
+        for (unsigned int elem = m_uiMesh->getElementLocalBegin(); elem < m_uiMesh->getElementLocalEnd(); elem++) {
+            
+            const DendroScalar lx  = (Rx/RgX) * (double)(1u << (m_uiMaxDepth - pNodes[elem].getLevel()));
+            const DendroScalar ly  = (Ry/RgY) * (double)(1u << (m_uiMaxDepth - pNodes[elem].getLevel()));
+            const DendroScalar lz  = (Rz/RgZ) * (double)(1u << (m_uiMaxDepth - pNodes[elem].getLevel()));
+
+            const DendroScalar ll  = sqrt(lx * lx + ly * ly + lz * lz);
+            
+            const DendroScalar x   = pNodes[elem].getX();
+            const DendroScalar y   = pNodes[elem].getY();
+            const DendroScalar z   = pNodes[elem].getZ();
+
+            const DendroScalar xx  = GRIDX_TO_X(x) - origin.x();
+            const DendroScalar yy  = GRIDY_TO_Y(y) - origin.y();
+            const DendroScalar zz  = GRIDZ_TO_Z(z) - origin.z();
+
+            const DendroScalar p_rr = sqrt(xx * xx + yy * yy  + zz * zz);
+
+            if((p_rr < (m_rlim[1] + ll)) && (p_rr > (m_rlim[0] - ll)) )
+                m_active_ele_local_id.push_back(elem);
+
+        }
+
+        //printf("rank = %04d active elements =%d\n", rank, m_active_ele_local_id.size());
+
+
+        const Point pt_min(bssn::BSSN_COMPD_MIN[0],bssn::BSSN_COMPD_MIN[1],bssn::BSSN_COMPD_MIN[2]);
+        const Point pt_max(bssn::BSSN_COMPD_MAX[0],bssn::BSSN_COMPD_MAX[1],bssn::BSSN_COMPD_MAX[2]);
+        const unsigned int PW=bssn::BSSN_PADDING_WIDTH;
+
+        const ot::Block* blkList     = m_uiMesh->getLocalBlockList().data();
+        const unsigned int numBlocks = m_uiMesh->getLocalBlockList().size();
+
+        for(unsigned int blk=0; blk<numBlocks; blk++)
+        {
+            const unsigned int offset = blkList[blk].getOffset();
+            const unsigned int sz[3]={blkList[blk].getAllocationSzX(), blkList[blk].getAllocationSzY(), blkList[blk].getAllocationSzZ()};
+            const unsigned int bflag=blkList[blk].getBlkNodeFlag();
+
+            const DendroScalar dx = blkList[blk].computeDx(pt_min,pt_max);
+            const DendroScalar dy = blkList[blk].computeDy(pt_min,pt_max);
+            const DendroScalar dz = blkList[blk].computeDz(pt_min,pt_max);
+
+            DendroScalar ptmin[3], ptmax[3];
+
+            ptmin[0]=GRIDX_TO_X(blkList[blk].getBlockNode().minX())-PW*dx;
+            ptmin[1]=GRIDY_TO_Y(blkList[blk].getBlockNode().minY())-PW*dy;
+            ptmin[2]=GRIDZ_TO_Z(blkList[blk].getBlockNode().minZ())-PW*dz;
+
+            ptmax[0]=GRIDX_TO_X(blkList[blk].getBlockNode().maxX())+PW*dx;
+            ptmax[1]=GRIDY_TO_Y(blkList[blk].getBlockNode().maxY())+PW*dy;
+            ptmax[2]=GRIDZ_TO_Z(blkList[blk].getBlockNode().maxZ())+PW*dz;
+
+
+            const DendroScalar xx   = ptmin[0] - origin.x();
+            const DendroScalar yy   = ptmin[1] - origin.y();
+            const DendroScalar zz   = ptmin[2] - origin.z();
+
+            const DendroScalar lx   = (ptmax[0] - ptmin[0]);
+            const DendroScalar ly   = (ptmax[1] - ptmin[1]);
+            const DendroScalar lz   = (ptmax[2] - ptmin[2]);
+
+            const DendroScalar ll   = sqrt(lx * lx + ly * ly + lz * lz);
+
+            const DendroScalar p_rr = sqrt(xx * xx + yy * yy  + zz * zz);
+
+            if((p_rr < (m_rlim[1] + ll)) && (p_rr > (m_rlim[0] - ll)) )
+                m_active_blk_local_id.push_back(blk);
+        }
+        
         
         if(azimuthal_symmetry)
         {
@@ -482,12 +586,12 @@ namespace aeh
         m_uiMesh->unzip(K  , K_uz  , 1);
 
 
-        const Point pt_min(bssn::BSSN_COMPD_MIN[0],bssn::BSSN_COMPD_MIN[1],bssn::BSSN_COMPD_MIN[2]);
-        const Point pt_max(bssn::BSSN_COMPD_MAX[0],bssn::BSSN_COMPD_MAX[1],bssn::BSSN_COMPD_MAX[2]);
-        const unsigned int PW=bssn::BSSN_PADDING_WIDTH;
+        // const Point pt_min(bssn::BSSN_COMPD_MIN[0],bssn::BSSN_COMPD_MIN[1],bssn::BSSN_COMPD_MIN[2]);
+        // const Point pt_max(bssn::BSSN_COMPD_MAX[0],bssn::BSSN_COMPD_MAX[1],bssn::BSSN_COMPD_MAX[2]);
+        // const unsigned int PW=bssn::BSSN_PADDING_WIDTH;
 
-        const ot::Block* blkList     = m_uiMesh->getLocalBlockList().data();
-        const unsigned int numBlocks = m_uiMesh->getLocalBlockList().size();
+        // const ot::Block* blkList     = m_uiMesh->getLocalBlockList().data();
+        // const unsigned int numBlocks = m_uiMesh->getLocalBlockList().size();
 
         for(unsigned int blk=0; blk<numBlocks; blk++)
         {
@@ -640,11 +744,13 @@ namespace aeh
     }
 
     template<typename Ctx, typename T>
-    int SpectralAEHSolver<Ctx, T>::eval_aeh_level_set(const Point& origin, ot::Mesh* m_uiMesh, T* const aeh_f_ptr, const T* const h_qs, const DendroScalar* const rlim)
+    int SpectralAEHSolver<Ctx, T>::eval_aeh_level_set(ot::Mesh* m_uiMesh, T* const aeh_f_ptr, const T* const h_qs)
     {
         if(!(m_uiMesh->isActive()))
             return 0;
+        
 
+        const Point & origin = m_origin;
         const ot::TreeNode* pNodes = &(*(m_uiMesh->getAllElements().begin()));
         const unsigned int eleOrder = m_uiMesh->getElementOrder();
         const unsigned int* e2n_cg = &(*(m_uiMesh->getE2NMapping().begin()));
@@ -653,10 +759,13 @@ namespace aeh
         const unsigned int nodeLocalBegin = m_uiMesh->getNodeLocalBegin();
         const unsigned int nodeLocalEnd = m_uiMesh->getNodeLocalEnd();
 
-        const DendroScalar rmin = rlim[0];
-        const DendroScalar rmax = rlim[1];
+        const DendroScalar rmin = m_rlim[0];
+        const DendroScalar rmax = m_rlim[1];
 
-        for (unsigned int elem = m_uiMesh->getElementLocalBegin(); elem < m_uiMesh->getElementLocalEnd(); elem++) {
+        //for (unsigned int elem = m_uiMesh->getElementLocalBegin(); elem < m_uiMesh->getElementLocalEnd(); elem++)
+        for (unsigned int idx =0; idx< m_active_ele_local_id.size(); idx ++)
+        {
+            const unsigned int elem = m_active_ele_local_id[idx];
             for (unsigned int k = 0; k < (eleOrder + 1); k++)
                 for (unsigned int j = 0; j < (eleOrder + 1); j++)
                     for (unsigned int i = 0; i < (eleOrder + 1); i++) {
@@ -689,7 +798,15 @@ namespace aeh
                                 const DendroScalar p_pt = acos(zz/p_rr);
                                 const DendroScalar p_ph = std::fmod(atan2(yy,xx), 2 * M_PI);
                                 for(unsigned int lm_idx =0; lm_idx < m_sph_modes.size(); lm_idx++)
+                                {
+                                    int l = m_sph_modes[lm_idx].first;
+                                    if (l > m_ll)
+                                        continue;
+
                                     h_tp+= h_qs[lm_idx] * real_spherical_harmonic(m_sph_modes[lm_idx].first, m_sph_modes[lm_idx].second, p_pt, p_ph);
+
+                                }
+                                    
                             }
 
                             aeh_f_ptr[nodeLookUp_CG] = p_rr - h_tp;
@@ -703,11 +820,12 @@ namespace aeh
     }
 
     template<typename Ctx, typename T>
-    int SpectralAEHSolver<Ctx, T>::eval_det_induced_metric(const Point& origin, Ctx* ctx, ot::Mesh* m_uiMesh, T* const aeh_f_ptr, const T* const h_qs, const DendroScalar* const rlim)
+    int SpectralAEHSolver<Ctx, T>::eval_det_induced_metric(Ctx* ctx, ot::Mesh* m_uiMesh, T* const aeh_f_ptr, const T* const h_qs)
     {
         if(!(m_uiMesh->isActive()))
             return 0;
-
+        
+        const Point & origin = m_origin;
         const ot::TreeNode* pNodes = &(*(m_uiMesh->getAllElements().begin()));
         const unsigned int eleOrder = m_uiMesh->getElementOrder();
         const unsigned int* e2n_cg = &(*(m_uiMesh->getE2NMapping().begin()));
@@ -716,8 +834,8 @@ namespace aeh
         const unsigned int nodeLocalBegin = m_uiMesh->getNodeLocalBegin();
         const unsigned int nodeLocalEnd = m_uiMesh->getNodeLocalEnd();
 
-        const DendroScalar rmin = rlim[0];
-        const DendroScalar rmax = rlim[1];
+        const DendroScalar rmin = m_rlim[0];
+        const DendroScalar rmax = m_rlim[1];
 
         DVec& gr_vars              = ctx->get_evolution_vars();
         DendroScalar * gr_vars_ptr = gr_vars.get_vec_ptr();
@@ -732,7 +850,10 @@ namespace aeh
         const DendroScalar* const  chi = &gr_vars_ptr[bssn::VAR::U_CHI * cg_sz];
         
         T * const det_m_ab = aeh_f_ptr;
-        for (unsigned int elem = m_uiMesh->getElementLocalBegin(); elem < m_uiMesh->getElementLocalEnd(); elem++) {
+        //for (unsigned int elem = m_uiMesh->getElementLocalBegin(); elem < m_uiMesh->getElementLocalEnd(); elem++) {
+        for (unsigned int idx =0; idx< m_active_ele_local_id.size(); idx ++)
+        {
+            const unsigned int elem = m_active_ele_local_id[idx];
             for (unsigned int k = 0; k < (eleOrder + 1); k++)
                 for (unsigned int j = 0; j < (eleOrder + 1); j++)
                     for (unsigned int i = 0; i < (eleOrder + 1); i++) {
@@ -771,6 +892,11 @@ namespace aeh
                                 // computing the spectral derivatives for h(theta, phi)
                                 for(unsigned int lm_idx =0; lm_idx < m_sph_modes.size(); lm_idx++)
                                 {
+
+                                    int l = m_sph_modes[lm_idx].first;
+                                    if (l > m_ll)
+                                        continue;
+
                                     h_tp      += h_qs[lm_idx] * real_spherical_harmonic(m_sph_modes[lm_idx].first, m_sph_modes[lm_idx].second, p_pt, p_ph);
                                     d_theta_h += h_qs[lm_idx] * real_spherical_harmonic_d_theta(m_sph_modes[lm_idx].first, m_sph_modes[lm_idx].second, p_pt, p_ph,1);
                                     d_phi_h   += h_qs[lm_idx] * real_spherical_harmonic_d_phi(m_sph_modes[lm_idx].first, m_sph_modes[lm_idx].second, p_pt, p_ph,1);
@@ -808,7 +934,7 @@ namespace aeh
     }
 
     template<typename Ctx, typename T>
-    DendroScalar SpectralAEHSolver<Ctx, T>::eval_expansion_norm(const Point& origin, Ctx* ctx, const T* const h_qs, DVec& aeh_f, DVec& aeh_h, std::vector<T>& interp_coords, const DendroScalar* const rlim, unsigned int norm_type)
+    DendroScalar SpectralAEHSolver<Ctx, T>::eval_expansion_norm(Ctx* ctx, const T* const h_qs, DVec& aeh_f, DVec& aeh_h, std::vector<T>& interp_coords, unsigned int norm_type)
     {
         ot::Mesh* m_uiMesh = ctx->get_mesh();
         if(!(m_uiMesh->isActive()))
@@ -817,6 +943,7 @@ namespace aeh
         int rank = m_uiMesh->getMPIRank();
         //int npes = m_uiMesh->getMPICommSize();
 
+        const Point & origin = m_origin;
         T * aeh_f_ptr = aeh_f.get_vec_ptr();
         T * aeh_h_ptr = aeh_h.get_vec_ptr();
         
@@ -829,8 +956,8 @@ namespace aeh
         domain_limits[0] = Point(bssn::BSSN_COMPD_MIN[0], bssn::BSSN_COMPD_MIN[1], bssn::BSSN_COMPD_MIN[2]);
         domain_limits[1] = Point(bssn::BSSN_COMPD_MAX[0], bssn::BSSN_COMPD_MAX[1], bssn::BSSN_COMPD_MAX[2]);
 
-        this->eval_aeh_level_set(origin, m_uiMesh, aeh_f_ptr, h_qs, rlim);
-        ctx->aeh_expansion(origin, m_aeh_vars, aeh_f, aeh_h, rlim);
+        this->eval_aeh_level_set(m_uiMesh, aeh_f_ptr, h_qs);
+        ctx->aeh_expansion(origin, m_aeh_vars, aeh_f, aeh_h, m_rlim);
 
         m_uiMesh->readFromGhostBegin(aeh_h.get_vec_ptr(), 1);
 
@@ -845,7 +972,15 @@ namespace aeh
 
                 T r_val = (T)0;
                 for(unsigned int lm_idx=0; lm_idx < m_sph_modes.size(); lm_idx++)
+                {
+                    int l = m_sph_modes[lm_idx].first;
+                    if (l > m_ll)
+                        continue;
+
                     r_val+= real_spherical_harmonic(m_sph_modes[lm_idx].first, m_sph_modes[lm_idx].second, m_qtheta[qt], m_qphi[qp]) * h_qs[lm_idx];
+
+                }
+                    
                 
                 interp_coords[3 * q_idx + 0] = origin.x() + (r_val) * m_sin_qtheta[qt] * m_cos_qphi[qp];
                 interp_coords[3 * q_idx + 1] = origin.y() + (r_val) * m_sin_qtheta[qt] * m_sin_qphi[qp];
@@ -917,12 +1052,13 @@ namespace aeh
     }
 
     template<typename Ctx, typename T>
-    AEHErrorType SpectralAEHSolver<Ctx, T>::solve(const Point& origin, Ctx * ctx, const T* const h_init, T* h_qs, unsigned int max_iter, double rel_eps, double abs_eps, const DendroScalar* const rlim, unsigned int verbose)
+    AEHErrorType SpectralAEHSolver<Ctx, T>::solve(Ctx * ctx, const T* const h_init, T* h_qs, unsigned int max_iter, double rel_eps, double abs_eps, double alpha, double beta, unsigned int verbose)
     {
         ot::Mesh * m_uiMesh = ctx->get_mesh();
         if(!m_uiMesh->isActive())
             return AEHErrorType::SUCCESS;
         
+        const Point & origin = m_origin;
         const int rank = m_uiMesh->getMPIRank();
         const unsigned int num_lm = m_sph_modes.size();
         const unsigned int cg_sz  = m_uiMesh->getDegOfFreedom();
@@ -975,12 +1111,16 @@ namespace aeh
         aeh_h_inp.resize(num_angular_pts);
         double relative_error=0;
         double absolute_error=0;
+
+        this->eval_aeh_level_set(m_uiMesh, aeh_f_ptr, h_qs0);
+        ctx->aeh_expansion(origin, m_aeh_vars, aeh_f, aeh_h, m_rlim);
+        const double abs_r0 = eval_expansion_norm(ctx, h_qs0, aeh_f, aeh_h, interp_coords, 2);
+
         do
         {
-            
             //printArray_1D(interp_coords.data(), interp_coords.size());
-            this->eval_aeh_level_set(origin, m_uiMesh, aeh_f_ptr, h_qs0, rlim);
-            ctx->aeh_expansion(origin, m_aeh_vars, aeh_f, aeh_h, rlim);
+            this->eval_aeh_level_set(m_uiMesh, aeh_f_ptr, h_qs0);
+            ctx->aeh_expansion(origin, m_aeh_vars, aeh_f, aeh_h, m_rlim);
             
             m_uiMesh->readFromGhostBegin(aeh_h.get_vec_ptr(), 1);
 
@@ -990,7 +1130,13 @@ namespace aeh
                     const unsigned int q_idx = qt * m_num_phi + qp;
                     T r_val = (T)0;
                     for(unsigned int lm_idx=0; lm_idx < m_sph_modes.size(); lm_idx++)
+                    {   
+                        int l = m_sph_modes[lm_idx].first;
+                        if (l > m_ll)
+                            continue;
+
                         r_val+= real_spherical_harmonic(m_sph_modes[lm_idx].first, m_sph_modes[lm_idx].second, m_qtheta[qt], m_qphi[qp]) * h_qs0[lm_idx];
+                    }
 
                     aeh_r[q_idx] = r_val;
                     
@@ -1017,6 +1163,9 @@ namespace aeh
 
                     int l = m_sph_modes[lm_idx].first;
                     int m = m_sph_modes[lm_idx].second;
+
+                    if (l> m_ll)
+                        continue;
                     
                     for(unsigned int idx=0;idx < valid_idx.size(); idx++)
                     {
@@ -1034,24 +1183,28 @@ namespace aeh
                 }
                 
                 h_qs1[0] = h_qs0[0];
-                h_qs1[0] = this->solve_00_newton(origin, ctx, h_qs1, aeh_f, aeh_h, interp_coords, 1e-6, rlim);
+                h_qs1[0] = this->solve_00_newton(ctx, h_qs1, aeh_f, aeh_h, interp_coords, 1e-6);
                 if(h_qs1[0]==-1.0)
                     return AEHErrorType::FAIL;
 
             }else if(m_solver_type==AEHSolverType::FAST_FLOW)
             {
-                const int l_max            = std::max(10, 4 * m_sph_modes[m_sph_modes.size()-1].first);
-                const DendroScalar A       = (1.0 / (DendroScalar)( l_max * (l_max + 1))) + 0.5;
-                const DendroScalar B       =  0.5 / 1.0;
-                const DendroScalar dlambda = A/(1 + B * l_max * ( l_max + 1));
+                const int l_max             = 2 * m_sph_modes[m_sph_modes.size()-1].first ;//std::max(10, 4 * m_sph_modes[m_sph_modes.size()-1].first);
+                const DendroScalar A        = (alpha / (DendroScalar)( l_max * (l_max + 1))) + beta;
+                const DendroScalar B        = beta / alpha;
+                const DendroScalar dlambda0 = A/(1 + B * l_max * ( l_max + 1));
+                DendroScalar dlambda        = dlambda0;
 
                 for(unsigned int lm_idx=0; lm_idx < m_sph_modes.size(); lm_idx++)
                 {
                     DendroScalar tmp  = 0.0;
                     DendroScalar a_qs = 0.0;
 
-                    int l = m_sph_modes[lm_idx].first;
-                    int m = m_sph_modes[lm_idx].second;
+                    const int l = m_sph_modes[lm_idx].first;
+                    const int m = m_sph_modes[lm_idx].second;
+
+                    if (l > m_ll)
+                        continue;
                     
                     for(unsigned int idx=0;idx < valid_idx.size(); idx++)
                     {
@@ -1064,6 +1217,9 @@ namespace aeh
                     par::Mpi_Allreduce(&tmp, &a_qs, 1, MPI_SUM, m_uiMesh->getMPICommunicator());
                     // if(!rank)
                     //     printf("lm=(%d, %d) integral =%.8E\n",l,m,a_qs);
+                    // if (lm_idx==0)
+                    //     dlambda = std::min(0.1 * h_qs0[0]/a_qs, dlambda0);
+
                     h_qs1[lm_idx] = h_qs0[lm_idx] -  dlambda * a_qs;
 
                 }
@@ -1071,14 +1227,17 @@ namespace aeh
             }else
                 return AEHErrorType::FAIL;
             
-            absolute_error        = eval_expansion_norm(origin, ctx, h_qs1, aeh_f, aeh_h, interp_coords, rlim, 2);
-            relative_error        = normL2(h_qs1, h_qs0, m_sph_modes.size())/ normL2(h_qs0, m_sph_modes.size());
-            if(!rank)
+            absolute_error                           = eval_expansion_norm(ctx, h_qs1, aeh_f, aeh_h, interp_coords, 2);
+            relative_error                           = absolute_error/abs_r0;
+            const DendroScalar converged             = normL2(h_qs1, h_qs0, m_sph_modes.size())/ normL2(h_qs0, m_sph_modes.size());
+
+            if(!rank && verbose==1)
             {
-                printf("AEH solver iteration = %d / %d relative error = %.8E  absolute error = %.8E \n",iter + 1, max_iter, relative_error, absolute_error);
-                // for(unsigned int lm_idx=0; lm_idx < m_sph_modes.size(); lm_idx++)
-                //     printf("h_{%d, %d} = %.8E ,",m_sph_modes[lm_idx].first, m_sph_modes[lm_idx].second, h_qs1[lm_idx]);
-                // printf("\n");
+                if ((iter + 1) % 10 == 0)
+                    printf("l = %02d / lmax = %02d AEH iter = %04d / %04d relative error = %.8E  absolute error = %.8E ||hqs_1 - hqs_0||/||hqs_0|| = %.8E\n", m_ll, m_lmax, iter + 1, max_iter, relative_error, absolute_error, converged);
+                    // for(unsigned int lm_idx=0; lm_idx < m_sph_modes.size(); lm_idx++)
+                    //     printf("h_{%d, %d} = %.8E ,",m_sph_modes[lm_idx].first, m_sph_modes[lm_idx].second, h_qs1[lm_idx]);
+                    // printf("\n");
             }
                 
             
@@ -1088,8 +1247,8 @@ namespace aeh
             // {
             //     DendroScalar* pData[16];
 
-            //     this->eval_aeh_level_set(origin, m_uiMesh, aeh_f_ptr, h_qs0, r_max);
-            //     ctx->aeh_expansion(origin, m_aeh_vars, aeh_f, aeh_h, rlim);
+            //     this->eval_aeh_level_set(m_uiMesh, aeh_f_ptr, h_qs0);
+            //     ctx->aeh_expansion(origin, m_aeh_vars, aeh_f, aeh_h, m_rlim);
             
             //     m_uiMesh->readFromGhostBegin(aeh_h.get_vec_ptr(), 1);
             //     m_uiMesh->readFromGhostEnd(aeh_h.get_vec_ptr(), 1);
@@ -1123,6 +1282,9 @@ namespace aeh
 
             // }
 
+            if(converged < rel_eps)
+                break;
+
         }while((iter < max_iter) && (relative_error > rel_eps && absolute_error > abs_eps) );
         
         std::memcpy(h_qs, h_qs0, sizeof(T) * num_lm);
@@ -1134,18 +1296,22 @@ namespace aeh
         aeh_h.destroy_vector();
         
         if(iter==max_iter && (relative_error > rel_eps && absolute_error > abs_eps))
-        {
+        {   
+            if(m_ll == m_lmax)
+                std::memcpy(h_qs, h_init, sizeof(T) * num_lm);
+
             if (!rank && verbose==1)
             {
-                std::cout<<"AEH solver did not converge to specified tolerances with "<<max_iter<<" iterations. rel tol = "<<relative_error<<" / "<<rel_eps<<" abs tol = "<<absolute_error<<" / "<<abs_eps;
-                std::cout<<" consider increasing max iterations"<<std::endl;
+                printf("AEH solver did not convege for abs tol = %.8E / %.8E rel tol = %.8E / %.8E with max iterations = %04d\n", absolute_error, abs_eps, relative_error, rel_eps, iter);
+                
             }
             return AEHErrorType::FAIL;
         }
         else
         {
             if (!rank && verbose==1)
-                std::cout<<"AEH solver converged with  "<<iter<<" iterations. rel tol = "<<relative_error<<" / "<<rel_eps<<" abs tol = "<<absolute_error<<" / "<<abs_eps<<std::endl;
+                printf("ll = %02d AEH solver converged with iter = %04d abs = %.8E rel = %.8E\n",m_ll, iter, absolute_error, relative_error);
+
             return AEHErrorType::SUCCESS;
         }
             
@@ -1153,13 +1319,14 @@ namespace aeh
     }
 
     template<typename Ctx, typename T>
-    void SpectralAEHSolver<Ctx, T>::aeh_quasi_measurements(const Point& origin, Ctx * ctx, const T* const h_qs, AEH_QoI & qoi, const DendroScalar* const rlim)
+    void SpectralAEHSolver<Ctx, T>::aeh_quasi_measurements(Ctx * ctx, const T* const h_qs, AEH_QoI & qoi)
     {
 
         ot::Mesh* m_uiMesh = ctx->get_mesh();
         if(!(m_uiMesh->isActive()))
             return ;
         
+        const Point & origin = m_origin;
         int rank = m_uiMesh->getMPIRank();
         //int npes = m_uiMesh->getMPICommSize();
 
@@ -1185,10 +1352,10 @@ namespace aeh
         aeh_f.create_vector(m_uiMesh, ot::DVEC_TYPE::OCT_SHARED_NODES, ot::DVEC_LOC::HOST, 1, true);
         aeh_h.create_vector(m_uiMesh, ot::DVEC_TYPE::OCT_SHARED_NODES, ot::DVEC_LOC::HOST, 1, true);
 
-        qoi.expansion_L2 = this->eval_expansion_norm(origin, ctx, h_qs, aeh_f, aeh_h, interp_coords, rlim, 2);
+        qoi.expansion_L2 = this->eval_expansion_norm(ctx, h_qs, aeh_f, aeh_h, interp_coords, 2);
 
         T * ws_v1_ptr              = aeh_f.get_vec_ptr();
-        this->eval_det_induced_metric(origin, ctx, m_uiMesh, ws_v1_ptr, h_qs, rlim);
+        this->eval_det_induced_metric(ctx, m_uiMesh, ws_v1_ptr, h_qs);
         m_uiMesh->readFromGhostBegin(ws_v1_ptr, 1);
 
         
@@ -1202,7 +1369,12 @@ namespace aeh
 
                 T r_val = (T)0;
                 for(unsigned int lm_idx=0; lm_idx < m_sph_modes.size(); lm_idx++)
+                {
+                    int l = m_sph_modes[lm_idx].first;
+                    if (l > m_ll)
+                        continue;
                     r_val+= real_spherical_harmonic(m_sph_modes[lm_idx].first, m_sph_modes[lm_idx].second, m_qtheta[qt], m_qphi[qp]) * h_qs[lm_idx];
+                }
                 
                 if(r_min_mean_max[0]>r_val)
                     r_min_mean_max[0] = r_val;
@@ -1253,19 +1425,18 @@ namespace aeh
     }
 
     template<typename Ctx, typename T>
-    int SpectralAEHSolver<Ctx, T>::aeh_to_json(const Point& origin, Ctx * ctx,  T* h_qs, char*fname, std::ios_base::openmode mode)
+    int SpectralAEHSolver<Ctx, T>::aeh_to_json(Ctx * ctx,  T* h_qs, char*fname, std::ios_base::openmode mode)
     {
         ot::Mesh * m_uiMesh = ctx->get_mesh();
         if(!m_uiMesh->isActive())
             return 0;
-
+        
+        const Point & origin = m_origin;
         int rank = m_uiMesh->getMPIRank();
         int npes = m_uiMesh->getMPICommSize();
 
         AEH_QoI ah_qoi;
-        DendroScalar rlim[2] = {1e-6, 100};
-
-        aeh_quasi_measurements(origin, ctx, h_qs, ah_qoi, rlim);
+        aeh_quasi_measurements(ctx, h_qs, ah_qoi);
         
         if (!rank)
         {   

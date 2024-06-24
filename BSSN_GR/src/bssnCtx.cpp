@@ -1358,6 +1358,21 @@ int BSSNCtx::aeh_expansion(const Point& origin, aeh::AEH_VARS * m_aeh_vars, DVec
         ptmax[1]=GRIDY_TO_Y(blkList[blk].getBlockNode().maxY())+PW*dy;
         ptmax[2]=GRIDZ_TO_Z(blkList[blk].getBlockNode().maxZ())+PW*dz;
 
+        const DendroScalar xx   = ptmin[0] - origin.x();
+        const DendroScalar yy   = ptmin[1] - origin.y();
+        const DendroScalar zz   = ptmin[2] - origin.z();
+
+        const DendroScalar lx   = (ptmax[0] - ptmin[0]);
+        const DendroScalar ly   = (ptmax[1] - ptmin[1]);
+        const DendroScalar lz   = (ptmax[2] - ptmin[2]);
+
+        const DendroScalar ll   = sqrt(lx * lx + ly * ly + lz * lz);
+
+        const DendroScalar p_rr = sqrt(xx * xx + yy * yy  + zz * zz);
+
+        if(!((p_rr < (rlim[1] + ll)) && (p_rr > (rlim[0] - ll))))
+            continue; 
+
         // if(sqrt(ptmax[0] * ptmax[0] + ptmax[1]*ptmax[1] + ptmax[2] * ptmax[2]) > rlim[1])
         //     continue;
 

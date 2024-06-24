@@ -351,56 +351,100 @@ int main (int argc, char** argv)
           const double abs_tol         = AEH::AEH_RTOL;
           const bool single_ah         = bssnCtx->is_bh_merged(0.1);
           const ot::Mesh* pmesh        = bssnCtx->get_mesh();
+
+          
           try
           {
             
-            aeh::SpectralAEHSolver<bssn::BSSNCtx,DendroScalar> aeh_solver(bssnCtx, lmax, ntheta, nphi, false);
-            const unsigned int num_lm_modes = aeh_solver.get_num_lm_modes();
-            double rlim[2] ={1e-6, 30};
-            
-
+            double rlim[2] ={1e-6, 4};
             if(single_ah)
             {
+              
+              const double alpha           = AEH::AEH_ALPHA;
+              const double beta            = AEH::AEH_BETA;
+
+              {
+                // puncture-0
+                const Point& bh0 = bssnCtx->get_bh0_loc();
+                const Point& bh1 = bssnCtx->get_bh1_loc();
+
+                Point bh_m_loc(0.5 * (bh0.x() + bh1.x()), 0.5 * (bh0.y() + bh1.y()), 0.5 * (bh0.z() + bh1.z()));
+                aeh::SpectralAEHSolver<bssn::BSSNCtx,DendroScalar> aeh_solver(bh_m_loc, bssnCtx, lmax, ntheta, nphi, rlim, false, false);
+                for(unsigned int ll=0; ll < lmax; ll+=2)
+                {
+                  aeh_solver.set_lmodes(ll);
+                  aeh_solver.solve(bssnCtx, hh[2].data(), hh[3].data(), max_iter, rel_tol, abs_tol, alpha, beta, 1);
+                  std::swap(hh[2] , hh[3]);
+                }
+
+                char fname[256];
+                sprintf(fname,"%s_%d_%d_%d_bh_merged_aeh.dat",bssn::BSSN_PROFILE_FILE_PREFIX.c_str(), lmax, ntheta, nphi);
+                aeh_solver.set_lmodes(lmax);
+                aeh_solver.solve(bssnCtx, hh[2].data(), hh[3].data(), max_iter, rel_tol, abs_tol, alpha, beta, 1);
+                aeh_solver.aeh_to_json(bssnCtx, hh[3].data(), fname, std::ios_base::app);
+                std::swap(hh[2] , hh[3]);
+
+              }
+
 
             }else
             {
               {
-                
+
+                const double alpha           = AEH::AEH_ALPHA * bssn::BH1.getBHMass();
+                const double beta            = AEH::AEH_BETA;
+                // puncture-0
+                if(!rank)
+                {
+                  printf("============================================================\n");
+                  printf("======================== BH 1  =============================\n");
+                  printf("============================================================\n");
+
+                }
+                  
+                aeh::SpectralAEHSolver<bssn::BSSNCtx,DendroScalar> aeh_solver(bssnCtx->get_bh0_loc(), bssnCtx, lmax, ntheta, nphi, rlim, false, false);
                 for(unsigned int ll=0; ll < lmax; ll+=2)
                 {
-                    if (!pmesh->getMPIRankGlobal())
-                      std::cout<<"sub cycle lmax = "<<ll<<std::endl;
-
-                    aeh::SpectralAEHSolver<bssn::BSSNCtx,DendroScalar> s1(bssnCtx, ll, ntheta, nphi, false, false);
-                    s1.solve(bssnCtx->get_bh0_loc(), bssnCtx, hh[0].data(), hh[1].data(), max_iter, rel_tol, abs_tol, rlim);
-                    std::swap(hh[0] , hh[1]);
+                  aeh_solver.set_lmodes(ll);
+                  aeh_solver.solve(bssnCtx, hh[0].data(), hh[1].data(), max_iter, rel_tol, abs_tol, alpha, beta,  1);
+                  std::swap(hh[0] , hh[1]);
                 }
 
                 char fname[256];
                 sprintf(fname,"%s_%d_%d_%d_bh0_aeh.dat",bssn::BSSN_PROFILE_FILE_PREFIX.c_str(), lmax, ntheta, nphi);
-                aeh_solver.solve(bssnCtx->get_bh0_loc(), bssnCtx, hh[0].data(), hh[1].data(), max_iter, rel_tol, abs_tol, rlim, 1u);
-                aeh_solver.aeh_to_json(bssnCtx->get_bh0_loc(), bssnCtx, hh[1].data(), fname, std::ios_base::app);
+                aeh_solver.set_lmodes(lmax);
+                aeh_solver.solve(bssnCtx, hh[0].data(), hh[1].data(), max_iter, rel_tol, abs_tol, alpha, beta, 1);
+                aeh_solver.aeh_to_json(bssnCtx, hh[1].data(), fname, std::ios_base::app);
                 std::swap(hh[0] , hh[1]);
-              
+                  
+
               }
 
               {
-                
+                const double alpha           = AEH::AEH_ALPHA * bssn::BH2.getBHMass();
+                const double beta            = AEH::AEH_BETA;
+                // puncture-1
+                if(!rank)
+                {
+                  printf("============================================================\n");
+                  printf("======================== BH 2  =============================\n");
+                  printf("============================================================\n");
+
+                }
+                aeh::SpectralAEHSolver<bssn::BSSNCtx,DendroScalar> aeh_solver(bssnCtx->get_bh1_loc(), bssnCtx, lmax, ntheta, nphi, rlim, false, false);
                 for(unsigned int ll=0; ll < lmax; ll+=2)
                 {
-                    if (!pmesh->getMPIRankGlobal())
-                      std::cout<<"sub cycle lmax = "<<ll<<std::endl;
-
-                    aeh::SpectralAEHSolver<bssn::BSSNCtx,DendroScalar> s1(bssnCtx, ll, ntheta, nphi, false, false);
-                    s1.solve(bssnCtx->get_bh1_loc(), bssnCtx, hh[2].data(), hh[3].data(), max_iter, rel_tol, abs_tol, rlim);
-                    std::swap(hh[2],hh[3]);
+                  aeh_solver.set_lmodes(ll);
+                  aeh_solver.solve(bssnCtx, hh[2].data(), hh[3].data(), max_iter, rel_tol, abs_tol, alpha, beta, 1);
+                  std::swap(hh[2] , hh[3]);
                 }
 
                 char fname[256];
                 sprintf(fname,"%s_%d_%d_%d_bh1_aeh.dat",bssn::BSSN_PROFILE_FILE_PREFIX.c_str(), lmax, ntheta, nphi);
-                aeh_solver.solve(bssnCtx->get_bh1_loc(), bssnCtx, hh[2].data(), hh[3].data(), max_iter, rel_tol, abs_tol, rlim, 1u);
-                aeh_solver.aeh_to_json(bssnCtx->get_bh1_loc(), bssnCtx, hh[3].data(), fname, std::ios_base::app);
-                std::swap(hh[2],hh[3]);
+                aeh_solver.set_lmodes(lmax);
+                aeh_solver.solve(bssnCtx, hh[2].data(), hh[3].data(), max_iter, rel_tol, abs_tol, alpha, beta, 1);
+                aeh_solver.aeh_to_json(bssnCtx, hh[3].data(), fname, std::ios_base::app);
+                std::swap(hh[2] , hh[3]);
 
               }
               
