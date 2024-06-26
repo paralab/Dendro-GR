@@ -273,6 +273,10 @@
     
     " " : "relative tolerance for convergence",
     "AEH_RTOL":1e-8, 
+
+    " " : "AEH update A = (alpha / (lmax * (lmax + 1)))  + beta  and B= beta/alpha and dlambda = A / (1 + B * l * (l + 1) )", 
+    "AEH_ALPHA": 1.0,
+    "AEH_BETA" : 0.0,
     
     "__comment__" : "======================================================================================="
     
