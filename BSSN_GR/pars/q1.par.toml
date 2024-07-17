@@ -17,11 +17,11 @@ DENDRO_VERSION = 5.0
 ########################################################################
 # IO
 
-# Set 1 to restore the BSSN Solver
-BSSN_RESTORE_SOLVER = 0
+# 1: restore the BSSN Solver, restarting from most recent checkpt
+BSSN_RESTORE_SOLVER = 1
 
 # Frequency for the VTU Output
-BSSN_IO_OUTPUT_FREQ = 3_000
+BSSN_IO_OUTPUT_FREQ = 3000
 
 # Frequency to use for triggering the remeshing based on wavelets
 BSSN_REMESH_TEST_FREQ = 30
@@ -85,7 +85,7 @@ BSSN_LOAD_IMB_TOL = 0.1
 BSSN_DIM = 3
 
 # Minimum Depth of the Mesh/Octree
-BSSN_MINDEPTH = 3
+BSSN_MINDEPTH = 4
 # Maximum Depth of the Mesh/Octree
 BSSN_MAXDEPTH = 15
 
@@ -93,7 +93,8 @@ BSSN_MAXDEPTH = 15
 ########################################################################
 # WAVELET REFINEMENT 
 
-# Element Order, each block gets ELE_ORDER + 1 points it is in charge of, and padding width is ELE_ORDER / 2, should always be **even**
+# Element Order, each block gets ELE_ORDER + 1 points it is in charge of, 
+# and padding width is ELE_ORDER / 2, should always be **even**
 BSSN_ELE_ORDER = 6
 
 # Wavelet tolerence for Wavelet Refinement (minimum)
@@ -103,18 +104,27 @@ BSSN_WAVELET_TOL = 0.00001
 BSSN_GW_REFINE_WTOL = 0.0001
 
 # Maximum Wavelet Tolerence
-BSSN_WAVELET_TOL_MAX = 0.001
+BSSN_WAVELET_TOL_MAX = 0.00025
+
+# Which refinement mode to use
+# 0 - WAMR
+# 1 - EH
+# 2 - EH_WAMR
+# 3 - BH_LOC
+BSSN_REFINEMENT_MODE = 3
+
+BSSN_AMR_R_RATIO = 2.0
 
 # Wavelet Tolerence Function to use (see grUtils.cpp for adding more)
 # 1,2 - deprecated
 # 3 - center highly refined; low refinement elsewhere eases over time
 # 4 - start w/ refinement centered at BHs, then widen to r=0 focused
 # 5 - focus refinement in self-similar ways about each BH
-BSSN_USE_WAVELET_TOL_FUNCTION = 5
+BSSN_USE_WAVELET_TOL_FUNCTION = 3
 
 # Wavelet Tolerence Radii (for setting "shell" based tolerance)
-BSSN_WAVELET_TOL_FUNCTION_R0 = 20.0
-BSSN_WAVELET_TOL_FUNCTION_R1 = 220.0
+BSSN_WAVELET_TOL_FUNCTION_R0 = 3.0
+BSSN_WAVELET_TOL_FUNCTION_R1 = 12.0
 
 # Number of variables to use for refinement, goes with BSSN_REFINE_VARIABLE_INDICES
 BSSN_NUM_REFINE_VARS = 24
@@ -123,13 +133,6 @@ BSSN_REFINE_VARIABLE_INDICES = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,1
 
 # FD Intergrid transfer mode
 BSSN_USE_FD_GRID_TRANSFER = false
-
-# Which refinement mode to use
-# 0 - WAMR
-# 1 - EH
-# 2 - EH_WAMR
-# 3 - BH_LOC
-BSSN_REFINEMENT_MODE = 3
 
 # The number of iterations that should be done for grid initialization
 BSSN_INIT_GRID_ITER = 10
@@ -148,7 +151,7 @@ BSSN_CFL_FACTOR = 0.25
 # The starting time of the simulation
 BSSN_RK_TIME_BEGIN = 0.0
 # The ending time of the simulation
-BSSN_RK_TIME_END = 800.0
+BSSN_RK_TIME_END = 700.0
 
 # RK Method to use (0 -> RK3, 1 -> RK4, 2 -> RK45)
 BSSN_RK_TYPE = 1
@@ -216,12 +219,12 @@ BSSN_GRID_MAX_Z = 400.0
 # BLACK HOLE Parameters
 
 BSSN_BH1_AMR_R = 1.0
-BSSN_BH1_CONSTRAINT_R = 5.0
+BSSN_BH1_CONSTRAINT_R = 2.0
 BSSN_BH1_MAX_LEV = 15
 BSSN_BH1 = { MASS = 0.4824, X = 4.0, Y = 0.0, Z = 0.0, V_X = 0.0, V_Y = 0.114, V_Z = 0.0, SPIN = 0.0, SPIN_THETA = 0.0, SPIN_PHI = 0.0 }
 
 BSSN_BH2_AMR_R = 1.0
-BSSN_BH2_CONSTRAINT_R = 5.0
+BSSN_BH2_CONSTRAINT_R = 2.0
 BSSN_BH2_MAX_LEV = 15
 BSSN_BH2 = {MASS = 0.4824, X = -4.0, Y = 0.0, Z = 0.0, V_X = 0.0, V_Y = -0.114, V_Z = 0.0, SPIN = 0.0,SPIN_THETA = 0.0,SPIN_PHI = 0.0 }
 
@@ -308,4 +311,15 @@ AEH_ATOL = 1e-7
 AEH_RTOL = 1e-7
 
 
+########################################################################
+# Etienne '24 improvements 
+
+# SSL: use necessary initial lapse of alpha = W
+TPID_REPLACE_LAPSE_WITH_SQRT_CHI = true
+
+# CAKO: scale KO-diss by conformal factor
+BSSN_KO_SIGMA_SCALE_BY_CONFORMAL = false
+
+# CAHD: Hamiltonian damping strength
+BSSN_CAHD_C = 0.0053
 
