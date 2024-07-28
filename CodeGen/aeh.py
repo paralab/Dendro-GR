@@ -1,4 +1,3 @@
-
 ## Symbolic code for computing the Apparent Event Horizon (AEH) finder 
 import sys as sys
 import dendro
@@ -48,7 +47,6 @@ with contextlib.redirect_stdout(io.StringIO()) as f:
 with open("../BSSN_GR/src/expansion_aeh.cpp", "w") as f_out:
     f_out.writelines(f.getvalue())
 
-
 dendro.d   = lambda i,x : sympy.Symbol("grad_%d_%s"%(i,str(x).split('[')[0]))
 dendro.d2  = lambda i,j,x : sympy.Symbol("grad2_%d_%d_%s"%(min(i,j),max(i,j),str(x).split('[')[0]))
 
@@ -62,10 +60,36 @@ ad=dendro.ad
 g      = gt/chi
 A      = dendro.vec3("A","[pp]")
 
+
+# Define s
+s = sympy.symbols('xx yy zz')
+
+# Define the Killing vectors for rotational symmetry
+Killing_x = [0, -(s[2]), (s[1])]
+Killing_y = [(s[2]), 0, -(s[0])]
+Killing_z = [-(s[1]), (s[0]), 0]
+
+# Define the integrand for each angular momentum component
+def integrand(phi, Kij, n):
+    # phi - is a Cartesian killing vector
+    # Kij - is the ADM extrinsic curvature
+    # n - is the unit normal to the surface
+    return sum(sum( phi[i] * Kij[i, j] * n[j] for i in range(3)) for j in range(3))
+
+# Define integral for angular momentum components
+J_x = sympy.simplify(integrand(Killing_x, Kij, n_uk))
+J_y = sympy.simplify(integrand(Killing_y, Kij, n_uk))
+J_z = sympy.simplify(integrand(Killing_z, Kij, n_uk))
+
 md_ij   = sympy.Matrix([[sympy.simplify(sum([g[a,b] * d(i, A[a]) * d(j, A[b]) for a in dendro.e_i for b in dendro.e_i])) for j in range(2)] for i in range(2)])
 det_mij = sympy.simplify(sympy.det(md_ij))
+
+# Add the integrals to the list of outputs
+outs = [det_mij, J_x, J_y, J_z]
+vnames = ['det_m_ab', 'J_x', 'J_y', 'J_z']
+
 with contextlib.redirect_stdout(io.StringIO()) as f:
-    dendro.generate_cpu([det_mij], ['det_m_ab'], '[pp]')
+    dendro.generate_cpu(outs, vnames, '[pp]')
 
 with open("../BSSN_GR/src/det_metric_aeh.cpp", "w") as f_out:
     f_out.writelines(f.getvalue())
