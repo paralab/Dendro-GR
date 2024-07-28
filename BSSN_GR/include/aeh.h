@@ -823,8 +823,8 @@ namespace aeh
     int SpectralAEHSolver<Ctx, T>::eval_det_induced_metric(Ctx* ctx, ot::Mesh* m_uiMesh, T* const aeh_f_ptr, const T* const h_qs)
     {
         if(!(m_uiMesh->isActive()))
-            return 0;
-        
+            return 0;       
+
         const Point & origin = m_origin;
         const ot::TreeNode* pNodes = &(*(m_uiMesh->getAllElements().begin()));
         const unsigned int eleOrder = m_uiMesh->getElementOrder();
@@ -882,6 +882,9 @@ namespace aeh
                             
                             if (p_rr>rmin && p_rr < rmax)
                             {
+                                T J_x = 0.0;
+                                T J_y = 0.0;
+                                T J_z = 0.0;
                                 const DendroScalar p_pt = acos(zz/p_rr);
                                 const DendroScalar p_ph = std::fmod(atan2(yy,xx), 2 * M_PI);
 
@@ -896,12 +899,41 @@ namespace aeh
                                     int l = m_sph_modes[lm_idx].first;
                                     if (l > m_ll)
                                         continue;
-
+                                        
+                                // Need to know the gradient of f wrt the 3 cartesian components
+                                // df/dx, df/dy, df/dz. df= r-h(theta, phi)
+                                // Nees to get r = sqrt(x^2 + y^2 + z^2). How do we differentiate h?
+                                // dh/dxi = dh/dtheta dtheta/dxi + dh/dphi dphi/dxi
+                                // h as a function of theta and phi and the folllowing 2 lines are the derivatives
+                    
                                     h_tp      += h_qs[lm_idx] * real_spherical_harmonic(m_sph_modes[lm_idx].first, m_sph_modes[lm_idx].second, p_pt, p_ph);
                                     d_theta_h += h_qs[lm_idx] * real_spherical_harmonic_d_theta(m_sph_modes[lm_idx].first, m_sph_modes[lm_idx].second, p_pt, p_ph,1);
                                     d_phi_h   += h_qs[lm_idx] * real_spherical_harmonic_d_phi(m_sph_modes[lm_idx].first, m_sph_modes[lm_idx].second, p_pt, p_ph,1);
                                 }
                                     
+                                // Compute r
+                                DendroScalar r = sqrt(xx * xx + yy * yy + zz * zz);
+
+                                // Partial derivatives of theta
+                                DendroScalar dtheta_dx = xx * zz / (r * r * r * sqrt(1 - zz * zz / (r * r)));
+                                DendroScalar dtheta_dy = yy * zz / (r * r * r * sqrt(1 - zz * zz / (r * r)));
+                                DendroScalar dtheta_dz = (1 / (r * sqrt(1 - zz * zz / (r * r)))) - (zz * zz / (r * r * r * sqrt(1 - zz * zz / (r * r))));
+
+                                // Partial derivatives of phi
+                                DendroScalar dphi_dx = -yy / (xx * xx + yy * yy);
+                                DendroScalar dphi_dy = xx / (xx * xx + yy * yy);
+                                DendroScalar dphi_dz = 0;
+
+                                // Gradients of h
+                                DendroScalar dh_dx = d_theta_h * dtheta_dx + d_phi_h * dphi_dx;
+                                DendroScalar dh_dy = d_theta_h * dtheta_dy + d_phi_h * dphi_dy;
+                                DendroScalar dh_dz = d_theta_h * dtheta_dz + d_phi_h * dphi_dz;
+
+                                // Gradients of f
+                                DendroScalar df_dx = x / r - dh_dx;
+                                DendroScalar df_dy = y / r - dh_dy;
+                                DendroScalar df_dz = z / r - dh_dz;
+
                                 // embedding coordinate maps
                                 // const DendroScalar A0 = h_tp * sin(p_pt) * cos(p_ph);
                                 // const DendroScalar A1 = h_tp * sin(p_pt) * sin(p_ph);
@@ -917,7 +949,6 @@ namespace aeh
 
                                 const unsigned int pp = nodeLookUp_CG;
                                 #include "../src/det_metric_aeh.cpp"
-                                
 
                             }else
                             {
@@ -927,6 +958,24 @@ namespace aeh
                             
                         }
                     }
+                    // global reduction using MPI to sum the contributions from all the processes
+    DendroScalar J_x_global = 0.0;
+    DendroScalar J_y_global = 0.0;
+    DendroScalar J_z_global = 0.0;
+
+    par::Mpi_Allreduce(&J_x, &J_x_global, 1, MPI_SUM, m_uiMesh->getMPICommunicator());
+    par::Mpi_Allreduce(&J_y, &J_y_global, 1, MPI_SUM, m_uiMesh->getMPICommunicator());
+    par::Mpi_Allreduce(&J_z, &J_z_global, 1, MPI_SUM, m_uiMesh->getMPICommunicator());
+
+    if (!rank) {
+        std::cout << "Angular Momentum Components:" << std::endl;
+        std::cout << "J_x = " << J_x_global << std::endl;
+        std::cout << "J_y = " << J_y_global << std::endl;
+        std::cout << "J_z = " << J_z_global << std::endl;
+    }
+
+    return 0;
+}
         }
         
         return 0;
