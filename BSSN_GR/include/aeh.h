@@ -117,7 +117,7 @@ namespace aeh
             void set_lmodes(unsigned int ll) {m_ll = ll;}
             
             /**@brief get the current l modes */
-            unsigned int get_lmodes() {return m_ll};
+            unsigned int get_lmodes() {return m_ll;}
 
             /**@brief set aeh solver type*/
             void set_solver_type(AEHSolverType type) {m_solver_type=type;}
@@ -963,22 +963,20 @@ namespace aeh
     DendroScalar J_y_global = 0.0;
     DendroScalar J_z_global = 0.0;
 
-    par::Mpi_Allreduce(&J_x, &J_x_global, 1, MPI_SUM, m_uiMesh->getMPICommunicator());
-    par::Mpi_Allreduce(&J_y, &J_y_global, 1, MPI_SUM, m_uiMesh->getMPICommunicator());
-    par::Mpi_Allreduce(&J_z, &J_z_global, 1, MPI_SUM, m_uiMesh->getMPICommunicator());
+    // par::Mpi_Allreduce(&J_x, &J_x_global, 1, MPI_SUM, m_uiMesh->getMPICommunicator());
+    // par::Mpi_Allreduce(&J_y, &J_y_global, 1, MPI_SUM, m_uiMesh->getMPICommunicator());
+    // par::Mpi_Allreduce(&J_z, &J_z_global, 1, MPI_SUM, m_uiMesh->getMPICommunicator());
 
-    if (!rank) {
-        std::cout << "Angular Momentum Components:" << std::endl;
-        std::cout << "J_x = " << J_x_global << std::endl;
-        std::cout << "J_y = " << J_y_global << std::endl;
-        std::cout << "J_z = " << J_z_global << std::endl;
-    }
+    // if (!rank) {
+    //     std::cout << "Angular Momentum Components:" << std::endl;
+    //     std::cout << "J_x = " << J_x_global << std::endl;
+    //     std::cout << "J_y = " << J_y_global << std::endl;
+    //     std::cout << "J_z = " << J_z_global << std::endl;
+    // }
 
     return 0;
 }
-        }
-        
-        return 0;
+ 
 
     }
 
