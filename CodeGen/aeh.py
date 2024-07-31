@@ -70,23 +70,32 @@ Killing_y = [(s[2]), 0, -(s[0])]
 Killing_z = [-(s[1]), (s[0]), 0]
 
 # Define the integrand for each angular momentum component
-def integrand(phi, Kij, n):
+def integrand(phi, Kij):
     # phi - is a Cartesian killing vector
     # Kij - is the ADM extrinsic curvature
     # n - is the unit normal to the surface
-    return sum(sum( phi[i] * Kij[i, j] * n[j] for i in range(3)) for j in range(3))
+    
+    # redefine without [pp] index, [pp] index is needed for the other parts of the computation. 
+    F      = dendro.scalar("F","")
+    s_dk   = [d(i,F) for i in dendro.e_i]
+    s_uk   = [sympy.simplify(sum([ig[i,j] * s_dk[j] for j in dendro.e_i])) for i in dendro.e_i]
+    s_norm = sympy.sqrt(sympy.simplify(sum([s_dk[i] * s_uk[i] for i in dendro.e_i])))
+    n_uk   = [sympy.simplify(s_uk[i]/s_norm) for i in dendro.e_i]
+    
+    return sum(sum( phi[i] * Kij[i, j] * n_uk[j] for i in range(3)) for j in range(3))
+
+md_ij        = sympy.Matrix([[sympy.simplify(sum([g[a,b] * d(i, A[a]) * d(j, A[b]) for a in dendro.e_i for b in dendro.e_i])) for j in range(2)] for i in range(2)])
+det_mij      = sympy.simplify(sympy.det(md_ij))
+sqrt_det_mij = sympy.sqrt(sympy.Abs(det_mij))
 
 # Define integral for angular momentum components
-J_x = sympy.simplify(integrand(Killing_x, Kij, n_uk))
-J_y = sympy.simplify(integrand(Killing_y, Kij, n_uk))
-J_z = sympy.simplify(integrand(Killing_z, Kij, n_uk))
-
-md_ij   = sympy.Matrix([[sympy.simplify(sum([g[a,b] * d(i, A[a]) * d(j, A[b]) for a in dendro.e_i for b in dendro.e_i])) for j in range(2)] for i in range(2)])
-det_mij = sympy.simplify(sympy.det(md_ij))
+J_x = sqrt_det_mij * sympy.simplify(integrand(Killing_x, Kij))
+J_y = sqrt_det_mij * sympy.simplify(integrand(Killing_y, Kij))
+J_z = sqrt_det_mij * sympy.simplify(integrand(Killing_z, Kij))
 
 # Add the integrals to the list of outputs
-outs = [det_mij, J_x, J_y, J_z]
-vnames = ['det_m_ab', 'J_x', 'J_y', 'J_z']
+outs = [sqrt_det_mij, J_x, J_y, J_z]
+vnames = ['sqrt_det_m_ab', 'J_x', 'J_y', 'J_z']
 
 with contextlib.redirect_stdout(io.StringIO()) as f:
     dendro.generate_cpu(outs, vnames, '[pp]')

@@ -41,6 +41,9 @@ namespace aeh
     typedef struct
     {
         DendroScalar area;
+        DendroScalar Jx;
+        DendroScalar Jy;
+        DendroScalar Jz;
         DendroScalar rmin;
         DendroScalar rmean;
         DendroScalar rmax;
@@ -98,7 +101,13 @@ namespace aeh
 
             AEHSolverType m_solver_type= AEHSolverType::FAST_FLOW;
 
-            
+            /**@brief number of quasi measure variables. 
+             * 0 - det(induced metric)
+             * 1 - J_x (angular mom. x )
+             * 2 - J_y (angular mom. y )
+             * 3 - J_z (angular mom. z )
+             */
+            unsigned int NUM_QUASI_MEASURE_VARS=4;
             
         public:
             /**
@@ -147,7 +156,7 @@ namespace aeh
              * @param h_qs 
              * @return int 
              */
-            int eval_det_induced_metric(Ctx* ctx, ot::Mesh* m_uiMesh, T* const aeh_f_ptr, const T* const h_qs);
+            int eval_quasi_measurements_integrands(Ctx* ctx, ot::Mesh* m_uiMesh, T* const u_ptr, const T* const h_qs);
 
             /**
              * @brief main AEH solver update
@@ -820,7 +829,7 @@ namespace aeh
     }
 
     template<typename Ctx, typename T>
-    int SpectralAEHSolver<Ctx, T>::eval_det_induced_metric(Ctx* ctx, ot::Mesh* m_uiMesh, T* const aeh_f_ptr, const T* const h_qs)
+    int SpectralAEHSolver<Ctx, T>::eval_quasi_measurements_integrands(Ctx* ctx, ot::Mesh* m_uiMesh, T* const u_ptr, const T* const h_qs)
     {
         if(!(m_uiMesh->isActive()))
             return 0;       
@@ -847,9 +856,22 @@ namespace aeh
         const DendroScalar* const  gt3 = &gr_vars_ptr[bssn::VAR::U_SYMGT3 * cg_sz];
         const DendroScalar* const  gt4 = &gr_vars_ptr[bssn::VAR::U_SYMGT4 * cg_sz];
         const DendroScalar* const  gt5 = &gr_vars_ptr[bssn::VAR::U_SYMGT5 * cg_sz];
+
+        const DendroScalar* const  At0 = &gr_vars_ptr[bssn::VAR::U_SYMAT0 * cg_sz];
+        const DendroScalar* const  At1 = &gr_vars_ptr[bssn::VAR::U_SYMAT1 * cg_sz];
+        const DendroScalar* const  At2 = &gr_vars_ptr[bssn::VAR::U_SYMAT2 * cg_sz];
+        const DendroScalar* const  At3 = &gr_vars_ptr[bssn::VAR::U_SYMAT3 * cg_sz];
+        const DendroScalar* const  At4 = &gr_vars_ptr[bssn::VAR::U_SYMAT4 * cg_sz];
+        const DendroScalar* const  At5 = &gr_vars_ptr[bssn::VAR::U_SYMAT5 * cg_sz];
+
+        const DendroScalar* const  K   = &gr_vars_ptr[bssn::VAR::U_K * cg_sz];
         const DendroScalar* const  chi = &gr_vars_ptr[bssn::VAR::U_CHI * cg_sz];
         
-        T * const det_m_ab = aeh_f_ptr;
+        T * const sqrt_det_m_ab = &u_ptr[ 0 * cg_sz ];
+        T * const J_x           = &u_ptr[ 1 * cg_sz ];
+        T * const J_y           = &u_ptr[ 2 * cg_sz ];
+        T * const J_z           = &u_ptr[ 3 * cg_sz ];
+
         //for (unsigned int elem = m_uiMesh->getElementLocalBegin(); elem < m_uiMesh->getElementLocalEnd(); elem++) {
         for (unsigned int idx =0; idx< m_active_ele_local_id.size(); idx ++)
         {
@@ -882,9 +904,7 @@ namespace aeh
                             
                             if (p_rr>rmin && p_rr < rmax)
                             {
-                                T J_x = 0.0;
-                                T J_y = 0.0;
-                                T J_z = 0.0;
+                                
                                 const DendroScalar p_pt = acos(zz/p_rr);
                                 const DendroScalar p_ph = std::fmod(atan2(yy,xx), 2 * M_PI);
 
@@ -930,9 +950,9 @@ namespace aeh
                                 DendroScalar dh_dz = d_theta_h * dtheta_dz + d_phi_h * dphi_dz;
 
                                 // Gradients of f
-                                DendroScalar df_dx = x / r - dh_dx;
-                                DendroScalar df_dy = y / r - dh_dy;
-                                DendroScalar df_dz = z / r - dh_dz;
+                                DendroScalar grad_0_F = x / r - dh_dx;
+                                DendroScalar grad_1_F = y / r - dh_dy;
+                                DendroScalar grad_2_F = z / r - dh_dz;
 
                                 // embedding coordinate maps
                                 // const DendroScalar A0 = h_tp * sin(p_pt) * cos(p_ph);
@@ -952,32 +972,20 @@ namespace aeh
 
                             }else
                             {
-                                aeh_f_ptr[nodeLookUp_CG] = (T)0.0;
+                                sqrt_det_m_ab[nodeLookUp_CG] = (T)0.0;
+                                J_x[nodeLookUp_CG]           = (T)0.0;
+                                J_y[nodeLookUp_CG]           = (T)0.0;
+                                J_z[nodeLookUp_CG]           = (T)0.0;
+                                
                             }
                             
                             
                         }
                     }
-                    // global reduction using MPI to sum the contributions from all the processes
-    DendroScalar J_x_global = 0.0;
-    DendroScalar J_y_global = 0.0;
-    DendroScalar J_z_global = 0.0;
 
-    // par::Mpi_Allreduce(&J_x, &J_x_global, 1, MPI_SUM, m_uiMesh->getMPICommunicator());
-    // par::Mpi_Allreduce(&J_y, &J_y_global, 1, MPI_SUM, m_uiMesh->getMPICommunicator());
-    // par::Mpi_Allreduce(&J_z, &J_z_global, 1, MPI_SUM, m_uiMesh->getMPICommunicator());
+        }        
 
-    // if (!rank) {
-    //     std::cout << "Angular Momentum Components:" << std::endl;
-    //     std::cout << "J_x = " << J_x_global << std::endl;
-    //     std::cout << "J_y = " << J_y_global << std::endl;
-    //     std::cout << "J_z = " << J_z_global << std::endl;
-    // }
-
-    return 0;
-}
- 
-
+        return 0;
     }
 
     template<typename Ctx, typename T>
@@ -1375,7 +1383,8 @@ namespace aeh
         
         const Point & origin = m_origin;
         int rank = m_uiMesh->getMPIRank();
-        //int npes = m_uiMesh->getMPICommSize();
+        int npes = m_uiMesh->getMPICommSize();
+        const unsigned int cg_sz = m_uiMesh->getDegOfFreedom();
 
         Point   grid_limits[2];
         Point domain_limits[2];
@@ -1396,14 +1405,17 @@ namespace aeh
         DVec aeh_f;
         DVec aeh_h;
 
+        DVec aeh_qi;
+
         aeh_f.create_vector(m_uiMesh, ot::DVEC_TYPE::OCT_SHARED_NODES, ot::DVEC_LOC::HOST, 1, true);
         aeh_h.create_vector(m_uiMesh, ot::DVEC_TYPE::OCT_SHARED_NODES, ot::DVEC_LOC::HOST, 1, true);
+        aeh_qi.create_vector(m_uiMesh, ot::DVEC_TYPE::OCT_SHARED_NODES, ot::DVEC_LOC::HOST, NUM_QUASI_MEASURE_VARS, true);
 
         qoi.expansion_L2 = this->eval_expansion_norm(ctx, h_qs, aeh_f, aeh_h, interp_coords, 2);
 
-        T * ws_v1_ptr              = aeh_f.get_vec_ptr();
-        this->eval_det_induced_metric(ctx, m_uiMesh, ws_v1_ptr, h_qs);
-        m_uiMesh->readFromGhostBegin(ws_v1_ptr, 1);
+        T * aeh_qi_ptr              = aeh_f.get_vec_ptr();
+        this->eval_quasi_measurements_integrands(ctx, m_uiMesh, aeh_qi_ptr, h_qs);
+        m_uiMesh->readFromGhostBegin(aeh_qi_ptr, NUM_QUASI_MEASURE_VARS);
 
         
         DendroScalar r_min_mean_max[3] = {1e6, 0, 0};
@@ -1437,33 +1449,46 @@ namespace aeh
                 
             }
         
-        m_uiMesh->readFromGhostEnd(ws_v1_ptr, 1);
+        m_uiMesh->readFromGhostEnd(aeh_qi_ptr, NUM_QUASI_MEASURE_VARS);
         
-
-        std::vector<unsigned int> valid_idx;
-        valid_idx.clear();
-
+        
         std::vector<T> ws_v1_inp;
         ws_v1_inp.resize(num_angular_pts);
-        ot::da::interpolateToCoords(m_uiMesh, ws_v1_ptr, interp_coords.data(), interp_coords.size(), grid_limits, domain_limits, ws_v1_inp.data(), valid_idx);
-        DendroScalar result   = 0;
-        DendroScalar result_g = 0;
+        DendroScalar result_g[NUM_QUASI_MEASURE_VARS];
 
-        for(unsigned int idx=0;idx < valid_idx.size(); idx++)
+        for (unsigned int var_idx =0 ; var_idx < NUM_QUASI_MEASURE_VARS; var_idx++)
         {
-            const unsigned int qp = valid_idx[idx] % m_num_phi;
-            const unsigned int qt = (valid_idx[idx] -qp) / m_num_phi;
 
-            DendroScalar s = sqrt(abs(ws_v1_inp[valid_idx[idx]]));
-            result+= s * m_quad_theta1->weights[qt] * m_quad_phi->weights[qp];
-        }
+            std::vector<unsigned int> valid_idx;
+            valid_idx.clear();
+            ot::da::interpolateToCoords(m_uiMesh, aeh_qi_ptr + var_idx * cg_sz, interp_coords.data(), interp_coords.size(), grid_limits, domain_limits, ws_v1_inp.data(), valid_idx);
+
+            DendroScalar result   = 0;
         
-        par::Mpi_Allreduce(&result, &result_g, 1, MPI_SUM, m_uiMesh->getMPICommunicator());
 
+            for(unsigned int idx=0;idx < valid_idx.size(); idx++)
+            {
+                const unsigned int qp = valid_idx[idx] % m_num_phi;
+                const unsigned int qt = (valid_idx[idx] -qp) / m_num_phi;
+
+                result+= ws_v1_inp[valid_idx[idx]] * m_quad_theta1->weights[qt] * m_quad_phi->weights[qp];
+            }
+
+            par::Mpi_Allreduce(&result, &result_g[var_idx], 1, MPI_SUM, m_uiMesh->getMPICommunicator());
+
+        }
+
+        
         aeh_f.destroy_vector();
         aeh_h.destroy_vector();
+        aeh_qi.destroy_vector();
         
-        qoi.area  = result_g;
+        qoi.area  = result_g[0];
+
+        qoi.Jx    = result_g[1];
+        qoi.Jy    = result_g[2];
+        qoi.Jz    = result_g[3];
+
         qoi.rmin  = r_min_mean_max[0];
         qoi.rmean = r_min_mean_max[1];
         qoi.rmax  = r_min_mean_max[2];
