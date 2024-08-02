@@ -932,22 +932,24 @@ namespace aeh
                                 }
                                     
                                 // Compute r
-                                DendroScalar r = sqrt(xx * xx + yy * yy + zz * zz);
+                                DendroScalar rsq = xx * xx + yy * yy + zz * zz;
+                                DendroScalar r = sqrt(rsq);
+                                DendroScalar rho = sqrt(xx * xx + yy*yy);
 
                                 // Partial derivatives of theta
-                                DendroScalar dtheta_dx = xx * zz / (r * r * r * sqrt(1 - zz * zz / (r * r)));
-                                DendroScalar dtheta_dy = yy * zz / (r * r * r * sqrt(1 - zz * zz / (r * r)));
-                                DendroScalar dtheta_dz = (1 / (r * sqrt(1 - zz * zz / (r * r)))) - (zz * zz / (r * r * r * sqrt(1 - zz * zz / (r * r))));
+                                DendroScalar dtheta_dx = xx * zz / (rsq * rho);
+                                DendroScalar dtheta_dy = yy * zz / (rsq * rho);
+                                DendroScalar dtheta_dz = -rho / rsq;
 
                                 // Partial derivatives of phi
-                                DendroScalar dphi_dx = -yy / (xx * xx + yy * yy);
-                                DendroScalar dphi_dy = xx / (xx * xx + yy * yy);
-                                DendroScalar dphi_dz = 0;
+                                DendroScalar dphi_dx = -yy / (rho * rho);
+                                DendroScalar dphi_dy = xx / (rho * rho);
+                                DendroScalar dphi_dz = 0.0;
 
                                 // Gradients of h
                                 DendroScalar dh_dx = d_theta_h * dtheta_dx + d_phi_h * dphi_dx;
                                 DendroScalar dh_dy = d_theta_h * dtheta_dy + d_phi_h * dphi_dy;
-                                DendroScalar dh_dz = d_theta_h * dtheta_dz + d_phi_h * dphi_dz;
+                                DendroScalar dh_dz = d_theta_h * dtheta_dz ;  // dphi_dz = 0
 
                                 // Gradients of f
                                 DendroScalar grad_0_F = x / r - dh_dx;

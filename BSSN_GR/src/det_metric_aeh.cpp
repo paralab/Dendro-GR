@@ -1,5 +1,5 @@
 // Dendro: {{{ 
-// Dendro: original ops: 1759 
+// Dendro: original ops: 1762 
 // Dendro: printing temp variables
 const double DENDRO_0 = gt0[pp]*gt3[pp];
 const double DENDRO_1 = 2*grad_0_A1;
@@ -68,7 +68,7 @@ const double DENDRO_63 = 3*At1[pp] + K[pp]*gt1[pp];
 const double DENDRO_64 = DENDRO_52*zz;
 const double DENDRO_65 = DENDRO_56*zz;
 const double DENDRO_66 = 1.0/(-DENDRO_10*gt2[pp] - DENDRO_25*gt0[pp] + DENDRO_39*gt5[pp] + DENDRO_41*gt3[pp] + DENDRO_46*gt0[pp]);
-const double DENDRO_67 = (1.0/3.0)*DENDRO_49*DENDRO_66/sqrt(-DENDRO_66*chi[pp]*(DENDRO_52*grad_0_F + DENDRO_56*grad_2_F - DENDRO_59*grad_1_F));
+const double DENDRO_67 = 0.041666666666666664*DENDRO_49*DENDRO_66/(M_PI*sqrt(-DENDRO_66*chi[pp]*(DENDRO_52*grad_0_F + DENDRO_56*grad_2_F - DENDRO_59*grad_1_F)));
 const double DENDRO_68 = 3*At0[pp] + K[pp]*gt0[pp];
 
 // Dendro: printing variables
@@ -80,5 +80,5 @@ J_x[pp] = -DENDRO_67*(DENDRO_54*yy + DENDRO_57*yy + DENDRO_58*DENDRO_60 - DENDRO
 J_y[pp] = DENDRO_67*(-DENDRO_53*DENDRO_65 + DENDRO_54*xx + DENDRO_57*xx + DENDRO_60*DENDRO_63 - DENDRO_62*xx - DENDRO_64*DENDRO_68);
 //--
 J_z[pp] = -DENDRO_67*(DENDRO_52*DENDRO_63*xx - DENDRO_52*DENDRO_68*yy - DENDRO_53*DENDRO_56*yy + DENDRO_56*DENDRO_61*xx - DENDRO_58*DENDRO_59*xx + DENDRO_59*DENDRO_63*yy);
-// Dendro: reduced ops: 259
+// Dendro: reduced ops: 260
 // Dendro: }}} 
