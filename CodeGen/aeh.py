@@ -82,16 +82,16 @@ def integrand(phi, Kij):
     s_norm = sympy.sqrt(sympy.simplify(sum([s_dk[i] * s_uk[i] for i in dendro.e_i])))
     n_uk   = [sympy.simplify(s_uk[i]/s_norm) for i in dendro.e_i]
     
-    return sum(sum( phi[i] * Kij[i, j] * n_uk[j] for i in range(3)) for j in range(3))
+    return sum(sum( phi[i] * Kij[i, j] * n_uk[j] for i in dendro.e_i) for j in dendro.e_i)
 
 md_ij        = sympy.Matrix([[sympy.simplify(sum([g[a,b] * d(i, A[a]) * d(j, A[b]) for a in dendro.e_i for b in dendro.e_i])) for j in range(2)] for i in range(2)])
 det_mij      = sympy.simplify(sympy.det(md_ij))
 sqrt_det_mij = sympy.sqrt(sympy.Abs(det_mij))
 
 # Define integral for angular momentum components
-J_x = sqrt_det_mij * sympy.simplify(integrand(Killing_x, Kij))
-J_y = sqrt_det_mij * sympy.simplify(integrand(Killing_y, Kij))
-J_z = sqrt_det_mij * sympy.simplify(integrand(Killing_z, Kij))
+J_x = sqrt_det_mij * sympy.simplify(integrand(Killing_x, Kij)) / (8.0*sympy.pi)
+J_y = sqrt_det_mij * sympy.simplify(integrand(Killing_y, Kij)) / (8.0*sympy.pi)
+J_z = sqrt_det_mij * sympy.simplify(integrand(Killing_z, Kij)) / (8.0*sympy.pi)
 
 # Add the integrals to the list of outputs
 outs = [sqrt_det_mij, J_x, J_y, J_z]
