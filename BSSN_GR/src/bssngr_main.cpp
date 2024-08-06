@@ -22,14 +22,22 @@
 
 int main(int argc, char** argv) {
     // 0- NUTS 1-UTS
-    // NOTE: UTS is the default
     unsigned int ts_mode = 1;
 
     if (argc < 2) {
-        std::cout << "Usage: " << argv[0]
-                  << "paramFile TSMode(0){0-Spatially Adaptive Time "
-                     "Stepping(SATS) , 1- Uniform Time Stepping. ("
-                  << GRN << "DEFAULT" << NRM << ") }" << std::endl;
+        std::cout << "usage: " << argv[0] << " PARAM_FILE [TS_MODE]"
+                  << std::endl;
+        std::cout << std::endl << "options:" << std::endl;
+        std::cout << "  PARAM_FILE" << std::endl
+                  << "      Path to the parameter file (.json file)"
+                  << std::endl;
+        std::cout << "  TS_MODE" << std::endl
+                  << "      Time stepper mode." << std::endl;
+        std::cout << "        0 - Spatially Adaptive Time Stepping (SATS, "
+                     "Currently **NOT AVAILABLE**)"
+                  << std::endl;
+        std::cout << "        1 - Uniform Time Stepping (UTS, " << GRN
+                  << "default" << NRM << ")" << std::endl;
         return 0;
     }
 
@@ -304,7 +312,6 @@ bssn:
             ets->set_ets_coefficients(ts::ETSType::RK5);
 
         ets->init();
-
 #if defined __PROFILE_CTX__ && defined __PROFILE_ETS__
         std::ofstream outfile;
         char fname[256];
@@ -374,6 +381,7 @@ bssn:
                 // bssn::BSSN_REMESH_TEST_FREQ=3 *
                 // bssn::BSSN_REMESH_TEST_FREQ_AFTER_MERGER;
                 // bssn::BSSN_MINDEPTH=5;
+                // TODO: make BSSN refinement mode POST MERGER an option!
                 bssn::BSSN_REFINEMENT_MODE = bssn::RefinementMode::WAMR;
                 bssn::BSSN_USE_WAVELET_TOL_FUNCTION = 1;
                 bssn::BSSN_REMESH_TEST_FREQ =
@@ -413,14 +421,18 @@ bssn:
                 }
             }
 
-            if ((step % bssn::BSSN_GW_EXTRACT_FREQ) == 0) {
+            if ((step % bssn::BSSN_TIME_STEP_OUTPUT_FREQ) == 0) {
                 if (!rank_global)
-                    std::cout
-                        << "[ETS] : Executing step :  " << ets->curr_step()
-                        << "\tcurrent time :" << ets->curr_time()
-                        << "\t dt:" << ets->ts_size() << "\t" << std::endl;
+                    std::cout << BLD << GRN << "[ETS - BSSN] : SOLVER UPDATE\n"
+                              << NRM << "\tCurrent Step: " << ets->curr_step()
+                              << "\t\tCurrent time: " << ets->curr_time()
+                              << "\tdt: " << ets->ts_size() << "\t"
+                              << std::endl;
 
                 bssnCtx->terminal_output();
+            }
+
+            if ((step % bssn::BSSN_GW_EXTRACT_FREQ) == 0) {
                 bssnCtx->write_vtu();
                 bssnCtx->evolve_bh_loc(
                     bssnCtx->get_evolution_vars(),
@@ -612,6 +624,10 @@ bssn:
         delete bssnCtx->get_mesh();
         delete bssnCtx;
         delete ets;
+
+    } else {
+        std::cout << RED << "Not starting solver, ts_mode needs to be set to 1!"
+                  << NRM << std::endl;
     }
 
     MPI_Finalize();

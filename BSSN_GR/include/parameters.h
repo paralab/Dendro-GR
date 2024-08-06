@@ -15,6 +15,8 @@
 #include "dendro.h"
 #include "memory_pool.h"
 
+#include <toml.hpp>
+
 
 namespace bssn
 {
@@ -342,6 +344,7 @@ namespace bssn
         const unsigned int BSSN_NUM_DERIVS= 138;
     #endif
 
+    void readParamTOMLFile(const char * fName, MPI_Comm comm);
 
 }
 

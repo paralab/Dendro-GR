@@ -12,6 +12,11 @@
 # through to here.
 # ##############################################################################
 
+# The BSSN Solver requires TOML in order to read from parameters (as an option)
+# the toml11 library handles the reading for us.
+set(EXTERNAL_LIB_HEADERS ${CMAKE_SOURCE_DIR}/lib/toml11)
+
+
 # only BSSN (GR) options
 option(BSSN_PROFILE_HUMAN_READABLE " enables human readable profile outputs" ON)
 option(BSSN_CONSEC_COMM_SELECT "rank selection performed using consecative ranks (works with arbitary number of procs.) if off ranks selected in binary tree fashion. (works only with powers of 2)" ON)
@@ -147,51 +152,51 @@ endif()
 # )
 
 
-add_custom_command(
-    OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_standard_gauge.cpp
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
-    COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged standard const . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_standard_gauge.cpp
-    COMMENT "generating bssn code unstaged standard gauge with constant eta damping (during intial compilation this might take a while. )"
-    VERBATIM USES_TERMINAL
-)
-
-add_custom_command(
-    OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_standard_gauge.cpp
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
-    COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged standard func . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_standard_gauge.cpp
-    COMMENT "generating bssn code unstaged standard gauge with varying (large mass ratios) eta damping (during intial compilation this might take a while. )"
-    VERBATIM USES_TERMINAL
-)
-
-
-add_custom_command(
-    OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_rochester_gauge.cpp
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
-    COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged rochester const . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_rochester_gauge.cpp
-    COMMENT "generating bssn code unstaged rochester gauge with constant eta damping (during intial compilation this might take a while. )"
-    VERBATIM USES_TERMINAL
-)
-
-add_custom_command(
-    OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_rochester_gauge.cpp
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
-    COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged rochester func . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_rochester_gauge.cpp
-    COMMENT "generating bssn code unstaged rochester gauge with constant eta damping (during intial compilation this might take a while. )"
-    VERBATIM USES_TERMINAL
-)
-
-
-add_custom_target(BSSN_CODEGEN
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_standard_gauge.cpp
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_standard_gauge.cpp
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_rochester_gauge.cpp
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_rochester_gauge.cpp
-    )
-
+# add_custom_command(
+#     OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_standard_gauge.cpp
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
+#     COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged standard const . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_standard_gauge.cpp
+#     COMMENT "generating bssn code unstaged standard gauge with constant eta damping (during intial compilation this might take a while. )"
+#     VERBATIM USES_TERMINAL
+# )
+#
+# add_custom_command(
+#     OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_standard_gauge.cpp
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
+#     COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged standard func . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_standard_gauge.cpp
+#     COMMENT "generating bssn code unstaged standard gauge with varying (large mass ratios) eta damping (during intial compilation this might take a while. )"
+#     VERBATIM USES_TERMINAL
+# )
+#
+#
+# add_custom_command(
+#     OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_rochester_gauge.cpp
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
+#     COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged rochester const . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_rochester_gauge.cpp
+#     COMMENT "generating bssn code unstaged rochester gauge with constant eta damping (during intial compilation this might take a while. )"
+#     VERBATIM USES_TERMINAL
+# )
+#
+# add_custom_command(
+#     OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_rochester_gauge.cpp
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
+#     COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged rochester func . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_rochester_gauge.cpp
+#     COMMENT "generating bssn code unstaged rochester gauge with constant eta damping (during intial compilation this might take a while. )"
+#     VERBATIM USES_TERMINAL
+# )
+#
+#
+# add_custom_target(BSSN_CODEGEN
+#     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_standard_gauge.cpp
+#     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_standard_gauge.cpp
+#     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_rochester_gauge.cpp
+#     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_rochester_gauge.cpp
+#     )
+#
 
 set(BSSN_INC include/parameters.h
         include/bh.h
@@ -255,6 +260,7 @@ if(WITH_CUDA)
     target_include_directories(bssn_cuda PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
     target_include_directories(bssn_cuda PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/cuda/include)
     target_include_directories(bssn_cuda PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
+    target_include_directories(bssn_cuda PRIVATE ${EXTERNAL_LIB_HEADERS})  # includes for the TOML11 library (and others)
     
     cuda_add_executable(derivs_test cuda/src/derivs_test.cu)
     target_include_directories(derivs_test PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/include)
@@ -272,6 +278,7 @@ if(WITH_CUDA)
     target_include_directories(derivs_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/cuda/include)
     target_include_directories(derivs_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
     target_include_directories(derivs_test PRIVATE ${CUDA_INCLUDE_DIRS})
+    target_include_directories(derivs_test PRIVATE ${EXTERNAL_LIB_HEADERS})  # includes for the TOML11 library (and others)
     target_link_libraries(derivs_test bssn_cuda dendro5_cuda ${CUDA_LIBRARIES})
     target_link_libraries(derivs_test ${LAPACK_LIBRARIES} ${MPI_LIBRARIES} ${GSL_LIBRARIES} m)
 
@@ -291,6 +298,7 @@ if(WITH_CUDA)
     target_include_directories(rhsgpu_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/cuda/include)
     target_include_directories(rhsgpu_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
     target_include_directories(rhsgpu_test PRIVATE ${CUDA_INCLUDE_DIRS})
+    target_include_directories(rhsgpu_test PRIVATE ${EXTERNAL_LIB_HEADERS})  # includes for the TOML11 library (and others)
     target_link_libraries(rhsgpu_test bssn_cuda dendro5_cuda ${CUDA_LIBRARIES})
     target_link_libraries(rhsgpu_test ${LAPACK_LIBRARIES} ${MPI_LIBRARIES} ${GSL_LIBRARIES} m)
 
@@ -310,6 +318,7 @@ if(WITH_CUDA)
     target_include_directories(bssnSolverCUDA PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/cuda/include)
     target_include_directories(bssnSolverCUDA PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
     target_include_directories(bssnSolverCUDA PRIVATE ${CUDA_INCLUDE_DIRS})
+    target_include_directories(bssnSolverCUDA PRIVATE ${EXTERNAL_LIB_HEADERS})  # includes for the TOML11 library (and others)
     target_link_libraries(bssnSolverCUDA bssn_cuda dendro5_cuda ${CUDA_LIBRARIES})
     target_link_libraries(bssnSolverCUDA ${LAPACK_LIBRARIES} ${MPI_LIBRARIES} ${GSL_LIBRARIES} m)
 
@@ -330,6 +339,7 @@ if(WITH_CUDA)
     target_include_directories(bssnWSTestCUDA PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/cuda/include)
     target_include_directories(bssnWSTestCUDA PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
     target_include_directories(bssnWSTestCUDA PRIVATE ${CUDA_INCLUDE_DIRS})
+    target_include_directories(bssnWSTestCUDA PRIVATE ${EXTERNAL_LIB_HEADERS})  # includes for the TOML11 library (and others)
     target_link_libraries(bssnWSTestCUDA bssn_cuda dendro5_cuda ${CUDA_LIBRARIES})
     target_link_libraries(bssnWSTestCUDA ${LAPACK_LIBRARIES} ${MPI_LIBRARIES} ${GSL_LIBRARIES} m)
 
@@ -352,6 +362,7 @@ target_include_directories(bssn_lib PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(bssn_lib PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
 # if we're using the Git Functionality
 target_include_directories(bssn_lib PRIVATE ${CHECK_GIT_INCLUDE_PATH})
+target_include_directories(bssn_lib PRIVATE ${EXTERNAL_LIB_HEADERS})  # includes for the TOML11 library (and others)
 
 add_executable(rhscpu_test cuda/src/rhs_test.cpp)
 target_include_directories(rhscpu_test PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/include)
@@ -367,6 +378,7 @@ target_include_directories(rhscpu_test PRIVATE ${GSL_INCLUDE_DIRS})
 target_include_directories(rhscpu_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(rhscpu_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/cuda/include)
 target_include_directories(rhscpu_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
+target_include_directories(rhscpu_test PRIVATE ${EXTERNAL_LIB_HEADERS})  # includes for the TOML11 library (and others)
 target_link_libraries(rhscpu_test bssn_lib dendro5 ${LAPACK_LIBRARIES} ${MPI_LIBRARIES} ${GSL_LIBRARIES} m dendro_git_version_and_date)
 
 #add_library(had_rhs STATIC src/hadrhs.F90)
@@ -386,6 +398,7 @@ target_include_directories(bssnSolver PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO/v
 target_include_directories(bssnSolver PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO/zlib/inc)
 target_include_directories(bssnSolver PRIVATE ${MPI_INCLUDE_PATH})
 target_include_directories(bssnSolver PRIVATE ${GSL_INCLUDE_DIRS})
+target_include_directories(bssnSolver PRIVATE ${EXTERNAL_LIB_HEADERS})  # includes for the TOML11 library (and others)
 if(WITH_CUDA)
     target_include_directories(bssnSolver PRIVATE ${CUDA_INCLUDE_DIRS})
     target_link_libraries(bssnSolver bssn_cuda)
@@ -410,6 +423,7 @@ target_include_directories(bssnSolverCtx PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/inc
 target_include_directories(bssnSolverCtx PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/cuda/include)
 target_include_directories(bssnSolverCtx PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
 target_include_directories(bssnSolverCtx PRIVATE ${CUDA_INCLUDE_DIRS})
+target_include_directories(bssnSolverCtx PRIVATE ${EXTERNAL_LIB_HEADERS})  # includes for the TOML11 library (and others)
 target_link_libraries(bssnSolverCtx bssn_lib dendro5 ${CUDA_LIBRARIES})
 target_link_libraries(bssnSolverCtx ${LAPACK_LIBRARIES} ${MPI_LIBRARIES} ${GSL_LIBRARIES} m dendro_git_version_and_date)
 
@@ -452,6 +466,7 @@ target_include_directories(bssnWAMRTest PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO
 target_include_directories(bssnWAMRTest PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO/zlib/inc)
 target_include_directories(bssnWAMRTest PRIVATE ${MPI_INCLUDE_PATH})
 target_include_directories(bssnWAMRTest PRIVATE ${GSL_INCLUDE_DIRS})
+target_include_directories(bssnWAMRTest PRIVATE ${EXTERNAL_LIB_HEADERS})  # includes for the TOML11 library (and others)
 
 if(WITH_CUDA)
     target_include_directories(bssnWAMRTest PRIVATE ${CUDA_INCLUDE_DIRS})
@@ -502,6 +517,7 @@ target_include_directories(checkDerivs PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO/
 target_include_directories(checkDerivs PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO/zlib/inc)
 target_include_directories(checkDerivs PRIVATE ${MPI_INCLUDE_PATH})
 target_include_directories(checkDerivs PRIVATE ${GSL_INCLUDE_DIRS})
+target_include_directories(checkDerivs PRIVATE ${EXTERNAL_LIB_HEADERS})  # includes for the TOML11 library (and others)
 if(WITH_CUDA)
     target_include_directories(checkDerivs PRIVATE ${CUDA_INCLUDE_DIRS})
     target_link_libraries(checkDerivs bssn_cuda)
@@ -606,6 +622,7 @@ target_include_directories(zipUnzipTest PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO
 target_include_directories(zipUnzipTest PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/IO/zlib/inc)
 target_include_directories(zipUnzipTest PRIVATE ${MPI_INCLUDE_PATH})
 target_include_directories(zipUnzipTest PRIVATE ${GSL_INCLUDE_DIRS})
+target_include_directories(zipUnzipTest PRIVATE ${EXTERNAL_LIB_HEADERS})  # includes for the TOML11 library (and others)
 
 if(WITH_CUDA)
     target_include_directories(zipUnzipTest PRIVATE ${CUDA_INCLUDE_DIRS})
@@ -625,7 +642,7 @@ if(BSSN_EXTRACT_GRAVITATIONAL_WAVES)
 endif(BSSN_EXTRACT_GRAVITATIONAL_WAVES)
 
 
-add_dependencies(bssnSolver BSSN_CODEGEN)
+# add_dependencies(bssnSolver BSSN_CODEGEN)
 #add_dependencies(rhsTestBed BSSN_CODEGEN)
 
 
@@ -641,6 +658,7 @@ target_include_directories(tpid PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(tpid PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
 target_include_directories(tpid PRIVATE ${MPI_INCLUDE_PATH})
 target_include_directories(tpid PRIVATE ${GSL_INCLUDE_DIRS})
+target_include_directories(tpid PRIVATE ${EXTERNAL_LIB_HEADERS})  # includes for the TOML11 library (and others)
 if(WITH_CUDA)
     target_include_directories(tpid PRIVATE ${CUDA_INCLUDE_DIRS})
     target_link_libraries(tpid bssn_cuda)

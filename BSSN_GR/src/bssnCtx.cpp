@@ -575,6 +575,10 @@ int BSSNCtx::finalize() { return 0; }
 int BSSNCtx::write_vtu() {
     if (!m_uiMesh->isActive()) return 0;
 
+    if (!(m_uiMesh->getMPIRank())) {
+        std::cout << GRN << "=== Now Writing VTU Output Files! ===" << NRM << std::endl;
+    }
+
     DVec& m_evar = m_var[VL::CPU_EV];
     DVec& m_evar_unz = m_var[VL::CPU_EV_UZ_IN];
     DVec& m_cvar = m_var[VL::CPU_CV];
@@ -710,6 +714,10 @@ int BSSNCtx::write_vtu() {
     bssn::writeBHCoordinates((const ot::Mesh*)m_uiMesh, (const Point*)m_uiBHLoc,
                              2, m_uiTinfo._m_uiStep, m_uiTinfo._m_uiT);
 #endif
+
+    if (!(m_uiMesh->getMPIRank())) {
+        std::cout << GRN << "=== Finished Writing the VTU Files! ===" << NRM << std::endl;
+    }
 
     return 0;
 }
