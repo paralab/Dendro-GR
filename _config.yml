@@ -1,2 +1,2 @@
 theme: jekyll-theme-cayman
-exclude: ['.github', 'lib', ...]
+exclude: ['.github', 'lib']
