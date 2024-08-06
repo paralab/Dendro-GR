@@ -30,3 +30,5 @@ jobs:
         run: cd ${{github.workspace}}/build/NLSigma ; mpirun -np 10 ./nlsmSolverNUTS ../../NLSigma/par/nlsmA_SMALL.par.json 1  
       - name: Test BSSN Solver
         run: cd ${{github.workspace}}/build/BSSN_GR ; mpirun -np 10 ./bssnSolverCtx ../../BSSN_GR/pars/q1.tinytest.par.json 1
+      - name: Test BSSN Solver with TOML
+        run: cd ${{github.workspace}}/build/BSSN_GR ; mpirun -np 10 ./bssnSolverCtx ../../BSSN_GR/pars/q1.tinytest.par.toml 1

@@ -9,6 +9,7 @@
 
 #include "grUtils.h"
 #include "git_version_and_date.h"
+#include "parameters.h"
 
 namespace bssn
 {
@@ -30,7 +31,23 @@ namespace bssn
         }
     }
 
-    void readParamFile(const char * fName,MPI_Comm comm)
+    void readParamFile(const char* fName, MPI_Comm comm) {
+        std::string fNameStr(fName);
+        std::string tomlSuffix = ".toml";
+
+        if (fNameStr.size() >= tomlSuffix.size() &&
+            fNameStr.compare(fNameStr.size() - tomlSuffix.size(),
+                             tomlSuffix.size(), tomlSuffix) == 0) {
+            // we found a toml file!
+            readParamTOMLFile(fName, comm);
+
+        } else {
+            // fall back to JSON file reading
+            readParamJSONFile(fName, comm);
+        }
+    }
+
+    void readParamJSONFile(const char * fName,MPI_Comm comm)
     {
 
 
@@ -160,6 +177,12 @@ namespace bssn
             }else
             {
                 bssn::BSSN_GW_EXTRACT_FREQ=std::max(1u,bssn::BSSN_IO_OUTPUT_FREQ>>1u);
+            }
+
+            if (parFile.find("BSSN_TIME_STEP_OUTPUT_FREQ") != parFile.end()) {
+                bssn::BSSN_TIME_STEP_OUTPUT_FREQ = parFile["BSSN_TIME_STEP_OUTPUT_FREQ"];
+            } else {
+                bssn::BSSN_TIME_STEP_OUTPUT_FREQ = bssn::BSSN_GW_EXTRACT_FREQ;
             }
 
             if(parFile.find("BSSN_BH1_AMR_R")!=parFile.end())
