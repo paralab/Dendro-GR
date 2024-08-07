@@ -143,6 +143,30 @@ void minkowskiInitialData(const double xx1, const double yy1, const double zz1,
  * @param zz1 : z coord
  * @param var : initialized bssn variables for the grid points
  */
+void kerrData(double x, double y, double z, double* u);
+
+/**
+ * @brief: Generates block adaptive octree for the given binary blockhole
+ * problem.
+ * @param[out] tmpNodes: created octree tmpNodes
+ * @param[in] pt_min: block min point
+ * @param[in] pt_max: block max point
+ * @param[in] regLev: regular grid level
+ * @param[in] maxDepth: maximum refinement level.
+ * @param[in] comm: MPI communicator.
+ * */
+void blockAdaptiveOctree(std::vector<ot::TreeNode>& tmpNodes,
+                         const Point& pt_min, const Point& pt_max,
+                         const unsigned int regLev, const unsigned int maxDepth,
+                         MPI_Comm comm);
+
+/**
+ * @brief fake initial data.
+ * @param xx1 : x coord
+ * @param yy1 : y coord
+ * @param zz1 : z coord
+ * @param var : initialized bssn variables for the grid points
+ */
 void fake_initial_data(double x, double y, double z, double* u);
 
 /**

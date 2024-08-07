@@ -21,6 +21,7 @@ unsigned int BSSN_TIME_STEP_OUTPUT_FREQ = 10;
 unsigned int BSSN_GW_EXTRACT_FREQ  = std::max(1u, BSSN_IO_OUTPUT_FREQ >> 1u);
 
 unsigned int BSSN_REMESH_TEST_FREQ = 10;
+
 unsigned int BSSN_REMESH_TEST_FREQ_AFTER_MERGER        = 10;
 unsigned int BSSN_GW_EXTRACT_FREQ_AFTER_MERGER         = 10;
 double BSSN_IO_OUTPUT_GAP                              = 1.0;
@@ -193,13 +194,15 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
     bssn::BSSN_VTU_FILE_PREFIX  = parFile["BSSN_VTU_FILE_PREFIX"].as_string();
     bssn::BSSN_CHKPT_FILE_PREFIX =
         parFile["BSSN_CHKPT_FILE_PREFIX"].as_string();
+
     bssn::BSSN_PROFILE_FILE_PREFIX =
         parFile["BSSN_PROFILE_FILE_PREFIX"].as_string();
     bssn::BSSN_RESTORE_SOLVER = parFile["BSSN_RESTORE_SOLVER"].as_integer();
+    bssn::BSSN_ID_TYPE        = parFile["BSSN_ID_TYPE"].as_integer();
 
     bssn::BSSN_ENABLE_BLOCK_ADAPTIVITY =
         parFile["BSSN_ENABLE_BLOCK_ADAPTIVITY"].as_integer();
-    bssn::BSSN_ID_TYPE         = parFile["BSSN_ID_TYPE"].as_integer();
+
     bssn::BSSN_BLK_MIN_X       = parFile["BSSN_BLK_MIN_X"].as_floating();
     bssn::BSSN_BLK_MIN_Y       = parFile["BSSN_BLK_MIN_Y"].as_floating();
     bssn::BSSN_BLK_MIN_Z       = parFile["BSSN_BLK_MIN_Z"].as_floating();
@@ -267,6 +270,10 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
         bssn::RIT_ETA_WIDTH = parFile["RIT_ETA_WIDTH"].as_floating();
     }
 
+    if (parFile.contains("BSSN_AMR_R_RATIO")) {
+        bssn::BSSN_AMR_R_RATIO = parFile["BSSN_AMR_R_RATIO"].as_floating();
+    }
+
     if (parFile.contains("BSSN_KO_SIGMA_SCALE_BY_CONFORMAL")) {
         bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL =
             parFile["BSSN_KO_SIGMA_SCALE_BY_CONFORMAL"].as_boolean();
@@ -311,9 +318,9 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
 
     if (parFile.contains("BSSN_ELE_ORDER"))
         bssn::BSSN_ELE_ORDER = parFile["BSSN_ELE_ORDER"].as_integer();
-
     bssn::CHI_FLOOR = parFile["CHI_FLOOR"].as_floating();
     bssn::BSSN_TRK0 = parFile["BSSN_TRK0"].as_floating();
+
     if (parFile.contains("DISSIPATION_TYPE"))
         bssn::DISSIPATION_TYPE = parFile["DISSIPATION_TYPE"].as_integer();
 
@@ -363,6 +370,13 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
     else
         bssn::BSSN_GW_EXTRACT_FREQ =
             std::max(1u, bssn::BSSN_IO_OUTPUT_FREQ >> 1u);
+
+    if (parFile.contains("BSSN_TIME_STEP_OUTPUT_FREQ")) {
+        bssn::BSSN_TIME_STEP_OUTPUT_FREQ =
+            parFile["BSSN_TIME_STEP_OUTPUT_FREQ"].as_integer();
+    } else {
+        bssn::BSSN_TIME_STEP_OUTPUT_FREQ = bssn::BSSN_GW_EXTRACT_FREQ;
+    }
 
     if (parFile.contains("BSSN_BH1_AMR_R"))
         bssn::BSSN_BH1_AMR_R = parFile["BSSN_BH1_AMR_R"].as_floating();
@@ -561,6 +575,12 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
     if (parFile.contains("AEH_SOLVER_FREQ"))
         AEH::AEH_SOLVER_FREQ = parFile["AEH_SOLVER_FREQ"].as_integer();
 
+    if (parFile.contains("AEH_ALPHA"))
+        AEH::AEH_ALPHA = parFile["AEH_ALPHA"].as_floating();
+
+    if (parFile.contains("AEH_BETA"))
+        AEH::AEH_BETA = parFile["AEH_BETA"].as_floating();
+
     MPI_Barrier(comm);
 }
 
@@ -618,5 +638,8 @@ unsigned int AEH_MAXITER     = 50;
 double AEH_ATOL              = 1e-8;
 double AEH_RTOL              = 1e-8;
 unsigned int AEH_SOLVER_FREQ = 0;
+
+double AEH_ALPHA             = 1.0;
+double AEH_BETA              = 0.1;
 
 }  // namespace AEH

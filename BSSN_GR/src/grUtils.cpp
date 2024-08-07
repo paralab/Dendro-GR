@@ -76,13 +76,14 @@ void readParamJSONFile(const char* fName, MPI_Comm comm) {
         parFile["BSSN_VTU_FILE_PREFIX"].get<std::string>();
     bssn::BSSN_CHKPT_FILE_PREFIX =
         parFile["BSSN_CHKPT_FILE_PREFIX"].get<std::string>();
+
     bssn::BSSN_PROFILE_FILE_PREFIX =
         parFile["BSSN_PROFILE_FILE_PREFIX"].get<std::string>();
     bssn::BSSN_RESTORE_SOLVER = parFile["BSSN_RESTORE_SOLVER"];
+    bssn::BSSN_ID_TYPE        = parFile["BSSN_ID_TYPE"];
 
     bssn::BSSN_ENABLE_BLOCK_ADAPTIVITY =
         parFile["BSSN_ENABLE_BLOCK_ADAPTIVITY"];
-    bssn::BSSN_ID_TYPE             = parFile["BSSN_ID_TYPE"];
     bssn::BSSN_BLK_MIN_X           = parFile["BSSN_BLK_MIN_X"];
     bssn::BSSN_BLK_MIN_Y           = parFile["BSSN_BLK_MIN_Y"];
     bssn::BSSN_BLK_MIN_Z           = parFile["BSSN_BLK_MIN_Z"];
@@ -140,6 +141,10 @@ void readParamJSONFile(const char* fName, MPI_Comm comm) {
     }
     if (parFile.find("RIT_ETA_WIDTH") != parFile.end()) {
         bssn::RIT_ETA_WIDTH = parFile["RIT_ETA_WIDTH"];
+    }
+
+    if (parFile.find("BSSN_AMR_R_RATIO") != parFile.end()) {
+        bssn::BSSN_AMR_R_RATIO = parFile["BSSN_AMR_R_RATIO"];
     }
 
     bssn::BSSN_LAMBDA[0] =
@@ -242,6 +247,13 @@ void readParamJSONFile(const char* fName, MPI_Comm comm) {
             std::max(1u, bssn::BSSN_IO_OUTPUT_FREQ >> 1u);
     }
 
+    if (parFile.find("BSSN_TIME_STEP_OUTPUT_FREQ") != parFile.end()) {
+        bssn::BSSN_TIME_STEP_OUTPUT_FREQ =
+            parFile["BSSN_TIME_STEP_OUTPUT_FREQ"];
+    } else {
+        bssn::BSSN_TIME_STEP_OUTPUT_FREQ = bssn::BSSN_GW_EXTRACT_FREQ;
+    }
+
     if (parFile.find("BSSN_BH1_AMR_R") != parFile.end())
         bssn::BSSN_BH1_AMR_R = parFile["BSSN_BH1_AMR_R"];
 
@@ -275,6 +287,11 @@ void readParamJSONFile(const char* fName, MPI_Comm comm) {
 
     if (parFile.find("BSSN_BH2_CONSTRAINT_R") != parFile.end())
         bssn::BSSN_BH2_CONSTRAINT_R = parFile["BSSN_BH2_CONSTRAINT_R"];
+
+    if (parFile.find("BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE") !=
+        parFile.end())
+        bssn::BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE =
+            parFile["BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE"];
 
     /* Parameters for TPID */
     TPID::target_M_plus  = parFile["TPID_TARGET_M_PLUS"];
@@ -342,20 +359,16 @@ void readParamJSONFile(const char* fName, MPI_Comm comm) {
         TPID::replace_lapse_with_sqrt_chi =
             parFile["TPID_REPLACE_LAPSE_WITH_SQRT_CHI"];
 
-    if (parFile.find("EXTRACTION_VAR_ID") != parFile.end()) {
+    if (parFile.find("EXTRACTION_VAR_ID") != parFile.end())
         BHLOC::EXTRACTION_VAR_ID = parFile["EXTRACTION_VAR_ID"];
-    }
 
-    if (parFile.find("EXTRACTION_TOL") != parFile.end()) {
+    if (parFile.find("EXTRACTION_TOL") != parFile.end())
         BHLOC::EXTRACTION_TOL = parFile["EXTRACTION_TOL"];
-    }
 
     if (parFile.find("BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE") !=
         parFile.end())
         bssn::BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE =
             parFile["BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE"];
-
-    /* Parameters for TPID */
 
     GW::BSSN_GW_NUM_RADAII = parFile["BSSN_GW_NUM_RADAII"];
     GW::BSSN_GW_NUM_LMODES = parFile["BSSN_GW_NUM_LMODES"];
@@ -375,6 +388,12 @@ void readParamJSONFile(const char* fName, MPI_Comm comm) {
     if (parFile.find("BSSN_REFINEMENT_MODE") != parFile.end())
         bssn::BSSN_REFINEMENT_MODE =
             static_cast<bssn::RefinementMode>(parFile["BSSN_REFINEMENT_MODE"]);
+
+    if (parFile.find("BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE") !=
+        parFile.end()) {
+        bssn::BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE =
+            parFile["BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE"];
+    }
 
     BSSN_OCTREE_MAX[0] = (double)(1u << bssn::BSSN_MAXDEPTH);
     BSSN_OCTREE_MAX[1] = (double)(1u << bssn::BSSN_MAXDEPTH);
@@ -437,6 +456,12 @@ void readParamJSONFile(const char* fName, MPI_Comm comm) {
 
     if (parFile.find("AEH_SOLVER_FREQ") != parFile.end())
         AEH::AEH_SOLVER_FREQ = parFile["AEH_SOLVER_FREQ"];
+
+    if (parFile.find("AEH_ALPHA") != parFile.end())
+        AEH::AEH_ALPHA = parFile["AEH_ALPHA"];
+
+    if (parFile.find("AEH_BETA") != parFile.end())
+        AEH::AEH_BETA = parFile["AEH_BETA"];
 
     MPI_Barrier(comm);
 }
@@ -727,6 +752,9 @@ void dumpParamFile(std::ostream& sout, int root, MPI_Comm comm) {
         sout << YLW << "\tAEH_ATOL: " << AEH::AEH_ATOL << std::endl;
         sout << YLW << "\tAEH_RTOL: " << AEH::AEH_RTOL << NRM << std::endl;
 
+        sout << YLW << "\tAEH_ALPHA: " << AEH::AEH_ALPHA << std::endl;
+        sout << YLW << "\tAEH_BETA: " << AEH::AEH_BETA << NRM << std::endl;
+
         sout << YLW << "\tBSSN_KO_SIGMA_SCALE_BY_CONFORMAL: "
              << (bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL ? "true" : "false")
              << NRM << std::endl;
@@ -807,6 +835,11 @@ void initialDataFunctionWrapper(const double xx_grid, const double yy_grid,
         // minkowski initial data is flat space!
         bssn:
             minkowskiInitialData(xx_grid, yy_grid, zz_grid, var);
+
+            break;
+        case 6:
+            // minkowski initial data is flat space!
+            bssn::kerrData(xx_grid, yy_grid, zz_grid, var);
 
             break;
             // MORE CAN BE ADDED HERE
@@ -1151,6 +1184,38 @@ void punctureData(const double xx1, const double yy1, const double zz1,
     const double zz = GRIDZ_TO_Z(zz1);
 
     punctureDataPhysicalCoord(xx, yy, zz, var);
+}
+void kerrData(const double xx1, const double yy1, const double zz1,
+              double* var) {
+    const double xx = GRIDX_TO_X(xx1);
+    const double yy = GRIDY_TO_Y(yy1);
+    const double zz = GRIDZ_TO_Z(zz1);
+
+    // parameters for the BH (mass, location, spin parameter)
+    double M        = BH1.getBHMass();
+    double bh1x     = BH1.getBHCoordX();
+    double bh1y     = BH1.getBHCoordY();
+    double bh1z     = BH1.getBHCoordZ();
+    double spin1    = BH1.getBHSpin();
+
+    // coordinates relative to the center of the BH
+    double x        = xx - bh1x;
+    double y        = yy - bh1y;
+    double z        = zz - bh1z;
+
+    // locating as a radial form
+    double r        = sqrt(x * x + y * y + z * z);
+
+    // HL : Angular momentum parameter will be added as param file after
+    // testing
+    double a        = spin1;
+
+    double gtd[3][3], Atd[3][3];
+    double alpha, Gamt[3];
+    double Chi, TrK, Betau[3];
+
+#include "Kerr.cpp"
+#include "kerr_vars.cpp"
 }
 
 void KerrSchildData(const double xx1, const double yy1, const double zz1,

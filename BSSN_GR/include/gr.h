@@ -17,4 +17,6 @@
 #include "enuts.h"
 #include "ets.h"
 
+#define BLD "\033[1m"
+
 #endif  // SFCSORTBENCH_GR_H
