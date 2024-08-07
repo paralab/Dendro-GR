@@ -210,29 +210,6 @@
             "           " : "1/2 coordinate separation between black holes.",
             "TPID_PAR_B" : 4,
 
-            "           " : "Momentum",
-            "TPID_PAR_P_PLUS" : {
-                    "X" : -1.7777739959719536e-03,
-                    "Y" : 1.0049503227336423e-01,
-                    "Z" : 0.0
-            },
-            "TPID_PAR_P_MINUS" : {
-                    "X" : 1.7777739959719536e-03,
-                    "Y" : -1.0049503227336423e-01,
-                    "Z" : 0.0
-            },
-
-            "           " : "Spin",
-            "TPID_PAR_S_PLUS" : {
-                    "X" : 0.0,
-                    "Y" : 0.0,
-                    "Z" : 0.0
-            },
-            "TPID_PAR_S_MINUS" : {
-                    "X" : 0.0,
-                    "Y" : 0.0,
-                    "Z" : 0.0
-            },
             "TPID_CENTER_OFFSET" : {
                     "X" : 1.323826943609176,
                     "Y" : 0.0,
@@ -268,7 +245,37 @@
     "BSSN_GW_NUM_LMODES": 3,
     "BSSN_GW_RADAII": [50,60,70,80,90,100],
     "BSSN_GW_L_MODES": [2,3,4],
-    "__comment__" : "========================================================"
+    "__comment__" : "========================================================", 
+
+    "__comment__" : "=======================Apparent event horizon (AEH) solver parameters===================",
+
+    "AEH_SOLVER_FREQ": 100,
+
+    " " : "number of lm modes used in the AH surface parameterization (AEH_LMAX+1)^2",
+    
+    "AEH_LMAX": 6,
+    
+    " " : "quadrature points in polar angle",
+    "AEH_Q_THETA": 32,
+    
+    " " : "quadrature points in azimuthal angle",
+    "AEH_Q_PHI": 32,
+    
+    " " : "maximum number of iterations for converge",
+    "AEH_MAXITER": 100,
+    
+    " " : "absolute tolerance for convergence",
+    "AEH_ATOL":1e-8,
+    
+    " " : "relative tolerance for convergence",
+    "AEH_RTOL":1e-8, 
+    
+    " " : "AEH update A = (alpha / (lmax * (lmax + 1)))  + beta  and B= beta/alpha and dlambda = A / (1 + B * l * (l + 1) )", 
+    "AEH_ALPHA": 1.0,
+    "AEH_BETA" : 0.0,
+    
+    "__comment__" : "======================================================================================="
+   
     
     
     

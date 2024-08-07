@@ -458,30 +458,33 @@ namespace bssn
         bssn::BSSN_BH1_MASS  = BH1.getBHMass();
         bssn::BSSN_BH2_MASS  = BH2.getBHMass();
 
-
         // AH parameters
-        // TODO: add these back in once AEH has been merged!
-        // if(parFile.find("AEH_LMAX")!=parFile.end())
-        //     AEH::AEH_LMAX   = parFile["AEH_LMAX"];
-        //
-        // if(parFile.find("AEH_Q_THETA")!=parFile.end())
-        //     AEH::AEH_Q_THETA = parFile["AEH_Q_THETA"];
-        //
-        // if(parFile.find("AEH_Q_PHI")!=parFile.end())
-        //     AEH::AEH_Q_PHI = parFile["AEH_Q_PHI"];
-        //
-        // if(parFile.find("AEH_MAXITER")!=parFile.end())
-        //     AEH::AEH_MAXITER = parFile["AEH_MAXITER"];
-        //
-        // if(parFile.find("AEH_ATOL")!=parFile.end())
-        //     AEH::AEH_ATOL = parFile["AEH_ATOL"];
-        //
-        // if(parFile.find("AEH_RTOL")!=parFile.end())
-        //     AEH::AEH_RTOL = parFile["AEH_RTOL"];
-        //
-        // if(parFile.find("AEH_SOLVER_FREQ")!=parFile.end())
-        //     AEH::AEH_SOLVER_FREQ = parFile["AEH_SOLVER_FREQ"];
-        //
+        if (parFile.contains("AEH_LMAX"))
+            AEH::AEH_LMAX = parFile["AEH_LMAX"].as_integer();
+
+        if (parFile.contains("AEH_Q_THETA"))
+            AEH::AEH_Q_THETA = parFile["AEH_Q_THETA"].as_integer();
+
+        if (parFile.contains("AEH_Q_PHI"))
+            AEH::AEH_Q_PHI = parFile["AEH_Q_PHI"].as_integer();
+
+        if (parFile.contains("AEH_MAXITER"))
+            AEH::AEH_MAXITER = parFile["AEH_MAXITER"].as_integer();
+
+        if (parFile.contains("AEH_ATOL"))
+            AEH::AEH_ATOL = parFile["AEH_ATOL"].as_floating();
+
+        if (parFile.contains("AEH_RTOL"))
+            AEH::AEH_RTOL = parFile["AEH_RTOL"].as_floating();
+
+        if (parFile.contains("AEH_SOLVER_FREQ"))
+            AEH::AEH_SOLVER_FREQ = parFile["AEH_SOLVER_FREQ"].as_integer();
+
+        if (parFile.contains("AEH_ALPHA"))
+            AEH::AEH_ALPHA = parFile["AEH_ALPHA"].as_floating();
+
+        if (parFile.contains("AEH_BETA"))
+            AEH::AEH_BETA = parFile["AEH_BETA"].as_floating();
 
         MPI_Barrier(comm);
     }
@@ -533,4 +536,20 @@ namespace GW
     unsigned int BSSN_GW_SPIN=2;
     
     unsigned int BSSN_GW_L_MODES[BSSN_GW_MAX_LMODES];
+}
+
+namespace AEH
+{
+    unsigned int AEH_LMAX        = 6;
+    unsigned int AEH_Q_THETA     = 32;
+    unsigned int AEH_Q_PHI       = 32 ;
+    unsigned int AEH_MAXITER     = 50;
+    double AEH_ATOL              = 1e-8;
+    double AEH_RTOL              = 1e-8;
+    unsigned int AEH_SOLVER_FREQ = 0;
+
+    double AEH_ALPHA             = 1.0;
+    double AEH_BETA              = 0.1;
+
+    
 }

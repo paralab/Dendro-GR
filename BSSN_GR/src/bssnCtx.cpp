@@ -1125,11 +1125,6 @@ DVec& BSSNCtx::get_evolution_vars() { return m_var[CPU_EV]; }
 
 DVec& BSSNCtx::get_constraint_vars() { return m_var[CPU_CV]; }
 
-// DVec& BSSNCtxGPU::get_primitive_vars()
-// {
-//     return m_pvar;
-// }
-
 int BSSNCtx::terminal_output() {
     if (m_uiMesh->isActive()) {
         DendroScalar min = 0, max = 0;
@@ -1312,6 +1307,203 @@ void BSSNCtx::evolve_bh_loc(DVec sIn, double dt) {
 #endif
 
     return;
+}
+
+
+int BSSNCtx::aeh_expansion(const Point& origin, aeh::AEH_VARS * m_aeh_vars, DVec& aeh_f, DVec& aeh_h, const DendroScalar* const rlim)
+{
+
+    const unsigned int cg_sz   = m_uiMesh->getDegOfFreedom();
+    const unsigned int uz_sz   = m_uiMesh->getDegOfFreedomUnZip();
+
+    // temporary unzip storage (using evar unzip vectors)
+    DendroScalar * unzip_0     = m_var[VL::CPU_EV_UZ_IN].get_vec_ptr();
+    DendroScalar * unzip_1     = m_var[VL::CPU_EV_UZ_OUT].get_vec_ptr();
+
+    DendroScalar * F      = aeh_f.get_vec_ptr();
+    DendroScalar * F_uz   = &unzip_1[0 * uz_sz];
+    DendroScalar * H_uz   = &unzip_1[1 * uz_sz];
+
+    m_uiMesh->readFromGhostBegin<DendroScalar>(F, 1);
+    m_uiMesh->readFromGhostEnd  <DendroScalar>(F, 1);
+    m_uiMesh->unzip(F  , F_uz  , 1);
+
+    const DendroScalar * const gt_uz  = m_aeh_vars->gt.get_vec_ptr();
+    const DendroScalar * const At_uz  = m_aeh_vars->At.get_vec_ptr();
+    const DendroScalar * const chi_uz = m_aeh_vars->chi.get_vec_ptr();
+    const DendroScalar * const K_uz   = m_aeh_vars->K.get_vec_ptr();
+    
+    const Point pt_min(bssn::BSSN_COMPD_MIN[0],bssn::BSSN_COMPD_MIN[1],bssn::BSSN_COMPD_MIN[2]);
+    const Point pt_max(bssn::BSSN_COMPD_MAX[0],bssn::BSSN_COMPD_MAX[1],bssn::BSSN_COMPD_MAX[2]);
+    const unsigned int PW=bssn::BSSN_PADDING_WIDTH;
+
+    const ot::Block* blkList     = m_uiMesh->getLocalBlockList().data();
+    const unsigned int numBlocks = m_uiMesh->getLocalBlockList().size();
+
+    const DendroScalar r_min = 1e-2;
+
+    for(unsigned int blk=0; blk<numBlocks; blk++)
+    {
+        DendroScalar ptmin[3], ptmax[3];
+        unsigned int sz[3];
+
+        const unsigned int offset = blkList[blk].getOffset();
+        sz[0]=blkList[blk].getAllocationSzX();
+        sz[1]=blkList[blk].getAllocationSzY();
+        sz[2]=blkList[blk].getAllocationSzZ();
+
+        const unsigned int bflag=blkList[blk].getBlkNodeFlag();
+
+        const DendroScalar dx = blkList[blk].computeDx(pt_min,pt_max);
+        const DendroScalar dy = blkList[blk].computeDy(pt_min,pt_max);
+        const DendroScalar dz = blkList[blk].computeDz(pt_min,pt_max);
+
+        ptmin[0]=GRIDX_TO_X(blkList[blk].getBlockNode().minX())-PW*dx;
+        ptmin[1]=GRIDY_TO_Y(blkList[blk].getBlockNode().minY())-PW*dy;
+        ptmin[2]=GRIDZ_TO_Z(blkList[blk].getBlockNode().minZ())-PW*dz;
+
+        ptmax[0]=GRIDX_TO_X(blkList[blk].getBlockNode().maxX())+PW*dx;
+        ptmax[1]=GRIDY_TO_Y(blkList[blk].getBlockNode().maxY())+PW*dy;
+        ptmax[2]=GRIDZ_TO_Z(blkList[blk].getBlockNode().maxZ())+PW*dz;
+
+        const DendroScalar xx   = ptmin[0] - origin.x();
+        const DendroScalar yy   = ptmin[1] - origin.y();
+        const DendroScalar zz   = ptmin[2] - origin.z();
+
+        const DendroScalar lx   = (ptmax[0] - ptmin[0]);
+        const DendroScalar ly   = (ptmax[1] - ptmin[1]);
+        const DendroScalar lz   = (ptmax[2] - ptmin[2]);
+
+        const DendroScalar ll   = sqrt(lx * lx + ly * ly + lz * lz);
+
+        const DendroScalar p_rr = sqrt(xx * xx + yy * yy  + zz * zz);
+
+        if(!((p_rr < (rlim[1] + ll)) && (p_rr > (rlim[0] - ll))))
+            continue; 
+
+        // if(sqrt(ptmax[0] * ptmax[0] + ptmax[1]*ptmax[1] + ptmax[2] * ptmax[2]) > rlim[1])
+        //     continue;
+
+        const unsigned int n = sz[0]*sz[1]*sz[2];
+        const unsigned int BLK_SZ=n;
+        
+        const unsigned int nx = sz[0];
+        const unsigned int ny = sz[1];
+        const unsigned int nz = sz[2];
+
+        const double hx = (ptmax[0] - ptmin[0]) / (nx - 1);
+        const double hy = (ptmax[1] - ptmin[1]) / (ny - 1);
+        const double hz = (ptmax[2] - ptmin[2]) / (nz - 1);
+
+        DendroScalar * const deriv_base = bssn::BSSN_DERIV_WORKSPACE;
+        
+
+        double * grad_0_F    = deriv_base + 0 * BLK_SZ;
+        double * grad_1_F    = deriv_base + 1 * BLK_SZ;
+        double * grad_2_F    = deriv_base + 2 * BLK_SZ;
+
+        double * grad2_0_0_F = deriv_base + 3 * BLK_SZ;
+        double * grad2_0_1_F = deriv_base + 4 * BLK_SZ;
+        double * grad2_0_2_F = deriv_base + 5 * BLK_SZ;
+
+        double * grad2_1_1_F = deriv_base + 6 * BLK_SZ;
+        double * grad2_1_2_F = deriv_base + 7 * BLK_SZ;
+        double * grad2_2_2_F = deriv_base + 8 * BLK_SZ;
+
+
+        const double * const F   = &F_uz[offset];
+        double * const H         = &H_uz[offset];
+
+        deriv_x(grad_0_F    , F       , hx, sz, bflag);
+        deriv_xx(grad2_0_0_F, F       , hx, sz, bflag);
+
+        deriv_y(grad_1_F    , F       , hy, sz, bflag);
+        deriv_yy(grad2_1_1_F, F       , hy, sz, bflag);
+        
+        deriv_z(grad_2_F    , F       , hz, sz, bflag);
+        deriv_zz(grad2_2_2_F, F       , hz, sz, bflag);
+        
+        deriv_y(grad2_0_1_F , grad_0_F, hy, sz, bflag);
+        deriv_z(grad2_0_2_F , grad_0_F, hz, sz, bflag);
+        deriv_z(grad2_1_2_F , grad_1_F, hz, sz, bflag);
+
+
+        const double * const grad_0_chi = &m_aeh_vars->grad_chi.get_vec_ptr()[0 * uz_sz + offset];
+        const double * const grad_1_chi = &m_aeh_vars->grad_chi.get_vec_ptr()[1 * uz_sz + offset];
+        const double * const grad_2_chi = &m_aeh_vars->grad_chi.get_vec_ptr()[2 * uz_sz + offset];
+
+        const double * const grad_0_gt0 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 0 * 3 *uz_sz + 0 * uz_sz + offset];
+        const double * const grad_1_gt0 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 0 * 3 *uz_sz + 1 * uz_sz + offset];
+        const double * const grad_2_gt0 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 0 * 3 *uz_sz + 2 * uz_sz + offset];
+
+        const double * const grad_0_gt1 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 1 * 3 *uz_sz + 0 * uz_sz + offset];;
+        const double * const grad_1_gt1 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 1 * 3 *uz_sz + 1 * uz_sz + offset];;
+        const double * const grad_2_gt1 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 1 * 3 *uz_sz + 2 * uz_sz + offset];;
+
+        const double * const grad_0_gt2 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 2 * 3 *uz_sz + 0 * uz_sz + offset];
+        const double * const grad_1_gt2 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 2 * 3 *uz_sz + 1 * uz_sz + offset];
+        const double * const grad_2_gt2 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 2 * 3 *uz_sz + 2 * uz_sz + offset];
+        
+        const double * const grad_0_gt3 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 3 * 3 *uz_sz + 0 * uz_sz + offset];
+        const double * const grad_1_gt3 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 3 * 3 *uz_sz + 1 * uz_sz + offset];
+        const double * const grad_2_gt3 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 3 * 3 *uz_sz + 2 * uz_sz + offset];
+        
+        const double * const grad_0_gt4 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 4 * 3 *uz_sz + 0 * uz_sz + offset];
+        const double * const grad_1_gt4 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 4 * 3 *uz_sz + 1 * uz_sz + offset];
+        const double * const grad_2_gt4 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 4 * 3 *uz_sz + 2 * uz_sz + offset];
+        
+        const double * const grad_0_gt5 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 5 * 3 *uz_sz + 0 * uz_sz + offset];
+        const double * const grad_1_gt5 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 5 * 3 *uz_sz + 1 * uz_sz + offset];
+        const double * const grad_2_gt5 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 5 * 3 *uz_sz + 2 * uz_sz + offset];
+
+        const double * const gt0 = &gt_uz[0 * uz_sz + offset];
+        const double * const gt1 = &gt_uz[1 * uz_sz + offset];
+        const double * const gt2 = &gt_uz[2 * uz_sz + offset];
+        const double * const gt3 = &gt_uz[3 * uz_sz + offset];
+        const double * const gt4 = &gt_uz[4 * uz_sz + offset];
+        const double * const gt5 = &gt_uz[5 * uz_sz + offset];
+
+        const double * const At0 = &At_uz[0 * uz_sz + offset];
+        const double * const At1 = &At_uz[1 * uz_sz + offset];
+        const double * const At2 = &At_uz[2 * uz_sz + offset];
+        const double * const At3 = &At_uz[3 * uz_sz + offset];
+        const double * const At4 = &At_uz[4 * uz_sz + offset];
+        const double * const At5 = &At_uz[5 * uz_sz + offset];
+
+        const double * const K   = &K_uz  [offset];
+        const double * const chi = &chi_uz[offset];
+
+
+        for (unsigned int k = PW; k < nz-PW; k++) {
+            for (unsigned int j = PW; j < ny-PW; j++) {
+            #ifdef BSSN_ENABLE_AVX
+                #ifdef __INTEL_COMPILER
+                #pragma vector vectorlength(__RHS_AVX_SIMD_LEN__) vecremainder
+                #pragma ivdep
+                #endif
+            #endif
+                for (unsigned int i = PW; i < nx-PW; i++) {
+                    const unsigned int pp = i + nx*(j + ny*k);
+                    const double xx = ptmin[0] + i * hx - origin.x();
+                    const double yy = ptmin[1] + j * hy - origin.y();
+                    const double zz = ptmin[2] + k * hz - origin.z();
+
+                    const double rr = sqrt(xx * xx + yy * yy + zz * zz);
+                    {
+                        #include "expansion_aeh.cpp"
+                        //H[pp] *= sqrt(grad_0_F[pp] * grad_0_F[pp] + grad_1_F[pp] * grad_1_F[pp] + grad_2_F[pp] * grad_2_F[pp]);
+                    }
+                        
+                    
+                    
+                }
+            }
+        }
+    }
+
+    m_uiMesh->zip(H_uz, aeh_h.get_vec_ptr());
+    return 0;
+
 }
 
 #if 0
