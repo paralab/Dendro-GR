@@ -456,14 +456,6 @@ static const unsigned int BSSN_GW_OUTPUT_PRECISION = 10;
 /**@brief: number of different radius values for psi4 poly fit*/
 extern unsigned int BSSN_GW_NUM_RADAII;
 
-/***@brief AEH update A = (alpha / (lmax * (lmax + 1)))  + beta  and B=
- * beta/alpha and dlambda = A / (1 + B * l * (l + 1) ) */
-extern double AEH_ALPHA;
-
-/***@brief AEH update A = (alpha / (lmax * (lmax + 1)))  + beta  and B=
- * beta/alpha and dlambda = A / (1 + B * l * (l + 1) ) */
-extern double AEH_BETA;
-
 /**@brief: number of L mode values*/
 extern unsigned int BSSN_GW_NUM_LMODES;
 
@@ -498,5 +490,13 @@ extern double AEH_ATOL;
 extern double AEH_RTOL;
 
 extern unsigned int AEH_SOLVER_FREQ;
+
+/***@brief AEH update A = (alpha / (lmax * (lmax + 1)))  + beta  and B=
+ * beta/alpha and dlambda = A / (1 + B * l * (l + 1) ) */
+extern double AEH_ALPHA;
+
+/***@brief AEH update A = (alpha / (lmax * (lmax + 1)))  + beta  and B=
+ * beta/alpha and dlambda = A / (1 + B * l * (l + 1) ) */
+extern double AEH_BETA;
 
 }  // namespace AEH
