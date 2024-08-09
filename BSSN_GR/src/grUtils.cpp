@@ -19,7 +19,7 @@ void printGitInformation(int rank, std::vector<std::string> arg_s) {
         std::cout << YLW << "  COMPILED ON  -  " << compile_info::compileDate
                   << NRM << std::endl;
         std::cout << YLW << "  LATEST GIT HASH - " << compile_info::currGitHash
-                  << compile_info::dirtyStatus << std::endl;
+                  << compile_info::dirtyStatus << NRM << std::endl;
     }
 
     for (size_t ii = 1; ii < arg_s.size(); ++ii) {
@@ -124,6 +124,7 @@ void readParamJSONFile(const char* fName, MPI_Comm comm) {
     bssn::BSSN_GRID_MAX_Y = parFile["BSSN_GRID_MAX_Y"];
     bssn::BSSN_GRID_MIN_Z = parFile["BSSN_GRID_MIN_Z"];
     bssn::BSSN_GRID_MAX_Z = parFile["BSSN_GRID_MAX_Z"];
+
     bssn::ETA_CONST       = parFile["ETA_CONST"];
     bssn::ETA_R0          = parFile["ETA_R0"];
     bssn::ETA_DAMPING     = parFile["ETA_DAMPING"];
@@ -161,14 +162,46 @@ void readParamJSONFile(const char* fName, MPI_Comm comm) {
     bssn::BSSN_XI[1]       = (unsigned int)parFile["BSSN_XI"]["BSSN_XI_1"];
     bssn::BSSN_XI[2]       = (unsigned int)parFile["BSSN_XI"]["BSSN_XI_2"];
 
-    bssn::BSSN_ELE_ORDER   = parFile["BSSN_ELE_ORDER"];
-    bssn::CHI_FLOOR        = parFile["CHI_FLOOR"];
-    bssn::BSSN_TRK0        = parFile["BSSN_TRK0"];
+    if (parFile.find("BSSN_ELE_ORDER") != parFile.end())
+        bssn::BSSN_ELE_ORDER = parFile["BSSN_ELE_ORDER"];
+
+    bssn::CHI_FLOOR = parFile["CHI_FLOOR"];
+    bssn::BSSN_TRK0 = parFile["BSSN_TRK0"];
     if (parFile.find("DISSIPATION_TYPE") != parFile.end()) {
         bssn::DISSIPATION_TYPE = parFile["DISSIPATION_TYPE"];
     }
-    bssn::KO_DISS_SIGMA     = parFile["KO_DISS_SIGMA"];
+    bssn::KO_DISS_SIGMA = parFile["KO_DISS_SIGMA"];
 
+    if (parFile.find("BSSN_KO_SIGMA_SCALE_BY_CONFORMAL") != parFile.end()) {
+        bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL =
+            parFile["BSSN_KO_SIGMA_SCALE_BY_CONFORMAL"];
+    }
+
+    if (parFile.find("BSSN_KO_SIGMA_SCALE_BY_CONFORMAL_POST_MERGER_ONLY") !=
+        parFile.end()) {
+        bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL_POST_MERGER_ONLY =
+            parFile["BSSN_KO_SIGMA_SCALE_BY_CONFORMAL_POST_MERGER_ONLY"];
+    }
+
+    if (bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL_POST_MERGER_ONLY) {
+        bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL = false;
+    }
+    if (bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL) {
+        bssn::BSSN_CAKO_ENABLED = true;
+    }
+
+    if (parFile.find("BSSN_EPSILON_CAKO_GAUGE") != parFile.end()) {
+        bssn::BSSN_EPSILON_CAKO_GAUGE = parFile["BSSN_EPSILON_CAKO_GAUGE"];
+    }
+    if (parFile.find("BSSN_EPSILON_CAKO_OTHER") != parFile.end()) {
+        bssn::BSSN_EPSILON_CAKO_OTHER = parFile["BSSN_EPSILON_CAKO_OTHER"];
+    }
+
+    if (parFile.find("BSSN_CAHD_C") != parFile.end()) {
+        bssn::BSSN_CAHD_C = parFile["BSSN_CAHD_C"];
+    }
+
+    // Parameters for eta_damping function
     bssn::BSSN_ETA_R0       = parFile["BSSN_ETA_R0"];
     bssn::BSSN_ETA_POWER[0] = parFile["BSSN_ETA_POWER"]["BSSN_ETA_POWER_1"];
     bssn::BSSN_ETA_POWER[1] = parFile["BSSN_ETA_POWER"]["BSSN_ETA_POWER_2"];
@@ -181,8 +214,8 @@ void readParamJSONFile(const char* fName, MPI_Comm comm) {
         parFile["BSSN_WAVELET_TOL_FUNCTION_R0"];
     bssn::BSSN_WAVELET_TOL_FUNCTION_R1 =
         parFile["BSSN_WAVELET_TOL_FUNCTION_R1"];
-    bssn::BSSN_NUM_REFINE_VARS = parFile["BSSN_NUM_REFINE_VARS"];
 
+    bssn::BSSN_NUM_REFINE_VARS = parFile["BSSN_NUM_REFINE_VARS"];
     for (unsigned int i = 0; i < bssn::BSSN_NUM_REFINE_VARS; i++)
         bssn::BSSN_REFINE_VARIABLE_INDICES[i] =
             parFile["BSSN_REFINE_VARIABLE_INDICES"][i];
@@ -200,17 +233,19 @@ void readParamJSONFile(const char* fName, MPI_Comm comm) {
         bssn::BSSN_VTU_OUTPUT_CONST_INDICES[i] =
             parFile["BSSN_VTU_OUTPUT_CONST_INDICES"][i];
 
-    if (parFile.find("BSSN_CFL_FACTOR") != parFile.end())
+    if (parFile.find("BSSN_CFL_FACTOR") != parFile.end()) {
         bssn::BSSN_CFL_FACTOR = parFile["BSSN_CFL_FACTOR"];
+    }
 
     if (parFile.find("BSSN_VTU_Z_SLICE_ONLY") != parFile.end())
         bssn::BSSN_VTU_Z_SLICE_ONLY = parFile["BSSN_VTU_Z_SLICE_ONLY"];
 
-    if (parFile.find("BSSN_GW_EXTRACT_FREQ") != parFile.end())
+    if (parFile.find("BSSN_GW_EXTRACT_FREQ") != parFile.end()) {
         bssn::BSSN_GW_EXTRACT_FREQ = parFile["BSSN_GW_EXTRACT_FREQ"];
-    else
+    } else {
         bssn::BSSN_GW_EXTRACT_FREQ =
             std::max(1u, bssn::BSSN_IO_OUTPUT_FREQ >> 1u);
+    }
 
     if (parFile.find("BSSN_TIME_STEP_OUTPUT_FREQ") != parFile.end()) {
         bssn::BSSN_TIME_STEP_OUTPUT_FREQ =
@@ -320,16 +355,20 @@ void readParamJSONFile(const char* fName, MPI_Comm comm) {
     if (parFile.find("TPID_FILEPREFIX") != parFile.end())
         TPID::FILE_PREFIX = parFile["TPID_FILEPREFIX"].get<std::string>();
 
+    if (parFile.find("TPID_REPLACE_LAPSE_WITH_SQRT_CHI") != parFile.end())
+        TPID::replace_lapse_with_sqrt_chi =
+            parFile["TPID_REPLACE_LAPSE_WITH_SQRT_CHI"];
+
     if (parFile.find("EXTRACTION_VAR_ID") != parFile.end())
         BHLOC::EXTRACTION_VAR_ID = parFile["EXTRACTION_VAR_ID"];
 
     if (parFile.find("EXTRACTION_TOL") != parFile.end())
         BHLOC::EXTRACTION_TOL = parFile["EXTRACTION_TOL"];
 
-    vtu_len                = BSSN_VTU_FILE_PREFIX.size();
-    chp_len                = BSSN_CHKPT_FILE_PREFIX.size();
-    prf_len                = BSSN_PROFILE_FILE_PREFIX.size();
-    tpf_len                = TPID::FILE_PREFIX.size();
+    if (parFile.find("BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE") !=
+        parFile.end())
+        bssn::BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE =
+            parFile["BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE"];
 
     GW::BSSN_GW_NUM_RADAII = parFile["BSSN_GW_NUM_RADAII"];
     GW::BSSN_GW_NUM_LMODES = parFile["BSSN_GW_NUM_LMODES"];
@@ -369,14 +408,14 @@ void readParamJSONFile(const char* fName, MPI_Comm comm) {
     BSSN_COMPD_MAX[2]  = bssn::BSSN_GRID_MAX_Z;
 
     if (BSSN_NUM_REFINE_VARS > BSSN_NUM_VARS) {
-        std::cout << "Error[parameter file]: Number of refine variables should "
-                     "be less than number of BSSN_NUM_VARS"
+        std::cout << "Error[parameter file]: Number of refine variables "
+                     "should be less than number of BSSN_NUM_VARS"
                   << std::endl;
         exit(0);
     }
     if (BSSN_NUM_EVOL_VARS_VTU_OUTPUT > BSSN_NUM_VARS) {
-        std::cout << "Error[parameter file]: Number of evolution VTU variables "
-                     "should be less than number of BSSN_NUM_VARS"
+        std::cout << "Error[parameter file]: Number of evolution VTU "
+                     "variables should be less than number of BSSN_NUM_VARS"
                   << std::endl;
         exit(0);
     }
@@ -389,7 +428,6 @@ void readParamJSONFile(const char* fName, MPI_Comm comm) {
     }
 
     BSSN_PADDING_WIDTH = BSSN_ELE_ORDER >> 1u;
-
     bssn::BSSN_BH_LOC[0] =
         Point(BH1.getBHCoordX(), BH1.getBHCoordY(), BH1.getBHCoordZ());
     bssn::BSSN_BH_LOC[1] =
@@ -483,9 +521,9 @@ void dumpParamFile(std::ostream& sout, int root, MPI_Comm comm) {
              << NRM << std::endl;
         sout << YLW << "\tBSSN_WAVELET_TOL_MAX:" << bssn::BSSN_WAVELET_TOL_MAX
              << NRM << std::endl;
-        sout << YLW << "\t:BSSN_WAVELET_TOL_FUNCTION_R0: "
+        sout << YLW << "\tBSSN_WAVELET_TOL_FUNCTION_R0: "
              << bssn::BSSN_WAVELET_TOL_FUNCTION_R0 << NRM << std::endl;
-        sout << YLW << "\t:BSSN_WAVELET_TOL_FUNCTION_R1: "
+        sout << YLW << "\tBSSN_WAVELET_TOL_FUNCTION_R1: "
              << bssn::BSSN_WAVELET_TOL_FUNCTION_R1 << NRM << std::endl;
         sout << YLW << "\tBSSN_LOAD_IMB_TOL :" << bssn::BSSN_LOAD_IMB_TOL << NRM
              << std::endl;
@@ -713,8 +751,19 @@ void dumpParamFile(std::ostream& sout, int root, MPI_Comm comm) {
         sout << YLW << "\tAEH_MAXITER: " << AEH::AEH_MAXITER << std::endl;
         sout << YLW << "\tAEH_ATOL: " << AEH::AEH_ATOL << std::endl;
         sout << YLW << "\tAEH_RTOL: " << AEH::AEH_RTOL << NRM << std::endl;
+
         sout << YLW << "\tAEH_ALPHA: " << AEH::AEH_ALPHA << std::endl;
         sout << YLW << "\tAEH_BETA: " << AEH::AEH_BETA << NRM << std::endl;
+
+        sout << YLW << "\tBSSN_KO_SIGMA_SCALE_BY_CONFORMAL: "
+             << (bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL ? "true" : "false")
+             << NRM << std::endl;
+        if (bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL) {
+            sout << YLW << "\t\tBSSN_PSILON_CAKO_GAUGE: "
+                 << bssn::BSSN_EPSILON_CAKO_GAUGE << NRM << std::endl;
+            sout << YLW << "\t\tBSSN_PSILON_CAKO_OTHER: "
+                 << bssn::BSSN_EPSILON_CAKO_OTHER << NRM << std::endl;
+        }
     }
 }
 
@@ -1168,6 +1217,7 @@ void kerrData(const double xx1, const double yy1, const double zz1,
 #include "Kerr.cpp"
 #include "kerr_vars.cpp"
 }
+
 void KerrSchildData(const double xx1, const double yy1, const double zz1,
                     double* var) {
     const double xx = GRIDX_TO_X(xx1);

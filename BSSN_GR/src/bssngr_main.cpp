@@ -17,6 +17,7 @@
 #include "meshUtils.h"
 #include "mpi.h"
 #include "octUtils.h"
+#include "parameters.h"
 #include "rkBSSN.h"
 #include "sdc.h"
 
@@ -291,6 +292,13 @@ bssn:
                      "======================================================"
                   << std::endl;
     }
+
+    // calculate the minimum dx
+    bssn::BSSN_CURRENT_MIN_DX =
+        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+         ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
+         ((double)(1u << (m_uiMaxDepth))));
+
     bssn::BSSN_RK45_TIME_STEP_SIZE =
         bssn::BSSN_CFL_FACTOR *
         ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
@@ -299,6 +307,9 @@ bssn:
     tmpNodes.clear();
 
     if (ts_mode == 1) {
+        if (!rank)
+            std::cout << GRN << "Now setting up the uniform time stepper!"
+                      << NRM << std::endl;
         bssn::BSSNCtx* bssnCtx = new bssn::BSSNCtx(mesh);
         ts::ETS<DendroScalar, bssn::BSSNCtx>* ets =
             new ts::ETS<DendroScalar, bssn::BSSNCtx>(bssnCtx);
@@ -388,13 +399,19 @@ bssn:
                     bssn::BSSN_REMESH_TEST_FREQ_AFTER_MERGER;
                 bssn::BSSN_GW_EXTRACT_FREQ =
                     bssn::BSSN_GW_EXTRACT_FREQ_AFTER_MERGER;
+
+                // ONLY ENABLE CAKO DURING MERGER
+                if (bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL_POST_MERGER_ONLY) {
+                    bssn::BSSN_CAKO_ENABLED = true;
+                }
             }
 
-            if ((step % bssn::BSSN_REMESH_TEST_FREQ) == 0) {
+            if ((step % bssn::BSSN_REMESH_TEST_FREQ) == 0 && step != 0) {
                 bool isRemesh = bssnCtx->is_remesh();
                 if (isRemesh) {
                     if (!rank_global)
-                        std::cout << "[ETS] : Remesh is triggered.  \n";
+                        std::cout << YLW << "[ETS] : Remesh is triggered."
+                                  << NRM << std::endl;
 
                     bssnCtx->remesh_and_gridtransfer(bssn::BSSN_DENDRO_GRAIN_SZ,
                                                      bssn::BSSN_LOAD_IMB_TOL,
@@ -402,6 +419,7 @@ bssn:
                     bssn::deallocate_bssn_deriv_workspace();
                     bssn::allocate_bssn_deriv_workspace(bssnCtx->get_mesh(), 1);
                     ets->sync_with_mesh();
+                    bssnCtx->calculate_full_grid_size();
 
                     ot::Mesh* pmesh = bssnCtx->get_mesh();
                     unsigned int lmin, lmax;
@@ -409,6 +427,14 @@ bssn:
                     if (!pmesh->getMPIRankGlobal())
                         printf("post merger grid level = (%d, %d)\n", lmin,
                                lmax);
+
+                    // calculate the minimum dx
+                    bssn::BSSN_CURRENT_MIN_DX =
+                        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+                         ((1u << (m_uiMaxDepth - lmax)) /
+                          ((double)bssn::BSSN_ELE_ORDER)) /
+                         ((double)(1u << (m_uiMaxDepth))));
+
                     bssn::BSSN_RK45_TIME_STEP_SIZE =
                         bssn::BSSN_CFL_FACTOR *
                         ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
@@ -418,6 +444,42 @@ bssn:
                     ts::TSInfo ts_in = bssnCtx->get_ts_info();
                     ts_in._m_uiTh    = bssn::BSSN_RK45_TIME_STEP_SIZE;
                     bssnCtx->set_ts_info(ts_in);
+
+                    if (!rank_global) {
+                        std::cout << GRN << "[ETS] : Remesh sequence finished"
+                                  << NRM << std::endl;
+                    }
+
+                    // compute the constraint variables to "refresh" them on the
+                    // grid for potential RHS updates
+                    bssnCtx->compute_constraint_variables();
+                }
+
+                // write the grid summary data whether or not the remesh
+                // happened
+                bssnCtx->write_grid_summary_data();
+            }
+
+            // things that should happen **only** on time step 0
+            if (step == 0) {
+                if (!rank_global) {
+                    std::cout << BLU
+                              << "[ETS] : Timestep 0 - ensuring a few things "
+                                 "are taken care of..."
+                              << NRM << std::endl;
+                }
+                // for our scaling operation, we want to make sure that the
+                // constraints are computed and handled
+                bssnCtx->compute_constraint_variables();
+
+                // make sure we write about the grid size at time 0
+                bssnCtx->write_grid_summary_data();
+
+                if (!rank_global) {
+                    std::cout << BLU
+                              << "[ETS] : Timestep 0 - Finished with things "
+                                 "that should always be done at time 0!"
+                              << NRM << std::endl;
                 }
             }
 
@@ -601,7 +663,7 @@ bssn:
                         hh[1][i] = hh[0][i];
                         hh[3][i] = hh[2][i];
                     }
-                    std::cout << "Exception occurred during apparent even "
+                    std::cout << "Exception occurred during apparent event "
                                  "horizon solver "
                               << std::endl;
                 }

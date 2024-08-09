@@ -12,6 +12,8 @@
 
 #include "bssnCtx.h"
 
+#include "parameters.h"
+
 namespace bssn {
 BSSNCtx::BSSNCtx(ot::Mesh* pMesh) : Ctx() {
     m_uiMesh = pMesh;
@@ -33,17 +35,17 @@ BSSNCtx::BSSNCtx(ot::Mesh* pMesh) : Ctx() {
         BSSN_CONSTRAINT_NUM_VARS, true);
 
     m_uiTinfo._m_uiStep = 0;
-    m_uiTinfo._m_uiT = 0;
-    m_uiTinfo._m_uiTb = bssn::BSSN_RK_TIME_BEGIN;
-    m_uiTinfo._m_uiTe = bssn::BSSN_RK_TIME_END;
-    m_uiTinfo._m_uiTh = bssn::BSSN_RK45_TIME_STEP_SIZE;
+    m_uiTinfo._m_uiT    = 0;
+    m_uiTinfo._m_uiTb   = bssn::BSSN_RK_TIME_BEGIN;
+    m_uiTinfo._m_uiTe   = bssn::BSSN_RK_TIME_END;
+    m_uiTinfo._m_uiTh   = bssn::BSSN_RK45_TIME_STEP_SIZE;
 
-    m_uiElementOrder = bssn::BSSN_ELE_ORDER;
+    m_uiElementOrder    = bssn::BSSN_ELE_ORDER;
 
-    m_uiMinPt = Point(bssn::BSSN_GRID_MIN_X, bssn::BSSN_GRID_MIN_Y,
-                      bssn::BSSN_GRID_MIN_Z);
-    m_uiMaxPt = Point(bssn::BSSN_GRID_MAX_X, bssn::BSSN_GRID_MAX_Y,
-                      bssn::BSSN_GRID_MAX_Z);
+    m_uiMinPt           = Point(bssn::BSSN_GRID_MIN_X, bssn::BSSN_GRID_MIN_Y,
+                                bssn::BSSN_GRID_MIN_Z);
+    m_uiMaxPt           = Point(bssn::BSSN_GRID_MAX_X, bssn::BSSN_GRID_MAX_Y,
+                                bssn::BSSN_GRID_MAX_Z);
 
     deallocate_bssn_deriv_workspace();
     allocate_bssn_deriv_workspace(m_uiMesh, 1);
@@ -72,6 +74,12 @@ int BSSNCtx::rhs(DVec* in, DVec* out, unsigned int sz, DendroScalar time) {
 
     this->unzip(*in, m_var[VL::CPU_EV_UZ_IN], bssn::BSSN_ASYNC_COMM_K);
 
+    // AT THIS POINT THE CONSTRAINT VARIABLES SHOULD BE CALCULATED.
+    // Just need to set up the proper variable representation.
+    DVec& m_cvar_unz = m_var[VL::CPU_CV_UZ_IN];
+    DendroScalar* consUnzipVar[bssn::BSSN_CONSTRAINT_NUM_VARS];
+    m_cvar_unz.to_2d(consUnzipVar);
+
 #ifdef __PROFILE_CTX__
     this->m_uiCtxpt[ts::CTXPROFILE::RHS].start();
 #endif
@@ -82,10 +90,11 @@ int BSSNCtx::rhs(DVec* in, DVec* out, unsigned int sz, DendroScalar time) {
     m_var[CPU_EV_UZ_IN].to_2d(unzipIn);
     m_var[CPU_EV_UZ_OUT].to_2d(unzipOut);
 
-    const ot::Block* blkList = m_uiMesh->getLocalBlockList().data();
+    const ot::Block* blkList     = m_uiMesh->getLocalBlockList().data();
     const unsigned int numBlocks = m_uiMesh->getLocalBlockList().size();
 
-    bssnRHS(unzipOut, (const DendroScalar**)unzipIn, blkList, numBlocks);
+    bssnRHS(unzipOut, (const DendroScalar**)unzipIn, blkList, numBlocks, time,
+            (const DendroScalar**)consUnzipVar);
 
 #ifdef __PROFILE_CTX__
     this->m_uiCtxpt[ts::CTXPROFILE::RHS].stop();
@@ -339,8 +348,14 @@ int BSSNCtx::post_timestep_blk(DendroScalar* in, unsigned int dof,
 
 int BSSNCtx::initialize() {
     if (bssn::BSSN_RESTORE_SOLVER) {
-        this->restore_checkpt();
-        return 0;
+        if (!this->restore_checkpt()) {
+            return 0;
+        }
+        if (!m_uiMesh->getMPIRankGlobal()) {
+            std::cout << "[BSSNCtx : initialization]  Continuing normal "
+                         "initialization due to failed checkpoint restoration."
+                      << std::endl;
+        }
     }
 
     this->init_grid();
@@ -352,10 +367,10 @@ int BSSNCtx::initialize() {
     DendroIntL oldGridPoints, oldGridPoints_g;
     DendroIntL newGridPoints, newGridPoints_g;
 
-    unsigned int iterCount = 1;
-    const unsigned int max_iter = bssn::BSSN_INIT_GRID_ITER;
+    unsigned int iterCount         = 1;
+    const unsigned int max_iter    = bssn::BSSN_INIT_GRID_ITER;
     const unsigned int rank_global = m_uiMesh->getMPIRankGlobal();
-    MPI_Comm gcomm = m_uiMesh->getMPIGlobalCommunicator();
+    MPI_Comm gcomm                 = m_uiMesh->getMPIGlobalCommunicator();
 
     DendroScalar* unzipVar[bssn::BSSN_NUM_VARS];
     unsigned int refineVarIds[bssn::BSSN_NUM_REFINE_VARS];
@@ -369,8 +384,11 @@ int BSSNCtx::initialize() {
             return bssn::computeWTolDCoords(x, y, z, hx);
         };
 
-    DVec& m_evar = m_var[VL::CPU_EV];
+    DVec& m_evar     = m_var[VL::CPU_EV];
     DVec& m_evar_unz = m_var[VL::CPU_EV_UZ_IN];
+
+    // calculate the initial size of the grid
+    this->calculate_full_grid_size();
 
     do {
         this->unzip(m_evar, m_evar_unz, bssn::BSSN_ASYNC_COMM_K);
@@ -397,28 +415,21 @@ int BSSNCtx::initialize() {
                 this->remesh(bssn::BSSN_DENDRO_GRAIN_SZ,
                              bssn::BSSN_LOAD_IMB_TOL, bssn::BSSN_SPLIT_FIX);
 
-            oldElements = m_uiMesh->getNumLocalMeshElements();
-            newElements = newMesh->getNumLocalMeshElements();
-
-            oldGridPoints = m_uiMesh->getNumLocalMeshNodes();
+            newElements   = newMesh->getNumLocalMeshElements();
             newGridPoints = newMesh->getNumLocalMeshNodes();
 
-            par::Mpi_Allreduce(&oldElements, &oldElements_g, 1, MPI_SUM, gcomm);
             par::Mpi_Allreduce(&newElements, &newElements_g, 1, MPI_SUM, gcomm);
-
-            par::Mpi_Allreduce(&oldGridPoints, &oldGridPoints_g, 1, MPI_SUM,
-                               m_uiMesh->getMPIGlobalCommunicator());
             par::Mpi_Allreduce(&newGridPoints, &newGridPoints_g, 1, MPI_SUM,
                                m_uiMesh->getMPIGlobalCommunicator());
 
             if (!rank_global) {
                 std::cout << "[bssnCtx] iter : " << iterCount
                           << " (Remesh triggered) ->  old mesh : "
-                          << oldElements_g << " new mesh : " << newElements_g
-                          << std::endl;
+                          << m_uiGlobalMeshElements
+                          << " new mesh : " << newElements_g << std::endl;
                 std::cout << "[bssnCtx] iter : " << iterCount
                           << " (Remesh triggered) ->  old mesh (zip nodes) : "
-                          << oldGridPoints_g
+                          << m_uiGlobalGridPoints
                           << " new mesh (zip nodes) : " << newGridPoints_g
                           << std::endl;
             }
@@ -428,9 +439,13 @@ int BSSNCtx::initialize() {
             std::swap(m_uiMesh, newMesh);
             delete newMesh;
 
+            // then update the size of the grid, no need to recompute
+            m_uiGlobalMeshElements = newElements_g;
+            m_uiGlobalGridPoints   = newGridPoints_g;
+
 #ifdef __CUDACC__
             device::MeshGPU*& dptr_mesh = this->get_meshgpu_device_ptr();
-            device::MeshGPU* mesh_gpu = this->get_meshgpu_host_handle();
+            device::MeshGPU* mesh_gpu   = this->get_meshgpu_host_handle();
 
             mesh_gpu->dealloc_mesh_on_device(dptr_mesh);
             dptr_mesh = mesh_gpu->alloc_mesh_on_device(m_uiMesh);
@@ -452,6 +467,13 @@ int BSSNCtx::initialize() {
 
     unsigned int lmin, lmax;
     m_uiMesh->computeMinMaxLevel(lmin, lmax);
+
+    // calculate the minimum dx
+    bssn::BSSN_CURRENT_MIN_DX =
+        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+         ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
+         ((double)(1u << (m_uiMaxDepth))));
+
     bssn::BSSN_RK45_TIME_STEP_SIZE =
         bssn::BSSN_CFL_FACTOR *
         ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
@@ -482,16 +504,16 @@ int BSSNCtx::initialize() {
 }
 
 int BSSNCtx::init_grid() {
-    DVec& m_evar = m_var[VL::CPU_EV];
-    DVec& m_dptr_evar = m_var[VL::GPU_EV];
+    DVec& m_evar                = m_var[VL::CPU_EV];
+    DVec& m_dptr_evar           = m_var[VL::GPU_EV];
 
-    const ot::TreeNode* pNodes = &(*(m_uiMesh->getAllElements().begin()));
+    const ot::TreeNode* pNodes  = &(*(m_uiMesh->getAllElements().begin()));
     const unsigned int eleOrder = m_uiMesh->getElementOrder();
-    const unsigned int* e2n_cg = &(*(m_uiMesh->getE2NMapping().begin()));
-    const unsigned int* e2n_dg = &(*(m_uiMesh->getE2NMapping_DG().begin()));
-    const unsigned int nPe = m_uiMesh->getNumNodesPerElement();
+    const unsigned int* e2n_cg  = &(*(m_uiMesh->getE2NMapping().begin()));
+    const unsigned int* e2n_dg  = &(*(m_uiMesh->getE2NMapping_DG().begin()));
+    const unsigned int nPe      = m_uiMesh->getNumNodesPerElement();
     const unsigned int nodeLocalBegin = m_uiMesh->getNodeLocalBegin();
-    const unsigned int nodeLocalEnd = m_uiMesh->getNodeLocalEnd();
+    const unsigned int nodeLocalEnd   = m_uiMesh->getNodeLocalEnd();
 
     DendroScalar* zipIn[bssn::BSSN_NUM_VARS];
     m_evar.to_2d(zipIn);
@@ -572,16 +594,10 @@ int BSSNCtx::init_grid() {
 
 int BSSNCtx::finalize() { return 0; }
 
-int BSSNCtx::write_vtu() {
-    if (!m_uiMesh->isActive()) return 0;
-
-    if (!(m_uiMesh->getMPIRank())) {
-        std::cout << GRN << "=== Now Writing VTU Output Files! ===" << NRM << std::endl;
-    }
-
-    DVec& m_evar = m_var[VL::CPU_EV];
+void BSSNCtx::compute_constraint_variables() {
+    DVec& m_evar     = m_var[VL::CPU_EV];
     DVec& m_evar_unz = m_var[VL::CPU_EV_UZ_IN];
-    DVec& m_cvar = m_var[VL::CPU_CV];
+    DVec& m_cvar     = m_var[VL::CPU_CV];
     DVec& m_cvar_unz = m_var[VL::CPU_CV_UZ_IN];
 
     this->unzip(m_evar, m_evar_unz, BSSN_ASYNC_COMM_K);
@@ -600,6 +616,11 @@ int BSSNCtx::write_vtu() {
 
 #if BSSN_COMPUTE_CONSTRAINTS
 
+    if (!(m_uiMesh->getMPIRank())) {
+        std::cout << BLU << "[BSSN] - Now computing constraints" << NRM
+                  << std::endl;
+    }
+
     const std::vector<ot::Block> blkList = m_uiMesh->getLocalBlockList();
 
     unsigned int offset;
@@ -614,16 +635,16 @@ int BSSNCtx::write_vtu() {
     const unsigned int PW = bssn::BSSN_PADDING_WIDTH;
 
     for (unsigned int blk = 0; blk < blkList.size(); blk++) {
-        offset = blkList[blk].getOffset();
-        sz[0] = blkList[blk].getAllocationSzX();
-        sz[1] = blkList[blk].getAllocationSzY();
-        sz[2] = blkList[blk].getAllocationSzZ();
+        offset   = blkList[blk].getOffset();
+        sz[0]    = blkList[blk].getAllocationSzX();
+        sz[1]    = blkList[blk].getAllocationSzY();
+        sz[2]    = blkList[blk].getAllocationSzZ();
 
-        bflag = blkList[blk].getBlkNodeFlag();
+        bflag    = blkList[blk].getBlkNodeFlag();
 
-        dx = blkList[blk].computeDx(pt_min, pt_max);
-        dy = blkList[blk].computeDy(pt_min, pt_max);
-        dz = blkList[blk].computeDz(pt_min, pt_max);
+        dx       = blkList[blk].computeDx(pt_min, pt_max);
+        dy       = blkList[blk].computeDy(pt_min, pt_max);
+        dz       = blkList[blk].computeDz(pt_min, pt_max);
 
         ptmin[0] = GRIDX_TO_X(blkList[blk].getBlockNode().minX()) - PW * dx;
         ptmin[1] = GRIDY_TO_Y(blkList[blk].getBlockNode().minY()) - PW * dy;
@@ -655,14 +676,50 @@ int BSSNCtx::write_vtu() {
 #endif
 #endif
 
+    if (!(m_uiMesh->getMPIRank())) {
+        std::cout << BLU << "[BSSN] - Finished computing constraints!" << NRM
+                  << std::endl;
+    }
+
 #endif
+}
+
+int BSSNCtx::write_vtu() {
+    if (!m_uiMesh->isActive()) return 0;
+
+    if (!(m_uiMesh->getMPIRank())) {
+        std::cout << GRN << "=== Now Writing VTU Output Files! ===" << NRM
+                  << std::endl;
+    }
+
+    DVec& m_evar     = m_var[VL::CPU_EV];
+    DVec& m_evar_unz = m_var[VL::CPU_EV_UZ_IN];
+    DVec& m_cvar     = m_var[VL::CPU_CV];
+    DVec& m_cvar_unz = m_var[VL::CPU_CV_UZ_IN];
+
+    this->unzip(m_evar, m_evar_unz, BSSN_ASYNC_COMM_K);
+
+    DendroScalar* consUnzipVar[bssn::BSSN_CONSTRAINT_NUM_VARS];
+    DendroScalar* consVar[bssn::BSSN_CONSTRAINT_NUM_VARS];
+
+    DendroScalar* evolUnzipVar[bssn::BSSN_NUM_VARS];
+    DendroScalar* evolVar[bssn::BSSN_NUM_VARS];
+
+    m_evar_unz.to_2d(evolUnzipVar);
+    m_cvar_unz.to_2d(consUnzipVar);
+
+    m_evar.to_2d(evolVar);
+    m_cvar.to_2d(consVar);
+
+    // make sure the constraint variables are computed
+    this->compute_constraint_variables();
 
 #ifdef BSSN_ENABLE_VTU_OUTPUT
 
     if ((m_uiTinfo._m_uiStep % bssn::BSSN_IO_OUTPUT_FREQ) == 0) {
         std::vector<std::string> pDataNames;
         const unsigned int numConstVars = bssn::BSSN_NUM_CONST_VARS_VTU_OUTPUT;
-        const unsigned int numEvolVars = bssn::BSSN_NUM_EVOL_VARS_VTU_OUTPUT;
+        const unsigned int numEvolVars  = bssn::BSSN_NUM_EVOL_VARS_VTU_OUTPUT;
 
         double* pData[(numConstVars + numEvolVars)];
 
@@ -693,9 +750,9 @@ int BSSNCtx::write_vtu() {
                 m_uiTinfo._m_uiStep);
 
         if (bssn::BSSN_VTU_Z_SLICE_ONLY) {
-            unsigned int s_val[3] = {1u << (m_uiMaxDepth - 1),
-                                     1u << (m_uiMaxDepth - 1),
-                                     1u << (m_uiMaxDepth - 1)};
+            unsigned int s_val[3]  = {1u << (m_uiMaxDepth - 1),
+                                      1u << (m_uiMaxDepth - 1),
+                                      1u << (m_uiMaxDepth - 1)};
             unsigned int s_norm[3] = {0, 0, 1};
             io::vtk::mesh2vtu_slice(
                 m_uiMesh, s_val, s_norm, fPrefix, 2, fDataNames, fData,
@@ -716,7 +773,8 @@ int BSSNCtx::write_vtu() {
 #endif
 
     if (!(m_uiMesh->getMPIRank())) {
-        std::cout << GRN << "=== Finished Writing the VTU Files! ===" << NRM << std::endl;
+        std::cout << GRN << "=== Finished Writing the VTU Files! ===" << NRM
+                  << std::endl;
     }
 
     return 0;
@@ -733,7 +791,7 @@ int BSSNCtx::write_checkpt() {
     const bool is_merged =
         ((bssn::BSSN_BH_LOC[0] - bssn::BSSN_BH_LOC[1]).abs() < 0.1);
     if (is_merged && !bssn::BSSN_MERGED_CHKPT_WRITTEN) {
-        cpIndex = 3;
+        cpIndex                         = 3;
         bssn::BSSN_MERGED_CHKPT_WRITTEN = true;
     }
 
@@ -752,7 +810,7 @@ int BSSNCtx::write_checkpt() {
     io::checkpoint::writeOctToFile(fName, pNodes,
                                    m_uiMesh->getNumLocalMeshElements());
 
-    unsigned int numVars = bssn::BSSN_NUM_VARS;
+    unsigned int numVars  = bssn::BSSN_NUM_VARS;
     const char** varNames = bssn::BSSN_VAR_NAMES;
 
     sprintf(fName, "%s_%d_%d.var", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
@@ -772,16 +830,16 @@ int BSSNCtx::write_checkpt() {
         }
 
         json checkPoint;
-        checkPoint["DENDRO_TS_TIME_BEGIN"] = m_uiTinfo._m_uiTb;
-        checkPoint["DENDRO_TS_TIME_END"] = m_uiTinfo._m_uiTe;
-        checkPoint["DENDRO_TS_ELEMENT_ORDER"] = m_uiElementOrder;
+        checkPoint["DENDRO_TS_TIME_BEGIN"]         = m_uiTinfo._m_uiTb;
+        checkPoint["DENDRO_TS_TIME_END"]           = m_uiTinfo._m_uiTe;
+        checkPoint["DENDRO_TS_ELEMENT_ORDER"]      = m_uiElementOrder;
 
-        checkPoint["DENDRO_TS_TIME_CURRENT"] = m_uiTinfo._m_uiT;
-        checkPoint["DENDRO_TS_STEP_CURRENT"] = m_uiTinfo._m_uiStep;
-        checkPoint["DENDRO_TS_TIME_STEP_SIZE"] = m_uiTinfo._m_uiTh;
-        checkPoint["DENDRO_TS_LAST_IO_TIME"] = m_uiTinfo._m_uiT;
+        checkPoint["DENDRO_TS_TIME_CURRENT"]       = m_uiTinfo._m_uiT;
+        checkPoint["DENDRO_TS_STEP_CURRENT"]       = m_uiTinfo._m_uiStep;
+        checkPoint["DENDRO_TS_TIME_STEP_SIZE"]     = m_uiTinfo._m_uiTh;
+        checkPoint["DENDRO_TS_LAST_IO_TIME"]       = m_uiTinfo._m_uiT;
 
-        checkPoint["DENDRO_TS_WAVELET_TOLERANCE"] = bssn::BSSN_WAVELET_TOL;
+        checkPoint["DENDRO_TS_WAVELET_TOLERANCE"]  = bssn::BSSN_WAVELET_TOL;
         checkPoint["DENDRO_TS_LOAD_IMB_TOLERANCE"] = bssn::BSSN_LOAD_IMB_TOL;
         checkPoint["DENDRO_TS_NUM_VARS"] =
             numVars;  // number of variables to restore.
@@ -817,14 +875,18 @@ int BSSNCtx::restore_checkpt() {
     unsigned int activeCommSz;
 
     char fName[256];
+
+    // 0 -> everything is fine
+    // 1 -> file failed to open
+    // 2 -> file doesn't exist
     unsigned int restoreStatus = 0;
     unsigned int restoreStatusGlobal =
         0;  // 0 indicates successfully restorable.
 
     ot::Mesh* newMesh;
     unsigned int restoreStep[2];
-    restoreStep[0] = 0;
-    restoreStep[1] = 0;
+    restoreStep[0]                = 0;
+    restoreStep[1]                = 0;
 
     unsigned int restoreFileIndex = 0;
 
@@ -834,6 +896,17 @@ int BSSNCtx::restore_checkpt() {
         if (!rank) {
             sprintf(fName, "%s_step_%d.cp",
                     bssn::BSSN_CHKPT_FILE_PREFIX.c_str(), cpIndex);
+
+            std::cout << "    Checking to see if " << fName
+                      << " is a valid checkpoint file..." << std::endl;
+
+            if (!std::filesystem::exists(fName)) {
+                // std::cout << YLW << "WARNING: " << NRM << "Checkpoint
+                // filename " << fName << " does not exist!" << std::endl;
+                restoreStatus = 2;
+                continue;
+            }
+
             std::ifstream infile(fName);
             if (!infile) {
                 std::cout << fName << " file open failed " << std::endl;
@@ -842,27 +915,27 @@ int BSSNCtx::restore_checkpt() {
 
             if (restoreStatus == 0) {
                 infile >> checkPoint;
-                m_uiTinfo._m_uiTb = checkPoint["DENDRO_TS_TIME_BEGIN"];
-                m_uiTinfo._m_uiTe = checkPoint["DENDRO_TS_TIME_END"];
-                m_uiTinfo._m_uiT = checkPoint["DENDRO_TS_TIME_CURRENT"];
+                m_uiTinfo._m_uiTb   = checkPoint["DENDRO_TS_TIME_BEGIN"];
+                m_uiTinfo._m_uiTe   = checkPoint["DENDRO_TS_TIME_END"];
+                m_uiTinfo._m_uiT    = checkPoint["DENDRO_TS_TIME_CURRENT"];
                 m_uiTinfo._m_uiStep = checkPoint["DENDRO_TS_STEP_CURRENT"];
-                m_uiTinfo._m_uiTh = checkPoint["DENDRO_TS_TIME_STEP_SIZE"];
-                m_uiElementOrder = checkPoint["DENDRO_TS_ELEMENT_ORDER"];
+                m_uiTinfo._m_uiTh   = checkPoint["DENDRO_TS_TIME_STEP_SIZE"];
+                m_uiElementOrder    = checkPoint["DENDRO_TS_ELEMENT_ORDER"];
 
                 bssn::BSSN_WAVELET_TOL =
                     checkPoint["DENDRO_TS_WAVELET_TOLERANCE"];
                 bssn::BSSN_LOAD_IMB_TOL =
                     checkPoint["DENDRO_TS_LOAD_IMB_TOLERANCE"];
 
-                numVars = checkPoint["DENDRO_TS_NUM_VARS"];
-                activeCommSz = checkPoint["DENDRO_TS_ACTIVE_COMM_SZ"];
+                numVars              = checkPoint["DENDRO_TS_NUM_VARS"];
+                activeCommSz         = checkPoint["DENDRO_TS_ACTIVE_COMM_SZ"];
 
-                m_uiBHLoc[0] = Point((double)checkPoint["DENDRO_BH1_X"],
-                                     (double)checkPoint["DENDRO_BH1_Y"],
-                                     (double)checkPoint["DENDRO_BH1_Z"]);
-                m_uiBHLoc[1] = Point((double)checkPoint["DENDRO_BH2_X"],
-                                     (double)checkPoint["DENDRO_BH2_Y"],
-                                     (double)checkPoint["DENDRO_BH2_Z"]);
+                m_uiBHLoc[0]         = Point((double)checkPoint["DENDRO_BH1_X"],
+                                             (double)checkPoint["DENDRO_BH1_Y"],
+                                             (double)checkPoint["DENDRO_BH1_Z"]);
+                m_uiBHLoc[1]         = Point((double)checkPoint["DENDRO_BH2_X"],
+                                             (double)checkPoint["DENDRO_BH2_Y"],
+                                             (double)checkPoint["DENDRO_BH2_Z"]);
                 restoreStep[cpIndex] = m_uiTinfo._m_uiStep;
             }
         }
@@ -886,35 +959,46 @@ int BSSNCtx::restore_checkpt() {
     if (!rank) {
         sprintf(fName, "%s_step_%d.cp", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
                 restoreFileIndex);
-        std::ifstream infile(fName);
-        if (!infile) {
-            std::cout << fName << " file open failed " << std::endl;
-            restoreStatus = 1;
+
+        // first check to see if the file even exists
+        if (!std::filesystem::exists(fName)) {
+            std::cout << YLW << "WARNING: " << NRM << "Checkpoint filename "
+                      << fName << " does not exist!" << std::endl;
+            restoreStatus = 2;
         }
 
         if (restoreStatus == 0) {
-            infile >> checkPoint;
-            m_uiTinfo._m_uiTb = checkPoint["DENDRO_TS_TIME_BEGIN"];
-            m_uiTinfo._m_uiTe = checkPoint["DENDRO_TS_TIME_END"];
-            m_uiTinfo._m_uiT = checkPoint["DENDRO_TS_TIME_CURRENT"];
-            m_uiTinfo._m_uiStep = checkPoint["DENDRO_TS_STEP_CURRENT"];
-            m_uiTinfo._m_uiTh = checkPoint["DENDRO_TS_TIME_STEP_SIZE"];
-            m_uiElementOrder = checkPoint["DENDRO_TS_ELEMENT_ORDER"];
+            std::ifstream infile(fName);
+            if (!infile) {
+                std::cout << fName << " file open failed " << std::endl;
+                restoreStatus = 1;
+            }
 
-            bssn::BSSN_WAVELET_TOL = checkPoint["DENDRO_TS_WAVELET_TOLERANCE"];
-            bssn::BSSN_LOAD_IMB_TOL =
-                checkPoint["DENDRO_TS_LOAD_IMB_TOLERANCE"];
+            if (restoreStatus == 0) {
+                infile >> checkPoint;
+                m_uiTinfo._m_uiTb   = checkPoint["DENDRO_TS_TIME_BEGIN"];
+                m_uiTinfo._m_uiTe   = checkPoint["DENDRO_TS_TIME_END"];
+                m_uiTinfo._m_uiT    = checkPoint["DENDRO_TS_TIME_CURRENT"];
+                m_uiTinfo._m_uiStep = checkPoint["DENDRO_TS_STEP_CURRENT"];
+                m_uiTinfo._m_uiTh   = checkPoint["DENDRO_TS_TIME_STEP_SIZE"];
+                m_uiElementOrder    = checkPoint["DENDRO_TS_ELEMENT_ORDER"];
 
-            numVars = checkPoint["DENDRO_TS_NUM_VARS"];
-            activeCommSz = checkPoint["DENDRO_TS_ACTIVE_COMM_SZ"];
+                bssn::BSSN_WAVELET_TOL =
+                    checkPoint["DENDRO_TS_WAVELET_TOLERANCE"];
+                bssn::BSSN_LOAD_IMB_TOL =
+                    checkPoint["DENDRO_TS_LOAD_IMB_TOLERANCE"];
 
-            m_uiBHLoc[0] = Point((double)checkPoint["DENDRO_BH1_X"],
-                                 (double)checkPoint["DENDRO_BH1_Y"],
-                                 (double)checkPoint["DENDRO_BH1_Z"]);
-            m_uiBHLoc[1] = Point((double)checkPoint["DENDRO_BH2_X"],
-                                 (double)checkPoint["DENDRO_BH2_Y"],
-                                 (double)checkPoint["DENDRO_BH2_Z"]);
-            restoreStep[restoreFileIndex] = m_uiTinfo._m_uiStep;
+                numVars      = checkPoint["DENDRO_TS_NUM_VARS"];
+                activeCommSz = checkPoint["DENDRO_TS_ACTIVE_COMM_SZ"];
+
+                m_uiBHLoc[0] = Point((double)checkPoint["DENDRO_BH1_X"],
+                                     (double)checkPoint["DENDRO_BH1_Y"],
+                                     (double)checkPoint["DENDRO_BH1_Z"]);
+                m_uiBHLoc[1] = Point((double)checkPoint["DENDRO_BH2_X"],
+                                     (double)checkPoint["DENDRO_BH2_Y"],
+                                     (double)checkPoint["DENDRO_BH2_Z"]);
+                restoreStep[restoreFileIndex] = m_uiTinfo._m_uiStep;
+            }
         }
     }
 
@@ -925,6 +1009,14 @@ int BSSNCtx::restore_checkpt() {
                 << "[BSSNCtx] : Restore step failed, restore file corrupted. "
                 << std::endl;
         MPI_Abort(comm, 0);
+    } else if (restoreStatusGlobal == 2) {
+        if (!rank) {
+            std::cout << "[BSSNCtx] : " << YLW << "WARNING:" << NRM
+                      << " No checkpoint files could be found. The program "
+                      << GRN << "will continue" << NRM
+                      << " as BSSN_RESTORE_SOLVER were false!" << std::endl;
+        }
+        return 2;
     }
 
     MPI_Bcast(&m_uiTinfo, sizeof(ts::TSInfo), MPI_BYTE, 0, comm);
@@ -1043,15 +1135,35 @@ int BSSNCtx::restore_checkpt() {
     deallocate_bssn_deriv_workspace();
     allocate_bssn_deriv_workspace(m_uiMesh, 1);
 
-    unsigned int localSz = m_uiMesh->getNumLocalMeshElements();
+    unsigned int localSz    = m_uiMesh->getNumLocalMeshElements();
     unsigned int totalElems = 0;
     par::Mpi_Allreduce(&localSz, &totalElems, 1, MPI_SUM, comm);
 
-    if (!rank)
-        std::cout << " checkpoint at step : " << m_uiTinfo._m_uiStep
+    // NOTE: this chunk is only needed to restore the minimum dx size that's
+    // needed in some computations. Since the initialization ends as soon as the
+    // restore is complete, it's important to recalculate this since it won't be
+    // called again until a remesh
+    unsigned int lmin, lmax;
+    m_uiMesh->computeMinMaxLevel(lmin, lmax);
+    bssn::BSSN_CURRENT_MIN_DX =
+        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+         ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
+         ((double)(1u << (m_uiMaxDepth))));
+
+    if (!rank) {
+        std::cout << GRN
+                  << "=======================================" << std::endl;
+        std::cout << "CHECKPOINT RESTORE SUCCESSFUL: " << NRM << std::endl;
+        std::cout << "   checkpoint at step : " << m_uiTinfo._m_uiStep
                   << "active Comm. sz: " << activeCommSz
                   << " restore successful: "
-                  << " restored mesh size: " << totalElems << std::endl;
+                  << " restored mesh size: " << totalElems << std::endl
+                  << std::endl;
+        std::cout << " restored mesh min dx: " << bssn::BSSN_CURRENT_MIN_DX
+                  << std::endl;
+        std::cout << GRN << "=======================================" << NRM
+                  << std::endl;
+    }
 
     m_uiIsETSSynced = false;
     return 0;
@@ -1073,9 +1185,9 @@ bool BSSNCtx::is_remesh() {
     bool isRefine = false;
     if (bssn::BSSN_ENABLE_BLOCK_ADAPTIVITY) return false;
 
-    MPI_Comm comm = m_uiMesh->getMPIGlobalCommunicator();
+    MPI_Comm comm    = m_uiMesh->getMPIGlobalCommunicator();
 
-    DVec& m_evar = m_var[VL::CPU_EV];
+    DVec& m_evar     = m_var[VL::CPU_EV];
     DVec& m_evar_unz = m_var[VL::CPU_EV_UZ_IN];
 
     this->unzip(m_evar, m_evar_unz, bssn::BSSN_ASYNC_COMM_K);
@@ -1149,6 +1261,61 @@ int BSSNCtx::terminal_output() {
     return 0;
 }
 
+void BSSNCtx::write_grid_summary_data() {
+    if (m_uiMesh->isActive()) {
+        if (!m_uiMesh->getMPIRankGlobal()) {
+            std::string fname =
+                bssn::BSSN_PROFILE_FILE_PREFIX + "_GridInfo.dat";
+            try {
+                std::ofstream file_grid_data;
+                file_grid_data.open(fname, std::ofstream::app);
+                file_grid_data.precision(12);
+                file_grid_data << std::scientific;
+
+                if (!m_uiWroteGridInfoHeader) {
+                    file_grid_data << "timeStep,simTime,commSize,wTime,"
+                                      "meshSize,totalGridPoints,stepSize\n";
+
+                    m_uiWroteGridInfoHeader = true;
+                }
+
+                file_grid_data << bssn::BSSN_CURRENT_RK_STEP << ",";
+                file_grid_data << bssn::BSSN_CURRENT_RK_COORD_TIME << ",";
+                file_grid_data << m_uiMesh->getMPICommSize() << ",";
+                file_grid_data << MPI_Wtime() << ",";
+                file_grid_data << m_uiGlobalMeshElements << ",";
+                file_grid_data << m_uiGlobalGridPoints << ",";
+                file_grid_data << bssn::BSSN_RK45_TIME_STEP_SIZE << "\n";
+                file_grid_data.close();
+            } catch (const std::exception& e) {
+                std::cout << "Error occured while writing grid summary data!"
+                          << std::endl;
+                return;
+            }
+            std::cout << "[BSSNCtx]: Finished writing grid summary data to "
+                      << fname << std::endl;
+        }
+    }
+
+    return;
+}
+
+void BSSNCtx::calculate_full_grid_size() {
+    if (m_uiMesh->isActive()) {
+        // number of mesh elements
+        DendroIntL mesh_elements = m_uiMesh->getNumLocalMeshElements();
+
+        DendroIntL grid_points   = m_uiMesh->getNumLocalMeshNodes();
+
+        // perform an all reduce on the mesh
+        par::Mpi_Reduce(&mesh_elements, &m_uiGlobalMeshElements, 1, MPI_SUM, 0,
+                        m_uiMesh->getMPICommunicator());
+
+        par::Mpi_Reduce(&grid_points, &m_uiGlobalGridPoints, 1, MPI_SUM, 0,
+                        m_uiMesh->getMPICommunicator());
+    }
+}
+
 int BSSNCtx::grid_transfer(const ot::Mesh* m_new) {
 #ifdef __PROFILE_CTX__
     m_uiCtxpt[ts::CTXPROFILE::GRID_TRASFER].start();
@@ -1191,11 +1358,11 @@ int BSSNCtx::grid_transfer(const ot::Mesh* m_new) {
 }
 
 unsigned int BSSNCtx::compute_lts_ts_offset() {
-    const ot::Block* blkList = m_uiMesh->getLocalBlockList().data();
+    const ot::Block* blkList     = m_uiMesh->getLocalBlockList().data();
     const unsigned int numBlocks = m_uiMesh->getLocalBlockList().size();
-    const ot::TreeNode* pNodes = m_uiMesh->getAllElements().data();
+    const ot::TreeNode* pNodes   = m_uiMesh->getAllElements().data();
 
-    const unsigned int ldiff = 0;
+    const unsigned int ldiff     = 0;
 
     unsigned int lmin, lmax;
     m_uiMesh->computeMinMaxLevel(lmin, lmax);
@@ -1230,14 +1397,14 @@ unsigned int BSSNCtx::compute_lts_ts_offset() {
             }
         } else {
             // RIT eta function
-            double w = r_coord / bssn::RIT_ETA_WIDTH;
+            double w   = r_coord / bssn::RIT_ETA_WIDTH;
             double arg = -w * w * w * w;
             eta = (bssn::RIT_ETA_CENTRAL - bssn::RIT_ETA_OUTER) * exp(arg) +
                   bssn::RIT_ETA_OUTER;
         }
 
-        const double dt_eta = dt_eta_fac * (1 / eta);
-        const double dt_cfl = (1u << (lmax - blev)) * dt_min;
+        const double dt_eta      = dt_eta_fac * (1 / eta);
+        const double dt_cfl      = (1u << (lmax - blev)) * dt_min;
 
         const double dt_feasible = std::min(dt_eta, dt_cfl);
 
@@ -1288,8 +1455,8 @@ void BSSNCtx::evolve_bh_loc(DVec sIn, double dt) {
     //     std::cout<<"bh1 "<<bhLoc[1]<<std::endl;
 
     // }
-    m_uiBHLoc[0] = bhLoc[0];
-    m_uiBHLoc[1] = bhLoc[1];
+    m_uiBHLoc[0]         = bhLoc[0];
+    m_uiBHLoc[1]         = bhLoc[1];
 
     bssn::BSSN_BH_LOC[0] = m_uiBHLoc[0];
     bssn::BSSN_BH_LOC[1] = m_uiBHLoc[1];
@@ -1309,62 +1476,62 @@ void BSSNCtx::evolve_bh_loc(DVec sIn, double dt) {
     return;
 }
 
-
-int BSSNCtx::aeh_expansion(const Point& origin, aeh::AEH_VARS * m_aeh_vars, DVec& aeh_f, DVec& aeh_h, const DendroScalar* const rlim)
-{
-
-    const unsigned int cg_sz   = m_uiMesh->getDegOfFreedom();
-    const unsigned int uz_sz   = m_uiMesh->getDegOfFreedomUnZip();
+int BSSNCtx::aeh_expansion(const Point& origin, aeh::AEH_VARS* m_aeh_vars,
+                           DVec& aeh_f, DVec& aeh_h,
+                           const DendroScalar* const rlim) {
+    const unsigned int cg_sz = m_uiMesh->getDegOfFreedom();
+    const unsigned int uz_sz = m_uiMesh->getDegOfFreedomUnZip();
 
     // temporary unzip storage (using evar unzip vectors)
-    DendroScalar * unzip_0     = m_var[VL::CPU_EV_UZ_IN].get_vec_ptr();
-    DendroScalar * unzip_1     = m_var[VL::CPU_EV_UZ_OUT].get_vec_ptr();
+    DendroScalar* unzip_0    = m_var[VL::CPU_EV_UZ_IN].get_vec_ptr();
+    DendroScalar* unzip_1    = m_var[VL::CPU_EV_UZ_OUT].get_vec_ptr();
 
-    DendroScalar * F      = aeh_f.get_vec_ptr();
-    DendroScalar * F_uz   = &unzip_1[0 * uz_sz];
-    DendroScalar * H_uz   = &unzip_1[1 * uz_sz];
+    DendroScalar* F          = aeh_f.get_vec_ptr();
+    DendroScalar* F_uz       = &unzip_1[0 * uz_sz];
+    DendroScalar* H_uz       = &unzip_1[1 * uz_sz];
 
     m_uiMesh->readFromGhostBegin<DendroScalar>(F, 1);
-    m_uiMesh->readFromGhostEnd  <DendroScalar>(F, 1);
-    m_uiMesh->unzip(F  , F_uz  , 1);
+    m_uiMesh->readFromGhostEnd<DendroScalar>(F, 1);
+    m_uiMesh->unzip(F, F_uz, 1);
 
-    const DendroScalar * const gt_uz  = m_aeh_vars->gt.get_vec_ptr();
-    const DendroScalar * const At_uz  = m_aeh_vars->At.get_vec_ptr();
-    const DendroScalar * const chi_uz = m_aeh_vars->chi.get_vec_ptr();
-    const DendroScalar * const K_uz   = m_aeh_vars->K.get_vec_ptr();
-    
-    const Point pt_min(bssn::BSSN_COMPD_MIN[0],bssn::BSSN_COMPD_MIN[1],bssn::BSSN_COMPD_MIN[2]);
-    const Point pt_max(bssn::BSSN_COMPD_MAX[0],bssn::BSSN_COMPD_MAX[1],bssn::BSSN_COMPD_MAX[2]);
-    const unsigned int PW=bssn::BSSN_PADDING_WIDTH;
+    const DendroScalar* const gt_uz  = m_aeh_vars->gt.get_vec_ptr();
+    const DendroScalar* const At_uz  = m_aeh_vars->At.get_vec_ptr();
+    const DendroScalar* const chi_uz = m_aeh_vars->chi.get_vec_ptr();
+    const DendroScalar* const K_uz   = m_aeh_vars->K.get_vec_ptr();
+
+    const Point pt_min(bssn::BSSN_COMPD_MIN[0], bssn::BSSN_COMPD_MIN[1],
+                       bssn::BSSN_COMPD_MIN[2]);
+    const Point pt_max(bssn::BSSN_COMPD_MAX[0], bssn::BSSN_COMPD_MAX[1],
+                       bssn::BSSN_COMPD_MAX[2]);
+    const unsigned int PW        = bssn::BSSN_PADDING_WIDTH;
 
     const ot::Block* blkList     = m_uiMesh->getLocalBlockList().data();
     const unsigned int numBlocks = m_uiMesh->getLocalBlockList().size();
 
-    const DendroScalar r_min = 1e-2;
+    const DendroScalar r_min     = 1e-2;
 
-    for(unsigned int blk=0; blk<numBlocks; blk++)
-    {
+    for (unsigned int blk = 0; blk < numBlocks; blk++) {
         DendroScalar ptmin[3], ptmax[3];
         unsigned int sz[3];
 
         const unsigned int offset = blkList[blk].getOffset();
-        sz[0]=blkList[blk].getAllocationSzX();
-        sz[1]=blkList[blk].getAllocationSzY();
-        sz[2]=blkList[blk].getAllocationSzZ();
+        sz[0]                     = blkList[blk].getAllocationSzX();
+        sz[1]                     = blkList[blk].getAllocationSzY();
+        sz[2]                     = blkList[blk].getAllocationSzZ();
 
-        const unsigned int bflag=blkList[blk].getBlkNodeFlag();
+        const unsigned int bflag  = blkList[blk].getBlkNodeFlag();
 
-        const DendroScalar dx = blkList[blk].computeDx(pt_min,pt_max);
-        const DendroScalar dy = blkList[blk].computeDy(pt_min,pt_max);
-        const DendroScalar dz = blkList[blk].computeDz(pt_min,pt_max);
+        const DendroScalar dx     = blkList[blk].computeDx(pt_min, pt_max);
+        const DendroScalar dy     = blkList[blk].computeDy(pt_min, pt_max);
+        const DendroScalar dz     = blkList[blk].computeDz(pt_min, pt_max);
 
-        ptmin[0]=GRIDX_TO_X(blkList[blk].getBlockNode().minX())-PW*dx;
-        ptmin[1]=GRIDY_TO_Y(blkList[blk].getBlockNode().minY())-PW*dy;
-        ptmin[2]=GRIDZ_TO_Z(blkList[blk].getBlockNode().minZ())-PW*dz;
+        ptmin[0] = GRIDX_TO_X(blkList[blk].getBlockNode().minX()) - PW * dx;
+        ptmin[1] = GRIDY_TO_Y(blkList[blk].getBlockNode().minY()) - PW * dy;
+        ptmin[2] = GRIDZ_TO_Z(blkList[blk].getBlockNode().minZ()) - PW * dz;
 
-        ptmax[0]=GRIDX_TO_X(blkList[blk].getBlockNode().maxX())+PW*dx;
-        ptmax[1]=GRIDY_TO_Y(blkList[blk].getBlockNode().maxY())+PW*dy;
-        ptmax[2]=GRIDZ_TO_Z(blkList[blk].getBlockNode().maxZ())+PW*dz;
+        ptmax[0] = GRIDX_TO_X(blkList[blk].getBlockNode().maxX()) + PW * dx;
+        ptmax[1] = GRIDY_TO_Y(blkList[blk].getBlockNode().maxY()) + PW * dy;
+        ptmax[2] = GRIDZ_TO_Z(blkList[blk].getBlockNode().maxZ()) + PW * dz;
 
         const DendroScalar xx   = ptmin[0] - origin.x();
         const DendroScalar yy   = ptmin[1] - origin.y();
@@ -1376,126 +1543,163 @@ int BSSNCtx::aeh_expansion(const Point& origin, aeh::AEH_VARS * m_aeh_vars, DVec
 
         const DendroScalar ll   = sqrt(lx * lx + ly * ly + lz * lz);
 
-        const DendroScalar p_rr = sqrt(xx * xx + yy * yy  + zz * zz);
+        const DendroScalar p_rr = sqrt(xx * xx + yy * yy + zz * zz);
 
-        if(!((p_rr < (rlim[1] + ll)) && (p_rr > (rlim[0] - ll))))
-            continue; 
+        if (!((p_rr < (rlim[1] + ll)) && (p_rr > (rlim[0] - ll)))) continue;
 
-        // if(sqrt(ptmax[0] * ptmax[0] + ptmax[1]*ptmax[1] + ptmax[2] * ptmax[2]) > rlim[1])
+        // if(sqrt(ptmax[0] * ptmax[0] + ptmax[1]*ptmax[1] + ptmax[2] *
+        // ptmax[2]) > rlim[1])
         //     continue;
 
-        const unsigned int n = sz[0]*sz[1]*sz[2];
-        const unsigned int BLK_SZ=n;
-        
-        const unsigned int nx = sz[0];
-        const unsigned int ny = sz[1];
-        const unsigned int nz = sz[2];
+        const unsigned int n           = sz[0] * sz[1] * sz[2];
+        const unsigned int BLK_SZ      = n;
 
-        const double hx = (ptmax[0] - ptmin[0]) / (nx - 1);
-        const double hy = (ptmax[1] - ptmin[1]) / (ny - 1);
-        const double hz = (ptmax[2] - ptmin[2]) / (nz - 1);
+        const unsigned int nx          = sz[0];
+        const unsigned int ny          = sz[1];
+        const unsigned int nz          = sz[2];
 
-        DendroScalar * const deriv_base = bssn::BSSN_DERIV_WORKSPACE;
-        
+        const double hx                = (ptmax[0] - ptmin[0]) / (nx - 1);
+        const double hy                = (ptmax[1] - ptmin[1]) / (ny - 1);
+        const double hz                = (ptmax[2] - ptmin[2]) / (nz - 1);
 
-        double * grad_0_F    = deriv_base + 0 * BLK_SZ;
-        double * grad_1_F    = deriv_base + 1 * BLK_SZ;
-        double * grad_2_F    = deriv_base + 2 * BLK_SZ;
+        DendroScalar* const deriv_base = bssn::BSSN_DERIV_WORKSPACE;
 
-        double * grad2_0_0_F = deriv_base + 3 * BLK_SZ;
-        double * grad2_0_1_F = deriv_base + 4 * BLK_SZ;
-        double * grad2_0_2_F = deriv_base + 5 * BLK_SZ;
+        double* grad_0_F               = deriv_base + 0 * BLK_SZ;
+        double* grad_1_F               = deriv_base + 1 * BLK_SZ;
+        double* grad_2_F               = deriv_base + 2 * BLK_SZ;
 
-        double * grad2_1_1_F = deriv_base + 6 * BLK_SZ;
-        double * grad2_1_2_F = deriv_base + 7 * BLK_SZ;
-        double * grad2_2_2_F = deriv_base + 8 * BLK_SZ;
+        double* grad2_0_0_F            = deriv_base + 3 * BLK_SZ;
+        double* grad2_0_1_F            = deriv_base + 4 * BLK_SZ;
+        double* grad2_0_2_F            = deriv_base + 5 * BLK_SZ;
 
+        double* grad2_1_1_F            = deriv_base + 6 * BLK_SZ;
+        double* grad2_1_2_F            = deriv_base + 7 * BLK_SZ;
+        double* grad2_2_2_F            = deriv_base + 8 * BLK_SZ;
 
-        const double * const F   = &F_uz[offset];
-        double * const H         = &H_uz[offset];
+        const double* const F          = &F_uz[offset];
+        double* const H                = &H_uz[offset];
 
-        deriv_x(grad_0_F    , F       , hx, sz, bflag);
-        deriv_xx(grad2_0_0_F, F       , hx, sz, bflag);
+        deriv_x(grad_0_F, F, hx, sz, bflag);
+        deriv_xx(grad2_0_0_F, F, hx, sz, bflag);
 
-        deriv_y(grad_1_F    , F       , hy, sz, bflag);
-        deriv_yy(grad2_1_1_F, F       , hy, sz, bflag);
-        
-        deriv_z(grad_2_F    , F       , hz, sz, bflag);
-        deriv_zz(grad2_2_2_F, F       , hz, sz, bflag);
-        
-        deriv_y(grad2_0_1_F , grad_0_F, hy, sz, bflag);
-        deriv_z(grad2_0_2_F , grad_0_F, hz, sz, bflag);
-        deriv_z(grad2_1_2_F , grad_1_F, hz, sz, bflag);
+        deriv_y(grad_1_F, F, hy, sz, bflag);
+        deriv_yy(grad2_1_1_F, F, hy, sz, bflag);
 
+        deriv_z(grad_2_F, F, hz, sz, bflag);
+        deriv_zz(grad2_2_2_F, F, hz, sz, bflag);
 
-        const double * const grad_0_chi = &m_aeh_vars->grad_chi.get_vec_ptr()[0 * uz_sz + offset];
-        const double * const grad_1_chi = &m_aeh_vars->grad_chi.get_vec_ptr()[1 * uz_sz + offset];
-        const double * const grad_2_chi = &m_aeh_vars->grad_chi.get_vec_ptr()[2 * uz_sz + offset];
+        deriv_y(grad2_0_1_F, grad_0_F, hy, sz, bflag);
+        deriv_z(grad2_0_2_F, grad_0_F, hz, sz, bflag);
+        deriv_z(grad2_1_2_F, grad_1_F, hz, sz, bflag);
 
-        const double * const grad_0_gt0 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 0 * 3 *uz_sz + 0 * uz_sz + offset];
-        const double * const grad_1_gt0 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 0 * 3 *uz_sz + 1 * uz_sz + offset];
-        const double * const grad_2_gt0 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 0 * 3 *uz_sz + 2 * uz_sz + offset];
+        const double* const grad_0_chi =
+            &m_aeh_vars->grad_chi.get_vec_ptr()[0 * uz_sz + offset];
+        const double* const grad_1_chi =
+            &m_aeh_vars->grad_chi.get_vec_ptr()[1 * uz_sz + offset];
+        const double* const grad_2_chi =
+            &m_aeh_vars->grad_chi.get_vec_ptr()[2 * uz_sz + offset];
 
-        const double * const grad_0_gt1 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 1 * 3 *uz_sz + 0 * uz_sz + offset];;
-        const double * const grad_1_gt1 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 1 * 3 *uz_sz + 1 * uz_sz + offset];;
-        const double * const grad_2_gt1 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 1 * 3 *uz_sz + 2 * uz_sz + offset];;
+        const double* const grad_0_gt0 =
+            &m_aeh_vars->grad_gt
+                 .get_vec_ptr()[0 * 3 * uz_sz + 0 * uz_sz + offset];
+        const double* const grad_1_gt0 =
+            &m_aeh_vars->grad_gt
+                 .get_vec_ptr()[0 * 3 * uz_sz + 1 * uz_sz + offset];
+        const double* const grad_2_gt0 =
+            &m_aeh_vars->grad_gt
+                 .get_vec_ptr()[0 * 3 * uz_sz + 2 * uz_sz + offset];
 
-        const double * const grad_0_gt2 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 2 * 3 *uz_sz + 0 * uz_sz + offset];
-        const double * const grad_1_gt2 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 2 * 3 *uz_sz + 1 * uz_sz + offset];
-        const double * const grad_2_gt2 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 2 * 3 *uz_sz + 2 * uz_sz + offset];
-        
-        const double * const grad_0_gt3 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 3 * 3 *uz_sz + 0 * uz_sz + offset];
-        const double * const grad_1_gt3 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 3 * 3 *uz_sz + 1 * uz_sz + offset];
-        const double * const grad_2_gt3 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 3 * 3 *uz_sz + 2 * uz_sz + offset];
-        
-        const double * const grad_0_gt4 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 4 * 3 *uz_sz + 0 * uz_sz + offset];
-        const double * const grad_1_gt4 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 4 * 3 *uz_sz + 1 * uz_sz + offset];
-        const double * const grad_2_gt4 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 4 * 3 *uz_sz + 2 * uz_sz + offset];
-        
-        const double * const grad_0_gt5 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 5 * 3 *uz_sz + 0 * uz_sz + offset];
-        const double * const grad_1_gt5 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 5 * 3 *uz_sz + 1 * uz_sz + offset];
-        const double * const grad_2_gt5 = &m_aeh_vars->grad_gt.get_vec_ptr()[ 5 * 3 *uz_sz + 2 * uz_sz + offset];
+        const double* const grad_0_gt1 =
+            &m_aeh_vars->grad_gt
+                 .get_vec_ptr()[1 * 3 * uz_sz + 0 * uz_sz + offset];
+        ;
+        const double* const grad_1_gt1 =
+            &m_aeh_vars->grad_gt
+                 .get_vec_ptr()[1 * 3 * uz_sz + 1 * uz_sz + offset];
+        ;
+        const double* const grad_2_gt1 =
+            &m_aeh_vars->grad_gt
+                 .get_vec_ptr()[1 * 3 * uz_sz + 2 * uz_sz + offset];
+        ;
 
-        const double * const gt0 = &gt_uz[0 * uz_sz + offset];
-        const double * const gt1 = &gt_uz[1 * uz_sz + offset];
-        const double * const gt2 = &gt_uz[2 * uz_sz + offset];
-        const double * const gt3 = &gt_uz[3 * uz_sz + offset];
-        const double * const gt4 = &gt_uz[4 * uz_sz + offset];
-        const double * const gt5 = &gt_uz[5 * uz_sz + offset];
+        const double* const grad_0_gt2 =
+            &m_aeh_vars->grad_gt
+                 .get_vec_ptr()[2 * 3 * uz_sz + 0 * uz_sz + offset];
+        const double* const grad_1_gt2 =
+            &m_aeh_vars->grad_gt
+                 .get_vec_ptr()[2 * 3 * uz_sz + 1 * uz_sz + offset];
+        const double* const grad_2_gt2 =
+            &m_aeh_vars->grad_gt
+                 .get_vec_ptr()[2 * 3 * uz_sz + 2 * uz_sz + offset];
 
-        const double * const At0 = &At_uz[0 * uz_sz + offset];
-        const double * const At1 = &At_uz[1 * uz_sz + offset];
-        const double * const At2 = &At_uz[2 * uz_sz + offset];
-        const double * const At3 = &At_uz[3 * uz_sz + offset];
-        const double * const At4 = &At_uz[4 * uz_sz + offset];
-        const double * const At5 = &At_uz[5 * uz_sz + offset];
+        const double* const grad_0_gt3 =
+            &m_aeh_vars->grad_gt
+                 .get_vec_ptr()[3 * 3 * uz_sz + 0 * uz_sz + offset];
+        const double* const grad_1_gt3 =
+            &m_aeh_vars->grad_gt
+                 .get_vec_ptr()[3 * 3 * uz_sz + 1 * uz_sz + offset];
+        const double* const grad_2_gt3 =
+            &m_aeh_vars->grad_gt
+                 .get_vec_ptr()[3 * 3 * uz_sz + 2 * uz_sz + offset];
 
-        const double * const K   = &K_uz  [offset];
-        const double * const chi = &chi_uz[offset];
+        const double* const grad_0_gt4 =
+            &m_aeh_vars->grad_gt
+                 .get_vec_ptr()[4 * 3 * uz_sz + 0 * uz_sz + offset];
+        const double* const grad_1_gt4 =
+            &m_aeh_vars->grad_gt
+                 .get_vec_ptr()[4 * 3 * uz_sz + 1 * uz_sz + offset];
+        const double* const grad_2_gt4 =
+            &m_aeh_vars->grad_gt
+                 .get_vec_ptr()[4 * 3 * uz_sz + 2 * uz_sz + offset];
 
+        const double* const grad_0_gt5 =
+            &m_aeh_vars->grad_gt
+                 .get_vec_ptr()[5 * 3 * uz_sz + 0 * uz_sz + offset];
+        const double* const grad_1_gt5 =
+            &m_aeh_vars->grad_gt
+                 .get_vec_ptr()[5 * 3 * uz_sz + 1 * uz_sz + offset];
+        const double* const grad_2_gt5 =
+            &m_aeh_vars->grad_gt
+                 .get_vec_ptr()[5 * 3 * uz_sz + 2 * uz_sz + offset];
 
-        for (unsigned int k = PW; k < nz-PW; k++) {
-            for (unsigned int j = PW; j < ny-PW; j++) {
-            #ifdef BSSN_ENABLE_AVX
-                #ifdef __INTEL_COMPILER
-                #pragma vector vectorlength(__RHS_AVX_SIMD_LEN__) vecremainder
-                #pragma ivdep
-                #endif
-            #endif
-                for (unsigned int i = PW; i < nx-PW; i++) {
-                    const unsigned int pp = i + nx*(j + ny*k);
-                    const double xx = ptmin[0] + i * hx - origin.x();
-                    const double yy = ptmin[1] + j * hy - origin.y();
-                    const double zz = ptmin[2] + k * hz - origin.z();
+        const double* const gt0 = &gt_uz[0 * uz_sz + offset];
+        const double* const gt1 = &gt_uz[1 * uz_sz + offset];
+        const double* const gt2 = &gt_uz[2 * uz_sz + offset];
+        const double* const gt3 = &gt_uz[3 * uz_sz + offset];
+        const double* const gt4 = &gt_uz[4 * uz_sz + offset];
+        const double* const gt5 = &gt_uz[5 * uz_sz + offset];
 
-                    const double rr = sqrt(xx * xx + yy * yy + zz * zz);
+        const double* const At0 = &At_uz[0 * uz_sz + offset];
+        const double* const At1 = &At_uz[1 * uz_sz + offset];
+        const double* const At2 = &At_uz[2 * uz_sz + offset];
+        const double* const At3 = &At_uz[3 * uz_sz + offset];
+        const double* const At4 = &At_uz[4 * uz_sz + offset];
+        const double* const At5 = &At_uz[5 * uz_sz + offset];
+
+        const double* const K   = &K_uz[offset];
+        const double* const chi = &chi_uz[offset];
+
+        for (unsigned int k = PW; k < nz - PW; k++) {
+            for (unsigned int j = PW; j < ny - PW; j++) {
+#ifdef BSSN_ENABLE_AVX
+#ifdef __INTEL_COMPILER
+#pragma vector vectorlength(__RHS_AVX_SIMD_LEN__) vecremainder
+#pragma ivdep
+#endif
+#endif
+                for (unsigned int i = PW; i < nx - PW; i++) {
+                    const unsigned int pp = i + nx * (j + ny * k);
+                    const double xx       = ptmin[0] + i * hx - origin.x();
+                    const double yy       = ptmin[1] + j * hy - origin.y();
+                    const double zz       = ptmin[2] + k * hz - origin.z();
+
+                    const double rr       = sqrt(xx * xx + yy * yy + zz * zz);
                     {
-                        #include "expansion_aeh.cpp"
-                        //H[pp] *= sqrt(grad_0_F[pp] * grad_0_F[pp] + grad_1_F[pp] * grad_1_F[pp] + grad_2_F[pp] * grad_2_F[pp]);
+#include "expansion_aeh.cpp"
+                        // H[pp] *= sqrt(grad_0_F[pp] * grad_0_F[pp] +
+                        // grad_1_F[pp] * grad_1_F[pp] + grad_2_F[pp] *
+                        // grad_2_F[pp]);
                     }
-                        
-                    
-                    
                 }
             }
         }
@@ -1503,7 +1707,6 @@ int BSSNCtx::aeh_expansion(const Point& origin, aeh::AEH_VARS * m_aeh_vars, DVec
 
     m_uiMesh->zip(H_uz, aeh_h.get_vec_ptr());
     return 0;
-
 }
 
 #if 0
