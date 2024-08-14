@@ -1,3 +1,6 @@
 [submodule "dendrolib"]
 	path = dendrolib
 	url = https://github.com/paralab/Dendro-5.01.git
+[submodule "lib/toml11"]
+	path = lib/toml11
+	url = https://github.com/ToruNiina/toml11.git
