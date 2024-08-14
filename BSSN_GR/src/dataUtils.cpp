@@ -150,7 +150,7 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
     // const double r_far[2]  =  {2.5 * r_near[0], 2.5 * r_near[1] };
     const double r_far[2]  = {bssn::BSSN_AMR_R_RATIO * r_near[0],
                               bssn::BSSN_AMR_R_RATIO * r_near[1]};
-    const unsigned int DEPTH_LEV_OFFSET = 2;
+    const unsigned int DEPTH_LEV_OFFSET = 1;
 
     const unsigned int eleLocalBegin    = pMesh->getElementLocalBegin();
     const unsigned int eleLocalEnd      = pMesh->getElementLocalEnd();
@@ -298,6 +298,16 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
                 }
             }
 #endif
+          // @wkb 12 June 2020 copying milinda: 11/21/2020 : Don't allow to violate the min depth
+          if (pNodes[ele].getLevel() < bssn::BSSN_MINDEPTH) {
+              // if it's below the mindepth, refine. 
+              refine_flags[ele - eleLocalBegin] = OCT_SPLIT;
+          } else if (pNodes[ele].getLevel() == bssn::BSSN_MINDEPTH &&
+                     refine_flags[ele - eleLocalBegin] == OCT_COARSE) {
+              // if it had been told to coarsen, ignore that. 
+              refine_flags[ele - eleLocalBegin] = OCT_NO_CHANGE;
+          }
+          
         }
 
         isOctChange = pMesh->setMeshRefinementFlags(refine_flags);
