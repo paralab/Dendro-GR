@@ -62,9 +62,8 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc);
  * @return true : is mesh need to be changed
  * @return false : otherwise.
  */
-bool isRemeshEH(const ot::Mesh* pMesh, const double** unzipVec,
-                unsigned int vIndex, double refine_th, double coarsen_th,
-                bool isOverwrite = true);
+bool isRemeshEH(ot::Mesh* pMesh, const double** unzipVec, unsigned int vIndex,
+                double refine_th, double coarsen_th, bool isOverwrite = true);
 
 /**
  * @brief refine only based on the wavelets
