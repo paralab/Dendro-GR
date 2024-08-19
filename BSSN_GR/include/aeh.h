@@ -1560,7 +1560,7 @@ void SpectralAEHSolver<Ctx, T>::aeh_quasi_measurements(Ctx* ctx,
     qoi.expansion_L2 =
         this->eval_expansion_norm(ctx, h_qs, aeh_f, aeh_h, interp_coords, 2);
 
-    T* aeh_qi_ptr = aeh_f.get_vec_ptr();
+    T* aeh_qi_ptr = aeh_qi.get_vec_ptr();
     this->eval_quasi_measurements_integrands(ctx, m_uiMesh, aeh_qi_ptr, h_qs);
     m_uiMesh->readFromGhostBegin(aeh_qi_ptr, NUM_QUASI_MEASURE_VARS);
 
@@ -1682,6 +1682,9 @@ int SpectralAEHSolver<Ctx, T>::aeh_to_json(Ctx* ctx, T* h_qs, char* fname,
 
             file_aeh << "\"expansion_L2\":" << ah_qoi.expansion_L2 << ", ";
             file_aeh << "\"area\":" << ah_qoi.area << ", ";
+            file_aeh << "\"Jx\":" << ah_qoi.Jx << ", ";
+            file_aeh << "\"Jy\":" << ah_qoi.Jy << ", ";
+            file_aeh << "\"Jz\":" << ah_qoi.Jz << ", ";
             file_aeh << "\"rmin\":" << ah_qoi.rmin << ", ";
             file_aeh << "\"rmean\":" << ah_qoi.rmean << ", ";
             file_aeh << "\"rmax\":" << ah_qoi.rmax << "";
