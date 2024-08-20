@@ -1228,6 +1228,16 @@ bool BSSNCtx::is_remesh() {
         isRefine = (isR1 || isR2);
     } else if (bssn::BSSN_REFINEMENT_MODE == bssn::RefinementMode::BH_LOC) {
         isRefine = bssn::isRemeshBH(m_uiMesh, m_uiBHLoc);
+    } else if (bssn::BSSN_REFINEMENT_MODE == bssn::RefinementMode::BH_WAMR) {
+        // BHLB refinement for baseline
+        const bool isR1 = bssn::isRemeshBH(m_uiMesh, m_uiBHLoc);
+        // WAMR for additional refinement
+        const bool isR2 =
+            bssn::addRemeshWAMR(m_uiMesh, (const double**)unzipVar, refineVarIds,
+                               bssn::BSSN_NUM_REFINE_VARS, waveletTolFunc,
+                               bssn::BSSN_DENDRO_AMR_FAC);
+
+        isRefine = (isR1 || isR2);
     }
 
     return isRefine;

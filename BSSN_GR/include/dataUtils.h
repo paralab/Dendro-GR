@@ -81,6 +81,26 @@ bool isReMeshWAMR(
     std::function<double(double, double, double, double*)> wavelet_tol,
     double amr_coarse_fac);
 
+
+
+/**
+ * @brief add refinement based on wavelets
+ * @param pMesh : pointer to the mesh
+ * @param unzippedVec : unzip vars.
+ * @param varIds : refinement variable ids.
+ * @param numVars : number of varIds
+ * @param wavelet_tol: wavelet tolerance function
+ * @param amr_coarsen_fac: AMR coarsening safety factor, 
+ * coarsen iff w_c < amr_coarsen_fac * wavelet_tol(x,y,z)
+ * @param relative_WAMR : toggle using relative wavelet values 
+ */
+bool addRemeshWAMR(
+    ot::Mesh* pMesh, const double** unzippedVec, const unsigned int* varIds,
+    const unsigned int numVars,
+    std::function<double(double, double, double, double*)> wavelet_tol,
+    double amr_coarse_fac, bool relative_WAMR = false);
+
+
 /**
  * @brief refine ratially based on the BH locations and AMR_R.
  * @param pMesh pointer to the mesh object.
@@ -88,5 +108,7 @@ bool isReMeshWAMR(
 bool isReMeshBHRadial(ot::Mesh* pMesh);
 
 }  // end of namespace bssn
+
+
 
 #endif  // DENDRO_5_0_DATAUTILS_H

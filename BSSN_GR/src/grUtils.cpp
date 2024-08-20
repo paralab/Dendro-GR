@@ -1727,7 +1727,21 @@ double computeWTol(double x, double y, double z, double tolMin) {
 }
 
 double computeWTolDCoords(double x, double y, double z, double* hx) {
+    // set up a few useful values for computing the wavelet tolerances
+    // element order: how many points we have in each grid
     const unsigned int eleOrder = bssn::BSSN_ELE_ORDER;
+    // current simulation time 
+    const double T_CURRENT = bssn::BSSN_CURRENT_RK_COORD_TIME;
+    // radius (from the center of the grid)
+    const double r = sqrt(x * x + y * y + z * z);
+    // distance between the BHs
+    const double dbh = (bssn::BSSN_BH_LOC[0] - bssn::BSSN_BH_LOC[1]).abs();
+    // set up grid point for relative distances to each BH
+    Point grid_p(x, y, z);
+    // distance from BH0
+    const double dbh0 = (grid_p - bssn::BSSN_BH_LOC[0]).abs();
+    // distance from BH1
+    const double dbh1 = (grid_p - bssn::BSSN_BH_LOC[1]).abs();
 
     if (bssn::BSSN_USE_WAVELET_TOL_FUNCTION == 1) {
         const double tolMax = bssn::BSSN_WAVELET_TOL_MAX;
@@ -1735,15 +1749,11 @@ double computeWTolDCoords(double x, double y, double z, double* hx) {
 
         const double R0     = bssn::BSSN_BH1_AMR_R;
         const double R1     = bssn::BSSN_BH2_AMR_R;
-        const double dbh = (bssn::BSSN_BH_LOC[0] - bssn::BSSN_BH_LOC[1]).abs();
 
         // R_Max is defined based on the initial separation.
         const double R_MAX =
             (bssn::BH1.getBHCoord() - bssn::BH2.getBHCoord()).abs() + R0 + R1;
 
-        Point grid_p(x, y, z);
-        const double dbh0 = (grid_p - bssn::BSSN_BH_LOC[0]).abs();
-        const double dbh1 = (grid_p - bssn::BSSN_BH_LOC[1]).abs();
 
 #ifdef BSSN_EXTRACT_GRAVITATIONAL_WAVES
         if (dbh < 0.1) {
@@ -1881,8 +1891,6 @@ double computeWTolDCoords(double x, double y, double z, double* hx) {
 #endif
 
     } else if (bssn::BSSN_USE_WAVELET_TOL_FUNCTION == 2) {
-        const double r   = sqrt(x * x + y * y + z * z);
-        const double dbh = (bssn::BSSN_BH_LOC[0] - bssn::BSSN_BH_LOC[1]).abs();
 
         Point grid_p(x, y, z);
         const double dbh0 = (grid_p - bssn::BSSN_BH_LOC[0]).abs();
@@ -1926,14 +1934,7 @@ double computeWTolDCoords(double x, double y, double z, double* hx) {
 #endif
 
     } else if (bssn::BSSN_USE_WAVELET_TOL_FUNCTION == 3) {
-        const double r   = sqrt(x * x + y * y + z * z);
-        const double dbh = (bssn::BSSN_BH_LOC[0] - bssn::BSSN_BH_LOC[1]).abs();
-        Point grid_p(x, y, z);
-        const double dbh0            = (grid_p - bssn::BSSN_BH_LOC[0]).abs();
-        const double dbh1            = (grid_p - bssn::BSSN_BH_LOC[1]).abs();
-
         const double GW_R_SAFETY_FAC = 10.0;
-        const double T_CURRENT       = bssn::BSSN_CURRENT_RK_COORD_TIME;
         const double TIME_OFFSET_FAC = 5.0;
 
         if (T_CURRENT > bssn::BSSN_WAVELET_TOL_FUNCTION_R1 + TIME_OFFSET_FAC) {
@@ -1972,14 +1973,7 @@ double computeWTolDCoords(double x, double y, double z, double* hx) {
         }
 
     } else if (bssn::BSSN_USE_WAVELET_TOL_FUNCTION == 4) {
-        const double r   = sqrt(x * x + y * y + z * z);
-        const double dbh = (bssn::BSSN_BH_LOC[0] - bssn::BSSN_BH_LOC[1]).abs();
-        Point grid_p(x, y, z);
-        const double dbh0            = (grid_p - bssn::BSSN_BH_LOC[0]).abs();
-        const double dbh1            = (grid_p - bssn::BSSN_BH_LOC[1]).abs();
-
         const double GW_R_SAFETY_FAC = 10.0;
-        const double T_CURRENT       = bssn::BSSN_CURRENT_RK_COORD_TIME;
         const double TIME_OFFSET_FAC = 20.0;
 
         if (T_CURRENT > bssn::BSSN_WAVELET_TOL_FUNCTION_R1 + TIME_OFFSET_FAC) {
@@ -2031,7 +2025,6 @@ double computeWTolDCoords(double x, double y, double z, double* hx) {
         const double d2      = (grid_p - bssn::BSSN_BH_LOC[1]).abs();
         const double m1      = bssn::BSSN_BH1_MASS;
         const double m2      = bssn::BSSN_BH2_MASS;
-        const double t0      = bssn::BSSN_CURRENT_RK_COORD_TIME;
         const double toffset = 16.0;
 
         const double eps[3]  = {bssn::BSSN_WAVELET_TOL,
@@ -2042,15 +2035,34 @@ double computeWTolDCoords(double x, double y, double z, double* hx) {
         rad[1]    = 4.0 * rad[0];
         rad[3]    = GW::BSSN_GW_RADAII[GW::BSSN_GW_NUM_RADAII - 1];
 
-        double e1 = CalTolHelper(t0, d1, rad, eps, toffset);
+        double e1 = CalTolHelper(T_CURRENT, d1, rad, eps, toffset);
 
         rad[0]    = 3.0 * m2;
         rad[1]    = 4.0 * rad[0];
         rad[3]    = GW::BSSN_GW_RADAII[GW::BSSN_GW_NUM_RADAII - 1];
-        double e2 = CalTolHelper(t0, d2, rad, eps, toffset);
+        double e2 = CalTolHelper(T_CURRENT, d2, rad, eps, toffset);
 
         return std::min(e1, e2);
 
+    } else if (bssn::BSSN_USE_WAVELET_TOL_FUNCTION == 6) {
+        // WKB Aug 2024
+        // use different sensitivities for regions of spacetime which 
+        // are causally connected to the BHs as cf regions which are
+        // spacelike, causally disconnected from the BHs. 
+        
+        const double L = 50; // M; expected lapse wave tail length
+        // calculate the time after which a given radius's relationship 
+        // with the grid center is both time-like & clean of lapse noise
+        const double t_lim = std::max(r, (r + L) / std::sqrt(2));
+        
+        if (T_CURRENT > t_lim) { // in timelike & clean region
+            // return standard wavelet tolerance
+            return bssn::BSSN_WAVELET_TOL; 
+        } else { // in spacelike or dirty region
+            // return max permissible wavelet tolerance
+            // effectively disabling / kneecapping WAMR
+            return bssn::BSSN_WAVELET_TOL_MAX; 
+        }
     } else {
         return bssn::BSSN_WAVELET_TOL;
     }
