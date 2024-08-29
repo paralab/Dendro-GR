@@ -287,8 +287,8 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
                 }
             }
 
-// refinement on the GW when the BH gets closer.
 #ifdef BSSN_EXTRACT_GRAVITATIONAL_WAVES
+            // refinement on the GW when the BH gets closer.
             if (dBH < 0.1) {
                 const unsigned int L_MIN =
                     std::max(2, (int)bssn::BSSN_MAXDEPTH - 4);
@@ -304,8 +304,7 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
                 }
             }
 #endif
-            // @wkb 12 June 2020 copying milinda: 11/21/2020 : 
-            // Don't allow to violate the min depth
+            // @wkb 12 June 2020: Don't allow min depth violation
             if (pNodes[ele].getLevel() < bssn::BSSN_MINDEPTH) {
                 // if it's below the mindepth, refine.
                 refine_flags[ele - eleLocalBegin] = OCT_SPLIT;
@@ -542,8 +541,8 @@ bool isReMeshWAMR(
 
     if (pMesh->isActive()) {
         if (!pMesh->getMPIRank())
-            printf("BH coord sep: %.8E \n",
-                   dBH);  // std::cout<<"BH coord sep: "<<dBH<<std::endl;
+            printf("BH coord sep: %.8E \n", dBH);  
+            // std::cout<<"BH coord sep: "<<dBH<<std::endl;
 
         const RefElement* refEl    = pMesh->getReferenceElement();
         wavelet::WaveletEl* wrefEl = new wavelet::WaveletEl((RefElement*)refEl);
@@ -1114,17 +1113,17 @@ bool addRemeshWAMR(
 
     if (pMesh->isActive()) {
         if (!pMesh->getMPIRank())
-            printf("BH coord sep: %.8E \n",
-                   dBH);  // std::cout<<"BH coord sep: "<<dBH<<std::endl;
+            printf("BH coord sep: %.8E \n", dBH);
+            // std::cout<<"BH coord sep: "<<dBH<<std::endl;
 
         const RefElement* refEl    = pMesh->getReferenceElement();
         wavelet::WaveletEl* wrefEl = new wavelet::WaveletEl((RefElement*)refEl);
 
-        // refine_flags.resize(pMesh->getNumLocalMeshElements(), OCT_NO_CHANGE);
+        // pull current refinement flags
         const ot::TreeNode* pNodes = pMesh->getAllElements().data();
 
-        std::vector<double> wtol_vals;
-        wtol_vals.resize(BSSN_NUM_VARS, 0);
+        // set up vector to collect wavelet tolerance values 
+        std::vector<double> wtol_vals(BSSN_NUM_VARS, 0.0);
 
         const std::vector<ot::Block>& blkList = pMesh->getLocalBlockList();
         const unsigned int eOrder             = pMesh->getElementOrder();
