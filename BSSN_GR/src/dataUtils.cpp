@@ -150,7 +150,7 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
     // const double r_far[2]  =  {2.5 * r_near[0], 2.5 * r_near[1] };
     const double r_far[2]  = {bssn::BSSN_AMR_R_RATIO * r_near[0],
                               bssn::BSSN_AMR_R_RATIO * r_near[1]};
-    const unsigned int DEPTH_LEV_OFFSET = 2;
+    const unsigned int DEPTH_LEV_OFFSET = 1;
 
     const unsigned int eleLocalBegin    = pMesh->getElementLocalBegin();
     const unsigned int eleLocalEnd      = pMesh->getElementLocalEnd();
@@ -162,6 +162,12 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
         std::min(bssn::BSSN_BH1_MAX_LEV, bssn::BSSN_BH2_MAX_LEV);
 
     std::vector<unsigned int> refine_flags;
+
+    // NOTE: these are the previous refine flags, they're usually "no change" on
+    // remesh
+    std::vector<unsigned int> prev_refine_flags =
+        pMesh->getAllRefinementFlags();
+
     if (pMesh->isActive()) {
         // if(!pMesh->getMPIRank())
         //     std::cout<<"bh distance: "<<dBH<<std::endl;
@@ -298,6 +304,16 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
                 }
             }
 #endif
+            // @wkb 12 June 2020 copying milinda: 11/21/2020 : Don't allow to
+            // violate the min depth
+            if (pNodes[ele].getLevel() < bssn::BSSN_MINDEPTH) {
+                // if it's below the mindepth, refine.
+                refine_flags[ele - eleLocalBegin] = OCT_SPLIT;
+            } else if (pNodes[ele].getLevel() == bssn::BSSN_MINDEPTH &&
+                       refine_flags[ele - eleLocalBegin] == OCT_COARSE) {
+                // if it had been told to coarsen, ignore that.
+                refine_flags[ele - eleLocalBegin] = OCT_NO_CHANGE;
+            }
         }
 
         isOctChange = pMesh->setMeshRefinementFlags(refine_flags);
@@ -309,14 +325,19 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
     return isOctChanged_g;
 }
 
-bool isRemeshEH(const ot::Mesh* pMesh, const double** unzipVec,
-                unsigned int vIndex, double refine_th, double coarsen_th,
-                bool isOverwrite) {
+bool isRemeshEH(ot::Mesh* pMesh, const double** unzipVec, unsigned int vIndex,
+                double refine_th, double coarsen_th, bool isOverwrite) {
     const unsigned int eleLocalBegin = pMesh->getElementLocalBegin();
     const unsigned int eleLocalEnd   = pMesh->getElementLocalEnd();
     bool isOctChange                 = false;
     bool isOctChange_g               = false;
     const unsigned int eOrder        = pMesh->getElementOrder();
+
+    std::vector<unsigned int> refine_flags;
+
+    // NOTE: this is what the flags are set to, note that
+    const std::vector<unsigned int> prev_refine_flags =
+        pMesh->getAllRefinementFlags();
 
     if (pMesh->isActive()) {
         ot::TreeNode* pNodes =

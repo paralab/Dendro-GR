@@ -55,7 +55,14 @@ ad = dendro.ad
 kod = dendro.kod
 d2 = dendro.d2
 
-t = symbols("t")
+t = symbols("t") # time; needed for SSL
+
+# add symbols used for CAHD 
+ham = symbols('ham[pp]') # hamiltonian constraint violation
+C_CAHD = symbols('BSSN_CAHD_C') # coefficient for CAHD strength
+dt = symbols('dt') # simulation time step
+dx_i = symbols('dx_i') # spatial resolution of current grid
+dx_min = symbols('dx_min') # spatial resolution of finest grid
 
 dendro.set_metric(gt)
 igt = dendro.get_inverse_metric()
@@ -68,7 +75,7 @@ eta_func = (
 )
 
 
-def bssn_puncture_gauge(eta_damp, isStaged=False, prefix="", sslGaugeCondition=False):
+def bssn_puncture_gauge(eta_damp, isStaged=False, prefix="", sslGaugeCondition=False, enableCAHD=False):
     """
     BSSN puncture gauge (HAD/ traditional BSSN puncture gaugue) with const eta damping
     """
@@ -81,6 +88,7 @@ def bssn_puncture_gauge(eta_damp, isStaged=False, prefix="", sslGaugeCondition=F
         [R, Rt, Rphi, CalGt] = dendro.compute_ricci(Gt, chi)
 
         if sslGaugeCondition:
+            # enable slow-start lapse
             W = chi**0.5
             h = 0.6
             sig = 20
@@ -100,6 +108,11 @@ def bssn_puncture_gauge(eta_damp, isStaged=False, prefix="", sslGaugeCondition=F
         gt_rhs = dendro.lie(b, gt, weight) - 2 * a * At
 
         chi_rhs = dendro.lie(b, chi, weight) + Rational(2, 3) * (chi * a * K)
+        
+        if enableCAHD: 
+          # turn on curvature-adjusted Hamiltonian-constraint damping
+          # chi_rhs += C_CAHD * chi * (dt * dx_i / dx_min) * ham # Etienne's method
+          chi_rhs += C_CAHD * chi * (dx_i**2 / dt) * ham # WKB's method
 
         AikAkj = Matrix(
             [
@@ -261,6 +274,11 @@ def bssn_puncture_gauge(eta_damp, isStaged=False, prefix="", sslGaugeCondition=F
         gt_rhs = dendro.lie(b, gt, weight) - 2 * a * At
 
         chi_rhs = dendro.lie(b, chi, weight) + Rational(2, 3) * (chi * a * K)
+        
+        if enableCAHD: 
+          # turn on curvature-adjusted Hamiltonian-constraint damping
+          # chi_rhs += C_CAHD * chi * (dt * dx_i / dx_min) * ham # Etienne's method
+          chi_rhs += C_CAHD * chi * (dx_i**2 / dt) * ham # WKB's method
 
         AikAkj = Matrix(
             [
@@ -409,15 +427,16 @@ def bssn_rochester_puncture_gauge(
         [R, Rt, Rphi, CalGt] = dendro.compute_ricci(Gt, chi)
 
         if sslGaugeCondition:
+            # enable slow-start lapse
             W = chi**0.5
-            h = 0.6
-            sig = 20
+            h = 0.6 # M; Gaussian height
+            sig = 20 # M; Gaussian stddev
             a_rhs = (
                 l1 * dendro.lie(b, a)
                 - 2 * a * K
                 - W * (h * exp(-(t**2) / (2 * sig**2))) * (a - W)
             )
-        else:
+        else: # no SSL
             a_rhs = l1 * dendro.lie(b, a) - 2 * a * K
 
         b_rhs = [
@@ -555,15 +574,16 @@ def bssn_rochester_puncture_gauge(
         [R, Rt, Rphi, CalGt] = dendro.compute_ricci(Gt, chi)
 
         if sslGaugeCondition:
+            # enable slow-start lapse
             W = chi**0.5
-            h = 0.6
-            sig = 20
+            h = 0.6 # M; Gaussian height
+            sig = 20 # M; Gaussian stddev
             a_rhs = (
                 l1 * dendro.lie(b, a)
                 - 2 * a * K
                 - W * (h * exp(-(t**2) / (2 * sig**2))) * (a - W)
             )
-        else:
+        else: # no SSL
             a_rhs = l1 * dendro.lie(b, a) - 2 * a * K
 
         b_rhs = [
@@ -701,10 +721,13 @@ def bssn_rochester_puncture_gauge(
             dendro.generate_separate([outs[i]], [vnames[i]], "[pp]")
 
 
-def main(staged_type, gauge, eta_damp, prefix, enable_ssl):
+def main(staged_type, gauge, eta_damp, prefix, enable_ssl, enable_cahd):
 
     if enable_ssl:
         print("// CODEGEN: SSL was enabled, adding term to gauge condition!")
+
+    if enable_cahd:
+        print("// CODEGEN: CAHD was enabled, adding damping term to chi!")
 
     if staged_type == "staged":
         print("//Codgen: generating staged version ")
@@ -721,10 +744,10 @@ def main(staged_type, gauge, eta_damp, prefix, enable_ssl):
             print("//Codgen: using standard gauge")
             if eta_damp == "func":
                 print("//Codgen: using eta func damping")
-                bssn_puncture_gauge(eta_func, True, prefix, enable_ssl)
+                bssn_puncture_gauge(eta_func, True, prefix, enable_ssl, enable_cahd)
             else:
                 print("//Codgen: using eta const damping")
-                bssn_puncture_gauge(eta, True, prefix, enable_ssl)
+                bssn_puncture_gauge(eta, True, prefix, enable_ssl, enable_cahd)
 
     else:
         print("//Codgen: generating unstage version ")
@@ -741,10 +764,10 @@ def main(staged_type, gauge, eta_damp, prefix, enable_ssl):
             print("//Codgen: using standard gauge")
             if eta_damp == "func":
                 print("//Codgen: using eta func damping")
-                bssn_puncture_gauge(eta_func, False, prefix, enable_ssl)
+                bssn_puncture_gauge(eta_func, False, prefix, enable_ssl, enable_cahd)
             else:
                 print("//Codgen: using eta const damping")
-                bssn_puncture_gauge(eta, False, prefix, enable_ssl)
+                bssn_puncture_gauge(eta, False, prefix, enable_ssl, enable_cahd)
 
 
 if __name__ == "__main__":
@@ -786,6 +809,12 @@ if __name__ == "__main__":
         "--enable_ssl",
         action="store_true",
         help="Whether or not to generate with the SSL code",
+    )
+    parser.add_argument(
+        "-c",
+        "--enable_cahd",
+        action="store_true",
+        help="Whether or not to enable CAHD",
     )
 
     args = parser.parse_args()
