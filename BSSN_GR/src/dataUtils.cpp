@@ -335,6 +335,7 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
               setLevelFloor(l_orbit);
             }
             
+#ifdef BSSN_EXTRACT_GRAVITATIONAL_WAVES
             ////////////////////////////////////////////////////////////
             // add refinement based on expected gravitational wavelength
             constexpr double A = 9.4;
@@ -354,22 +355,8 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
             // min refinement level required from GWs
             const int ell_star = get_ell(t_ret, 6); 
             setLevelFloor(ell_star);
-
-            
-#ifdef BSSN_EXTRACT_GRAVITATIONAL_WAVES
-            ////////////////////////////////////////////////////////////
-            // refinement on the GW when the BH gets closer.
-            if (dBH < 0.1) {
-                const unsigned int L_MIN =
-                    std::max(2, (int)bssn::BSSN_MAXDEPTH - 4);
-
-                for (unsigned int i = 0; i < GW::BSSN_GW_NUM_RADAII; i++) {
-                    if (fabs(r_min - GW::BSSN_GW_RADAII[i]) < 1) {
-                        setLevelFloor(L_MIN);
-                    }
-                }
-            }
 #endif
+
             // @wkb 12 June 2020: Don't allow min depth violation
             setLevelFloor(bssn::BSSN_MINDEPTH);
         }
