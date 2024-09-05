@@ -805,7 +805,7 @@ int BSSNCtx::write_checkpt() {
     char fName[256];
     const ot::TreeNode* pNodes = &(*(m_uiMesh->getAllElements().begin() +
                                      m_uiMesh->getElementLocalBegin()));
-    sprintf(fName, "%s_octree_%d_%d.oct", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
+    sprintf(fName, "%s_%d_octree_%d.oct", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
             cpIndex, rank);
     io::checkpoint::writeOctToFile(fName, pNodes,
                                    m_uiMesh->getNumLocalMeshElements());
@@ -819,7 +819,7 @@ int BSSNCtx::write_checkpt() {
                                    bssn::BSSN_NUM_VARS);
 
     if (!rank) {
-        sprintf(fName, "%s_step_%d.cp", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
+        sprintf(fName, "%s_%d_step.cp", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
                 cpIndex);
         std::cout << "[BSSNCtx] \t writing checkpoint file : " << fName
                   << std::endl;
@@ -898,7 +898,7 @@ int BSSNCtx::restore_checkpt() {
         restoreStatus = 0;
 
         if (!rank) {
-            sprintf(fName, "%s_step_%d.cp",
+            sprintf(fName, "%s_%d_step.cp",
                     bssn::BSSN_CHKPT_FILE_PREFIX.c_str(), cpIndex);
 
             std::cout << "    Checking to see if " << fName
@@ -971,7 +971,7 @@ int BSSNCtx::restore_checkpt() {
                   << restoreFileIndex << std::endl;
 
     if (!rank) {
-        sprintf(fName, "%s_step_%d.cp", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
+        sprintf(fName, "%s_%d_step.cp", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
                 restoreFileIndex);
 
         // first check to see if the file even exists
@@ -1069,7 +1069,7 @@ int BSSNCtx::restore_checkpt() {
         MPI_Comm_size(newComm, &activeNpes);
         assert(activeNpes == activeCommSz);
 
-        sprintf(fName, "%s_octree_%d_%d.oct",
+        sprintf(fName, "%s_%d_octree_%d.oct",
                 bssn::BSSN_CHKPT_FILE_PREFIX.c_str(), restoreFileIndex,
                 activeRank);
         restoreStatus = io::checkpoint::readOctFromFile(fName, octree);
