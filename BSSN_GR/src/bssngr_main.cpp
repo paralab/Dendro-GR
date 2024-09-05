@@ -553,9 +553,14 @@ bssn:
                             }
 
                             char fname[256];
-                            sprintf(fname, "%s_%d_%d_%d_bh_merged_aeh.dat",
-                                    bssn::BSSN_PROFILE_FILE_PREFIX.c_str(),
-                                    lmax, ntheta, nphi);
+                            // output file should save in an order for finding
+                            // files PREFIX _
+                            // aeh_bh{bhid}_l{lmax}_t{ntheta}_p{nphi}
+                            sprintf(
+                                fname,
+                                "%s_aeh_bhMerged_l%02d_nth%03d_nphi%03d.dat",
+                                bssn::BSSN_PROFILE_FILE_PREFIX.c_str(), lmax,
+                                ntheta, nphi);
                             aeh_solver.set_lmodes(lmax);
                             aeh_solver.solve(bssnCtx, hh[2].data(),
                                              hh[3].data(), max_iter, rel_tol,
@@ -596,7 +601,8 @@ bssn:
                             }
 
                             char fname[256];
-                            sprintf(fname, "%s_%d_%d_%d_bh0_aeh.dat",
+                            sprintf(fname,
+                                    "%s_aeh_bh0_l%02d_nth%03d_nphi%03d.dat",
                                     bssn::BSSN_PROFILE_FILE_PREFIX.c_str(),
                                     lmax, ntheta, nphi);
                             aeh_solver.set_lmodes(lmax);
@@ -637,7 +643,8 @@ bssn:
                             }
 
                             char fname[256];
-                            sprintf(fname, "%s_%d_%d_%d_bh1_aeh.dat",
+                            sprintf(fname,
+                                    "%s_aeh_bh1_l%02d_nth%03d_nphi%03d.dat",
                                     bssn::BSSN_PROFILE_FILE_PREFIX.c_str(),
                                     lmax, ntheta, nphi);
                             aeh_solver.set_lmodes(lmax);
