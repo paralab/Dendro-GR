@@ -157,7 +157,9 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
     bool isOctChange                    = false;
     bool isOctChange_g                  = false;
     Point d1, d2, temp;
+    // distance btw the black holes
     const double dBH = (bhLoc[0] - bhLoc[1]).abs();
+    // lower of two max depths
     const unsigned int refLevMin =
         std::min(bssn::BSSN_BH1_MAX_LEV, bssn::BSSN_BH2_MAX_LEV);
 
@@ -175,8 +177,9 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
         const ot::TreeNode* pNodes = pMesh->getAllElements().data();
         refine_flags.resize(pMesh->getNumLocalMeshElements(), OCT_NO_CHANGE);
 
-        // refine pass.
+        // refine pass: iterate over all elements
         for (unsigned int ele = eleLocalBegin; ele < eleLocalEnd; ele++) {
+            // calculate which region of the grid we're in
             const unsigned int ln = 1u
                                     << (m_uiMaxDepth - pNodes[ele].getLevel());
 
@@ -185,7 +188,12 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
 
             bool isNearFarTobh1 = false;
             bool isNearFarTobh2 = false;
+            
+            // minimum radius from grid center contained in this node
+            // start at large value to be overwritten
+            double r_min = 1000000; 
 
+            // measure distances between both BHs
             for (unsigned int kk = 0; kk < 2; kk++)
                 for (unsigned int jj = 0; jj < 2; jj++)
                     for (unsigned int ii = 0; ii < 2; ii++) {
@@ -194,16 +202,23 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
                         const double z      = pNodes[ele].minZ() + kk * ln;
                         const Point oct_mid = Point(x, y, z);
                         pMesh->octCoordToDomainCoord(oct_mid, temp);
-
-                        d1               = temp - bhLoc[0];
-                        d2               = temp - bhLoc[1];
+                        
+                        // update minimum distance from grid center
+                        r_min = std::min(r_min,temp.abs());
+                        
+                        // vectors pointing toward each BH
+                        d1 = temp - bhLoc[0];
+                        d2 = temp - bhLoc[1];
+                        // distances to each BH
                         const double rd1 = d1.abs();
                         const double rd2 = d2.abs();
 
+                        // if w/i innermost radii
                         if (!isNearTobh1) isNearTobh1 = (rd1 <= r_near[0]);
 
                         if (!isNearTobh2) isNearTobh2 = (rd2 <= r_near[1]);
 
+                        // if in second ring
                         if (!isNearFarTobh1)
                             isNearFarTobh1 =
                                 ((rd1 > r_near[0]) && (rd1 <= r_far[0]));
@@ -212,28 +227,32 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
                             isNearFarTobh2 =
                                 ((rd2 > r_near[1]) && (rd2 <= r_far[1]));
                     }
-
+            
             if (dBH < 0.1) {
                 // BHs have merged.
 
                 if (isNearTobh1 || isNearTobh2) {
+                    // in either inner radii
+                    // set towards correct level
                     if ((pNodes[ele].getLevel() + MAXDEAPTH_LEVEL_DIFF + 1) <
-                        refLevMin)
+                        refLevMin) // if lower refinement than goal, split
                         refine_flags[ele - eleLocalBegin] = OCT_SPLIT;
                     else if ((pNodes[ele].getLevel() + MAXDEAPTH_LEVEL_DIFF +
-                              1) > refLevMin)
+                              1) > refLevMin) // if overrefined, coarsen
                         refine_flags[ele - eleLocalBegin] = OCT_COARSE;
                     else
                         refine_flags[ele - eleLocalBegin] = OCT_NO_CHANGE;
 
                 } else if (isNearFarTobh1 || isNearFarTobh2) {
+                    // in either mid radii
                     refine_flags[ele - eleLocalBegin] = OCT_NO_CHANGE;
-                } else {
+                } else { 
+                    // far from both BHs
                     refine_flags[ele - eleLocalBegin] = OCT_COARSE;
                 }
 
             } else {
-                // BHs are in spiral
+                // inspiral phase of merger 
 
                 if (isNearTobh1 || isNearTobh2) {
                     if (isNearTobh1) {
@@ -246,7 +265,7 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
                             refine_flags[ele - eleLocalBegin] = OCT_COARSE;
                         else
                             refine_flags[ele - eleLocalBegin] = OCT_NO_CHANGE;
-                    } else {
+                    } else { // is near to BH 2
                         if ((pNodes[ele].getLevel() + MAXDEAPTH_LEVEL_DIFF +
                              1) < bssn::BSSN_BH2_MAX_LEV)
                             refine_flags[ele - eleLocalBegin] = OCT_SPLIT;
@@ -286,34 +305,73 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
                     refine_flags[ele - eleLocalBegin] = OCT_COARSE;
                 }
             }
+            
+            ////////////////////////////////////////////////////////////
+            // wkb 5 Sept 2024: make this into nice functions 
+            
+            // function which ensures we're at least at a given level
+            auto setLevelFloor = [&](int l_min) {
+                int currentLevel = pNodes[ele].getLevel();
+            
+                if (currentLevel < l_min) {
+                    // if below desired refinement level, split
+                    refine_flags[ele - eleLocalBegin] = OCT_SPLIT;
+                } else if (currentLevel == l_min && 
+                           refine_flags[ele - eleLocalBegin] == OCT_COARSE) {
+                    // if at desired level, prevent coarsening
+                    refine_flags[ele - eleLocalBegin] = OCT_NO_CHANGE;
+                }
+                // else: sufficiently refined
+            };
+            
+            ////////////////////////////////////////////////////////////
+            // wkb 29 Aug 2024: add refinement based on radius
+            // if radius r <= r*, keep level l >= l*
+            
+            // set up orbital scale
+            const double R_orbit = 8; // M; orbital radius of binary
+            const int l_orbit = 9; // desired refinement level within 
+            if (r_min <= R_orbit) {
+              setLevelFloor(l_orbit);
+            }
+            
+            ////////////////////////////////////////////////////////////
+            // add refinement based on expected gravitational wavelength
+            constexpr double A = 9.4;
+            constexpr double tau0 = 445.0;
+            constexpr double mn = 6.9;
+            
+            auto get_ell = [A, tau0, mn](double t_ret, int m = 6) -> int {
+                // Get refinement level necessary from wavelength
+                double lambda = (t_ret < tau0)
+                    ? A * std::pow(tau0 - t_ret, 3.0/8.0)
+                    : mn;
+                lambda = std::max(lambda, mn);
+                return static_cast<int>(std::ceil(std::log2(800.0 * m / (3.0 * lambda))));
+            };
+            // calculate retarded time
+            const double t_ret = bssn::BSSN_CURRENT_RK_COORD_TIME - r_min; 
+            // min refinement level required from GWs
+            const int ell_star = get_ell(t_ret, 6); 
+            setLevelFloor(ell_star);
 
+            
 #ifdef BSSN_EXTRACT_GRAVITATIONAL_WAVES
+            ////////////////////////////////////////////////////////////
             // refinement on the GW when the BH gets closer.
             if (dBH < 0.1) {
                 const unsigned int L_MIN =
                     std::max(2, (int)bssn::BSSN_MAXDEPTH - 4);
-                const double dr = temp.abs();
 
                 for (unsigned int i = 0; i < GW::BSSN_GW_NUM_RADAII; i++) {
-                    if (fabs(dr - GW::BSSN_GW_RADAII[i]) < 1) {
-                        if (pNodes[ele].getLevel() < L_MIN)
-                            refine_flags[ele - eleLocalBegin] = OCT_SPLIT;
-                        else
-                            refine_flags[ele - eleLocalBegin] = OCT_NO_CHANGE;
+                    if (fabs(r_min - GW::BSSN_GW_RADAII[i]) < 1) {
+                        setLevelFloor(L_MIN);
                     }
                 }
             }
 #endif
             // @wkb 12 June 2020: Don't allow min depth violation
-            if (pNodes[ele].getLevel() < bssn::BSSN_MINDEPTH) {
-                // if it's below the mindepth, refine.
-                refine_flags[ele - eleLocalBegin] = OCT_SPLIT;
-            } else if (pNodes[ele].getLevel() == bssn::BSSN_MINDEPTH &&
-                       refine_flags[ele - eleLocalBegin] == OCT_COARSE) {
-                // if it had been told to coarsen, ignore that.
-                refine_flags[ele - eleLocalBegin] = OCT_NO_CHANGE;
-            }
-          
+            setLevelFloor(bssn::BSSN_MINDEPTH);
         }
 
         isOctChange = pMesh->setMeshRefinementFlags(refine_flags);
