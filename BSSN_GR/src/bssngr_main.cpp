@@ -393,8 +393,11 @@ bssn:
                 // bssn::BSSN_REMESH_TEST_FREQ_AFTER_MERGER;
                 // bssn::BSSN_MINDEPTH=5;
                 // TODO: make BSSN refinement mode POST MERGER an option!
-                bssn::BSSN_REFINEMENT_MODE = bssn::RefinementMode::WAMR;
-                bssn::BSSN_USE_WAVELET_TOL_FUNCTION = 1;
+                
+                // wkb 5 Sept 2024: disable these two lines 
+                // so I can test other refinement modes
+                // bssn::BSSN_REFINEMENT_MODE = bssn::RefinementMode::WAMR;
+                // bssn::BSSN_USE_WAVELET_TOL_FUNCTION = 1;
                 bssn::BSSN_REMESH_TEST_FREQ =
                     bssn::BSSN_REMESH_TEST_FREQ_AFTER_MERGER;
                 bssn::BSSN_GW_EXTRACT_FREQ =
