@@ -846,13 +846,17 @@ int BSSNCtx::write_checkpt() {
         checkPoint["DENDRO_TS_ACTIVE_COMM_SZ"] =
             m_uiMesh->getMPICommSize();  // (note that rank 0 is always active).
 
-        checkPoint["DENDRO_BH1_X"] = m_uiBHLoc[0].x();
-        checkPoint["DENDRO_BH1_Y"] = m_uiBHLoc[0].y();
-        checkPoint["DENDRO_BH1_Z"] = m_uiBHLoc[0].z();
+        checkPoint["DENDRO_BH1_X"]              = m_uiBHLoc[0].x();
+        checkPoint["DENDRO_BH1_Y"]              = m_uiBHLoc[0].y();
+        checkPoint["DENDRO_BH1_Z"]              = m_uiBHLoc[0].z();
 
-        checkPoint["DENDRO_BH2_X"] = m_uiBHLoc[1].x();
-        checkPoint["DENDRO_BH2_Y"] = m_uiBHLoc[1].y();
-        checkPoint["DENDRO_BH2_Z"] = m_uiBHLoc[1].z();
+        checkPoint["DENDRO_BH2_X"]              = m_uiBHLoc[1].x();
+        checkPoint["DENDRO_BH2_Y"]              = m_uiBHLoc[1].y();
+        checkPoint["DENDRO_BH2_Z"]              = m_uiBHLoc[1].z();
+
+        checkPoint["DENDRO_BSSN_BH_MERGE"]      = m_bIsBHMerged;
+        checkPoint["DENDRO_BSSN_BH_MERGE_TIME"] = m_dMergeTime;
+        checkPoint["DENDRO_BSSN_BH_MERGE_STEP"] = m_uiMergeStep;
 
         outfile << std::setw(4) << checkPoint << std::endl;
         outfile.close();
@@ -927,15 +931,25 @@ int BSSNCtx::restore_checkpt() {
                 bssn::BSSN_LOAD_IMB_TOL =
                     checkPoint["DENDRO_TS_LOAD_IMB_TOLERANCE"];
 
-                numVars              = checkPoint["DENDRO_TS_NUM_VARS"];
-                activeCommSz         = checkPoint["DENDRO_TS_ACTIVE_COMM_SZ"];
+                numVars      = checkPoint["DENDRO_TS_NUM_VARS"];
+                activeCommSz = checkPoint["DENDRO_TS_ACTIVE_COMM_SZ"];
 
-                m_uiBHLoc[0]         = Point((double)checkPoint["DENDRO_BH1_X"],
-                                             (double)checkPoint["DENDRO_BH1_Y"],
-                                             (double)checkPoint["DENDRO_BH1_Z"]);
-                m_uiBHLoc[1]         = Point((double)checkPoint["DENDRO_BH2_X"],
-                                             (double)checkPoint["DENDRO_BH2_Y"],
-                                             (double)checkPoint["DENDRO_BH2_Z"]);
+                m_uiBHLoc[0] = Point((double)checkPoint["DENDRO_BH1_X"],
+                                     (double)checkPoint["DENDRO_BH1_Y"],
+                                     (double)checkPoint["DENDRO_BH1_Z"]);
+                m_uiBHLoc[1] = Point((double)checkPoint["DENDRO_BH2_X"],
+                                     (double)checkPoint["DENDRO_BH2_Y"],
+                                     (double)checkPoint["DENDRO_BH2_Z"]);
+
+                // if this key is in, then all three keys should be
+                if (checkPoint.find("DENDRO_BSSN_BH_MERGE") !=
+                    checkPoint.end()) {
+                    // restore bh merge and merge time information
+                    m_bIsBHMerged = checkPoint["DENDRO_BSSN_BH_MERGE"];
+                    m_dMergeTime  = checkPoint["DENDRO_BSSN_BH_MERGE_TIME"];
+                    m_uiMergeStep = checkPoint["DENDRO_BSSN_BH_MERGE_STEP"];
+                }
+
                 restoreStep[cpIndex] = m_uiTinfo._m_uiStep;
             }
         }
@@ -1233,9 +1247,9 @@ bool BSSNCtx::is_remesh() {
         const bool isR1 = bssn::isRemeshBH(m_uiMesh, m_uiBHLoc);
         // WAMR for additional refinement
         const bool isR2 =
-            bssn::addRemeshWAMR(m_uiMesh, (const double**)unzipVar, refineVarIds,
-                               bssn::BSSN_NUM_REFINE_VARS, waveletTolFunc,
-                               bssn::BSSN_DENDRO_AMR_FAC);
+            bssn::addRemeshWAMR(m_uiMesh, (const double**)unzipVar,
+                                refineVarIds, bssn::BSSN_NUM_REFINE_VARS,
+                                waveletTolFunc, bssn::BSSN_DENDRO_AMR_FAC);
 
         isRefine = (isR1 || isR2);
     }

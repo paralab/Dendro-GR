@@ -11,8 +11,11 @@
  */
 
 #pragma once
+#include <cmath>
+#include <cstdint>
 #include <filesystem>
 #include <iostream>
+#include <limits>
 
 #include "TwoPunctures.h"
 #include "aeh.h"
@@ -62,6 +65,10 @@ class BSSNCtx : public ts::Ctx<BSSNCtx, DendroScalar, unsigned int> {
     DendroIntL m_uiGlobalGridPoints;
     bool m_uiWroteGridInfoHeader = false;
 
+    double_t m_dMergeTime        = std::numeric_limits<double_t>::max();
+    uint32_t m_uiMergeStep       = std::numeric_limits<uint32_t>::max();
+    bool m_bIsBHMerged           = false;
+
    public:
     /**@brief: default constructor*/
     BSSNCtx(ot::Mesh* pMesh);
@@ -72,6 +79,16 @@ class BSSNCtx : public ts::Ctx<BSSNCtx, DendroScalar, unsigned int> {
     /**@brief get bh locations*/
     const Point& get_bh0_loc() const { return m_uiBHLoc[0]; }
     const Point& get_bh1_loc() const { return m_uiBHLoc[1]; }
+
+    /** @brief get the merge time */
+    const double_t& get_bh_merge_time() const { return m_dMergeTime; }
+    const uint32_t& get_bh_merge_step() const { return m_uiMergeStep; }
+
+    /** @brief update the BH merge time */
+    void set_bh_merge_time(double_t merge_time, uint32_t merge_step) {
+        m_dMergeTime  = merge_time;
+        m_uiMergeStep = merge_step;
+    }
 
     /**
      * @brief sets time adaptive offset
@@ -241,8 +258,29 @@ class BSSNCtx : public ts::Ctx<BSSNCtx, DendroScalar, unsigned int> {
      */
     void lts_smooth(DVec sIn, LTS_SMOOTH_MODE mode);
 
+    /**
+     * @brief tells the BSSN CTX that it is merged
+     *
+     * @param time_merged : time that the merge occured
+     *
+     * Note that once the internal variable m_bIsBHMerged is set, this function
+     * will not update the merge time again.
+     */
+    void set_is_merged(double_t time_merged, uint32_t step_merged) {
+        if (m_bIsBHMerged) {
+            return;
+        }
+
+        m_bIsBHMerged = true;
+        set_bh_merge_time(time_merged, step_merged);
+    }
+
     /**@brief: return true if the BH are merged. */
     bool is_bh_merged(double tol) const {
+        if (m_bIsBHMerged) {
+            return true;
+        }
+
         return ((bssn::BSSN_BH_LOC[0] - bssn::BSSN_BH_LOC[1]).abs() < tol);
     };
 
