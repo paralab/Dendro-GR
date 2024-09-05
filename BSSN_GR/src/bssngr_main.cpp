@@ -389,12 +389,18 @@ bssn:
 
             const bool is_merged             = bssnCtx->is_bh_merged(0.1);
             if (is_merged) {
+                // make sure we set that bh is merged!
+                // NOTE: don't worry, this won't update the bssn ctx object
+                // after the first time, unless something modifies another
+                // internal variable
+                bssnCtx->set_is_merged(time, step);
+
                 // bssn::BSSN_REMESH_TEST_FREQ=3 *
                 // bssn::BSSN_REMESH_TEST_FREQ_AFTER_MERGER;
                 // bssn::BSSN_MINDEPTH=5;
                 // TODO: make BSSN refinement mode POST MERGER an option!
-                
-                // wkb 5 Sept 2024: disable these two lines 
+
+                // wkb 5 Sept 2024: disable these two lines
                 // so I can test other refinement modes
                 // bssn::BSSN_REFINEMENT_MODE = bssn::RefinementMode::WAMR;
                 // bssn::BSSN_USE_WAVELET_TOL_FUNCTION = 1;
