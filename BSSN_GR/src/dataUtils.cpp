@@ -327,9 +327,10 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
             ////////////////////////////////////////////////////////////
             // wkb 29 Aug 2024: add refinement based on radius
             // if radius r <= r*, keep level l >= l*
+            // 9/9/24: change to depend on current BH separation dist.
             
             // set up orbital scale
-            const double R_orbit = 8; // M; orbital radius of binary
+            const double R_orbit = (8 + dBH) / 2.; // M; resolve scale
             const int l_orbit = 9; // desired refinement level within 
             if (r_min <= R_orbit) {
               setLevelFloor(l_orbit);
@@ -337,6 +338,7 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
             
 #ifdef BSSN_EXTRACT_GRAVITATIONAL_WAVES
             ////////////////////////////////////////////////////////////
+            // @wkb 4 Sept 2024: 
             // add refinement based on expected gravitational wavelength
             constexpr double A = 9.4;
             constexpr double tau0 = 445.0;
@@ -352,12 +354,21 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
             };
             // calculate retarded time
             const double t_ret = bssn::BSSN_CURRENT_RK_COORD_TIME - r_min; 
+            const double R_GW = 100.;
+            int ell_star; 
             // min refinement level required from GWs
-            const int ell_star = get_ell(t_ret, 6); 
+            if (r_min <= R_GW) {
+              // if w/i region of capturing GWs, resolve highly
+              ell_star = get_ell(t_ret, 4); 
+            } else {
+              // otherwise, only prevent major backreflections
+              ell_star = get_ell(t_ret, 2); 
+            }
             setLevelFloor(ell_star);
 #endif
 
-            // @wkb 12 June 2020: Don't allow min depth violation
+            ////////////////////////////////////////////////////////////
+            // @wkb 12 June 2024: Don't allow min depth violation
             setLevelFloor(bssn::BSSN_MINDEPTH);
         }
 
@@ -642,6 +653,9 @@ bool isReMeshWAMR(
                 for (unsigned int v = 0; v < BSSN_NUM_VARS; v++)
                     wtol_vals[v] = 0;
 
+                // calculate L2 norm of wavelet coefficients 
+                // for each variable; if any exceed limit, 
+                // break out early
                 for (unsigned int v = 0; v < numVars; v++) {
                     const unsigned int vid = varIds[v];
                     pMesh->getUnzipElementalNodalValues(
@@ -662,23 +676,30 @@ bool isReMeshWAMR(
                     // early bail if the computed tolerance value is large.
                     if (wtol_vals[vid] > tol_ele) break;
                 }
-
+                // compute maximum wavelet coefficient of the compiled set
                 const double l_max = vecMax(wtol_vals.data(), wtol_vals.size());
+
+                // use max wavelet coefficient to decide whether
+                // to coaresen / refine / no change 
                 if (l_max > tol_ele) {
+                    // if under-refined, then refine 
                     refine_flags[(ele - eleLocalBegin)] = OCT_SPLIT;
                 } else if (l_max < amr_coarse_fac * tol_ele) {
+                    // if over-refined, then coarsen 
                     refine_flags[(ele - eleLocalBegin)] = OCT_COARSE;
                 } else {
+                    // Goldilox zone - no changes needed
                     refine_flags[(ele - eleLocalBegin)] = OCT_NO_CHANGE;
                 }
             }
         }
 
         delete wrefEl;
+        // end of WAMR core calculation. 
 
-        // --- Below code enforces the artifical refinement by looking at the
-        // puncture locations, by
-        // --- overiding what currently set by the wavelets.
+        ////////////////////////////////////////////////////////////////
+        // Below code enforces a certain level of refinement at the BHs,
+        // overriding what's currently set by the wavelets. 
         for (unsigned int ele = eleLocalBegin; ele < eleLocalEnd; ele++) {
             // refine_flags[ele-eleLocalBegin] =
             // (pNodes[ele].getFlag()>>NUM_LEVEL_BITS); std::cout<<"ref flag:
@@ -881,6 +902,7 @@ bool isReMeshWAMR(
         isOctChange = pMesh->setMeshRefinementFlags(refine_flags);
     }
 
+    // communicate refinement between cores. 
     MPI_Allreduce(&isOctChange, &isOctChange_g, 1, MPI_CXX_BOOL, MPI_LOR,
                   pMesh->getMPIGlobalCommunicator());
     return isOctChange_g;
