@@ -11,6 +11,7 @@
  */
 
 #pragma once
+#include <filesystem>
 #include <iostream>
 
 #include "TwoPunctures.h"
@@ -52,6 +53,14 @@ class BSSNCtx : public ts::Ctx<BSSNCtx, DendroScalar, unsigned int> {
     DVec m_var[VL::END];
 
     Point m_uiBHLoc[2];
+
+   private:
+    // TODO: move these into the main Ctx object and have the remesh logic work
+    // there
+
+    DendroIntL m_uiGlobalMeshElements;
+    DendroIntL m_uiGlobalGridPoints;
+    bool m_uiWroteGridInfoHeader = false;
 
    public:
     /**@brief: default constructor*/
@@ -101,7 +110,6 @@ class BSSNCtx : public ts::Ctx<BSSNCtx, DendroScalar, unsigned int> {
      * @param time : current time.
      * @return int : status. (0) on success.
      */
-
     int aeh_expansion(const Point& origin, aeh::AEH_VARS* m_aeh_vars,
                       DVec& aeh_f, DVec& aeh_h, const DendroScalar* const rlim);
 
@@ -164,6 +172,8 @@ class BSSNCtx : public ts::Ctx<BSSNCtx, DendroScalar, unsigned int> {
     /**@brief: should be called for free up the contex memory. */
     int finalize();
 
+    void compute_constraint_variables();
+
     /**@brief: pack and returns the evolution variables to one DVector*/
     DVec& get_evolution_vars();
 
@@ -175,6 +185,19 @@ class BSSNCtx : public ts::Ctx<BSSNCtx, DendroScalar, unsigned int> {
 
     /**@brief: prints any messages to the terminal output. */
     int terminal_output();
+
+    /**
+     * @brief: writes information about the simulation to a .dat file
+     *
+     * Some of the information saved here:
+     *   - Step
+     *   - Wall Time from last step
+     *   - Simulation time ( t / M)
+     *   - Active communicator size
+     *   - Number of mesh elements
+     *   - Current dt
+     */
+    void write_grid_summary_data();
 
     /**@brief: returns the async communication batch size. */
     unsigned int get_async_batch_sz() { return bssn::BSSN_ASYNC_COMM_K; }
@@ -224,6 +247,8 @@ class BSSNCtx : public ts::Ctx<BSSNCtx, DendroScalar, unsigned int> {
     };
 
     int grid_transfer(const ot::Mesh* m_new);
+
+    void calculate_full_grid_size();
 };
 
 }  // end of namespace bssn

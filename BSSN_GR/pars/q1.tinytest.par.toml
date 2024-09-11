@@ -7,13 +7,13 @@
 BSSN_RESTORE_SOLVER = 0
 
 # Frequency for the VTU Output
-BSSN_IO_OUTPUT_FREQ = 10
+BSSN_IO_OUTPUT_FREQ = 5
 
 # Frequency to use for triggering the remeshing based on wavelets
 BSSN_REMESH_TEST_FREQ = 10
 
 # Extraction frequency for gravitational waves
-BSSN_GW_EXTRACT_FREQ = 10
+BSSN_GW_EXTRACT_FREQ = 5
 
 # Event horizon refinement value
 BSSN_EH_REFINE_VAL = 0.4
@@ -28,7 +28,7 @@ BSSN_CHECKPT_FREQ = 5_000
 BSSN_IO_OUTPUT_GAP = 1
 
 # VTU File Prefix, can be absolute or relative paths
-BSSN_VTU_FILE_PREFIX = "bssn_gr"
+BSSN_VTU_FILE_PREFIX = "bssn_gr_slightly_different"
 
 # Checkpoint File Prefix, can be absolute or relative paths
 BSSN_CHKPT_FILE_PREFIX = "bssn_cp"
@@ -105,7 +105,7 @@ BSSN_USE_FD_GRID_TRANSFER = false
 # 1 - EH
 # 2 - EH_WAMR
 # 3 - BH_LOC
-BSSN_REFINEMENT_MODE = 3
+BSSN_REFINEMENT_MODE = 0
 
 # The number of iterations that should be done for grid initialization
 BSSN_INIT_GRID_ITER = 5
@@ -170,7 +170,7 @@ BSSN_GRID_MAX_Z = 400.0
 BSSN_BH1_AMR_R = 1.0
 BSSN_BH1_CONSTRAINT_R = 5.0
 BSSN_BH1_MAX_LEV = 15
-BSSN_BH1 = { MASS = 0.4824, X = 4.0, Y = 0.0, Z = 0.0, V_X = 0.0, V_Y = 0.114, V_Z = 0.0, SPIN = 0.0, SPIN_THETA = 0.0, SPIN_PHI = 0.0 }
+BSSN_BH1 = { MASS = 0.4824, X = 3.0, Y = 0.0, Z = 0.0, V_X = 0.001, V_Y = 0.118, V_Z = 0.0, SPIN = 0.0, SPIN_THETA = 0.0, SPIN_PHI = 0.0 }
 
 BSSN_BH2_AMR_R = 1.0
 BSSN_BH2_CONSTRAINT_R = 5.0

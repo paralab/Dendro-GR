@@ -21,7 +21,7 @@ DENDRO_VERSION = 5.0
 BSSN_RESTORE_SOLVER = 1
 
 # Frequency for the VTU Output
-BSSN_IO_OUTPUT_FREQ = 3000
+BSSN_IO_OUTPUT_FREQ = 2000
 
 # Frequency to use for triggering the remeshing based on wavelets
 BSSN_REMESH_TEST_FREQ = 30
@@ -51,7 +51,7 @@ BSSN_CHKPT_FILE_PREFIX = "cp/bssn_cp"
 BSSN_PROFILE_FILE_PREFIX = "dat/dgr"
 
 # Two-Puncture Initial Data (TPID) File Prefix
-TPID_FILEPREFIX = "rit_q1"
+TPID_FILEPREFIX = "rit_q4"
 
 # The number of variables considered for VTU Output, goes with BSSN_VTU_OUTPUT_EVOL_INDICES
 BSSN_NUM_EVOL_VARS_VTU_OUTPUT = 14
@@ -87,7 +87,7 @@ BSSN_DIM = 3
 # Minimum Depth of the Mesh/Octree
 BSSN_MINDEPTH = 4
 # Maximum Depth of the Mesh/Octree
-BSSN_MAXDEPTH = 15
+BSSN_MAXDEPTH = 16
 
 
 ########################################################################
@@ -218,15 +218,15 @@ BSSN_GRID_MAX_Z = 400.0
 ########################################################################
 # BLACK HOLE Parameters
 
-BSSN_BH1_AMR_R = 1.0
-BSSN_BH1_CONSTRAINT_R = 2.0
-BSSN_BH1_MAX_LEV = 15
-BSSN_BH1 = { MASS = 0.4824, X = 4.0, Y = 0.0, Z = 0.0, V_X = 0.0, V_Y = 0.114, V_Z = 0.0, SPIN = 0.0, SPIN_THETA = 0.0, SPIN_PHI = 0.0 }
+BSSN_BH1_AMR_R = 0.36
+BSSN_BH1_CONSTRAINT_R = 0.72
+BSSN_BH1_MAX_LEV = 16
+BSSN_BH1 = { MASS = 0.18805875565856064, X = 6.3872832721392978, Y = 0.0, Z = 0.0, V_X = -1.0647800324181081e-03, V_Y = 7.2660384960834906e-02, V_Z = 0.0, SPIN = 0.0, SPIN_THETA = 0.0, SPIN_PHI = 0.0 }
 
-BSSN_BH2_AMR_R = 1.0
-BSSN_BH2_CONSTRAINT_R = 2.0
-BSSN_BH2_MAX_LEV = 15
-BSSN_BH2 = {MASS = 0.4824, X = -4.0, Y = 0.0, Z = 0.0, V_X = 0.0, V_Y = -0.114, V_Z = 0.0, SPIN = 0.0,SPIN_THETA = 0.0,SPIN_PHI = 0.0 }
+BSSN_BH2_AMR_R = 1.2
+BSSN_BH2_CONSTRAINT_R = 2.4
+BSSN_BH2_MAX_LEV = 14
+BSSN_BH2 = { MASS = 0.78937789039671058, X = -1.6127167278607024, Y = 0.0, Z = 0.0, V_X = 1.0647800324181081e-03, V_Y = -7.2660384960834906e-02, V_Z = 0.0, SPIN = 0.0, SPIN_THETA = 0.0, SPIN_PHI = 0.0 }
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
@@ -236,8 +236,8 @@ BSSN_BH2 = {MASS = 0.4824, X = -4.0, Y = 0.0, Z = 0.0, V_X = 0.0, V_Y = -0.114, 
 # 1 - Use bare mass
 TPID_GIVE_BARE_MASS = 1
 
-TPID_TARGET_M_PLUS = 0.4824
-TPID_TARGET_M_MINUS = 0.4824
+TPID_TARGET_M_PLUS = 0.18805875565856064
+TPID_TARGET_M_MINUS = 0.78937789039671058
 
 # 1/2 coordinate separation between black holes.
 TPID_PAR_B = 4.0
@@ -251,7 +251,7 @@ INITIAL_LAPSE = 2
 # Exponent n for INITIAL_LAPSE=2, where alpha=psi^n
 TPID_INITIAL_LAPSE_PSI_EXPONENT = -2.0
 
-TPID_CENTER_OFFSET = { X = 0.0, Y = 0.0, Z = 0.0 }
+TPID_CENTER_OFFSET = { X = 2.387283272139298, Y = 0.0, Z = 0.0 }
 
 # Grid Setup Method: 
 # 0 - Taylor expansion
@@ -259,9 +259,9 @@ TPID_CENTER_OFFSET = { X = 0.0, Y = 0.0, Z = 0.0 }
 TPID_GRID_SETUP_METHOD = 1
 
 # Grid points for spectral grid
-TPID_NPOINTS_A = 60
-TPID_NPOINTS_B = 60
-TPID_NPOINTS_PHI = 60
+TPID_NPOINTS_A = 80
+TPID_NPOINTS_B = 80
+TPID_NPOINTS_PHI = 80
 
 # Deprecated
 TPID_SOLVE_MOMENTUM_CONSTRAINT = 0
