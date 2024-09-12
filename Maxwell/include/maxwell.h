@@ -1,10 +1,10 @@
 //
 // Created by D. Maughan
 /**
-*@author Maughan
-*USU and REU @BYU
-*@brief Header file for the GR simulation.
-*/
+ *@author Maughan
+ *USU and REU @BYU
+ *@brief Header file for the GR simulation.
+ */
 //
 
 #ifndef SFCSORTBENCH_GR_H
@@ -15,6 +15,4 @@
 
 #include "dendroProfileParams.h"
 
-
-
-#endif //SFCSORTBENCH_GR_H
+#endif  // SFCSORTBENCH_GR_H
