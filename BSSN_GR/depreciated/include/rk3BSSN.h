@@ -1,177 +1,170 @@
 //
 // Created by milinda on 12/6/17.
 /**
-*@author Milinda Fernando
-*School of Computing, University of Utah
-*@brief rk3 solver for bssn
-*/
+ *@author Milinda Fernando
+ *School of Computing, University of Utah
+ *@brief rk3 solver for bssn
+ */
 //
 
 #ifndef SFCSORTBENCH_RK3BSSN_H
 #define SFCSORTBENCH_RK3BSSN_H
 
-#include "rk.h"
-#include "fdCoefficient.h"
-#include "oct2vtk.h"
-#include "checkPoint.h"
-#include "mesh.h"
-#include <string>
 #include <iostream>
-#include "grUtils.h"
-#include "parameters.h"
+#include <string>
+
+#include "TwoPunctures.h"
 #include "bssn_constraints.h"
+#include "checkPoint.h"
+#include "fdCoefficient.h"
 #include "gr.h"
-#include "rhs.h"
+#include "grUtils.h"
+#include "mesh.h"
+#include "oct2vtk.h"
+#include "parameters.h"
 #include "physcon.h"
 #include "psi4.h"
+#include "rhs.h"
+#include "rk.h"
 #include "test/meshTestUtils.h"
-#include "TwoPunctures.h"
 
 #ifdef BSSN_ENABLE_CUDA
-    #include "rhs_cuda.cuh"
-    #include "params_cu.h"
-    #include "profile_gpu.h"
+#include "params_cu.h"
+#include "profile_gpu.h"
+#include "rhs_cuda.cuh"
 #endif
 
+static const double RK3_C[]    = {1.0 / 6.0, 1.0 / 6.0, 2.0 / 3.0};
 
-static const double RK3_C[]={1.0/6.0,1.0/6.0,2.0/3.0};
+static const double RK3_T[]    = {1.0, 1.0, 1.0};  // note this is not correct.
 
-static const double RK3_T[]={1.0,1.0,1.0}; // note this is not correct.
+static const double RK3_U[][3] = {
+    {0.0, 0.0, 0.0}, {1.0, 0.0, 0.0}, {1.0 / 4.0, 1.0 / 4.0, 0.0}};
 
-static const double RK3_U[][3]={{0.0,0.0,0.0},
-                               {1.0,0.0,0.0},
-                               {1.0/4.0,1.0/4.0,0.0}};
+namespace ode {
+namespace solver {
 
-namespace ode
-{
-    namespace solver
-    {
+class RK3_BSSN : public RK {
+   private:
+    // variables for BSSN formulation.
 
-        class RK3_BSSN : public RK
-        {
+    /**@brief: list of pointers to the variable set indexed by enum VAR */
+    double **m_uiVar;
 
-        private:
+    /**@brief: previous time step solution*/
+    double **m_uiPrevVar;
 
-            // variables for BSSN formulation.
+    /**@brief: intermidiate variable for RK*/
+    double **m_uiVarIm;
 
-            /**@brief: list of pointers to the variable set indexed by enum VAR */
-            double ** m_uiVar;
+    /**@brief list of pointers to unzip version of the variables **/
+    double **m_uiUnzipVar;
 
-            /**@brief: previous time step solution*/
-            double ** m_uiPrevVar;
+    /**@brief unzip rhs for each variable.*/
+    double **m_uiUnzipVarRHS;
 
-            /**@brief: intermidiate variable for RK*/
-            double ** m_uiVarIm;
+    /** stage - value vector of RK45 method*/
+    double ***m_uiStage;
 
-            /**@brief list of pointers to unzip version of the variables **/
-            double **m_uiUnzipVar;
+    /** @brief zipped version physical constrint equations*/
+    double **m_uiConstraintVars;
 
-            /**@brief unzip rhs for each variable.*/
-            double **m_uiUnzipVarRHS;
+    /** @brief unzip physical constrint vars*/
+    double **m_uiUnzipConstraintVars;
 
-            /** stage - value vector of RK45 method*/
-            double *** m_uiStage;
+    /**Send node bufferes for async communication*/
+    double **m_uiSendNodeBuf;
 
-            /** @brief zipped version physical constrint equations*/
-            double ** m_uiConstraintVars;
+    /**recv node bufferes for async communciation*/
+    double **m_uiRecvNodeBuf;
 
-            /** @brief unzip physical constrint vars*/
-            double ** m_uiUnzipConstraintVars;
+    /**@brief mpi send reqs for evolution vars*/
+    MPI_Request **m_uiSendReqs;
 
-            /**Send node bufferes for async communication*/
-            double ** m_uiSendNodeBuf;
+    /**@brief mpi recv reqs for evolution vars*/
+    MPI_Request **m_uiRecvReqs;
 
-            /**recv node bufferes for async communciation*/
-            double ** m_uiRecvNodeBuf;
+    /**@brief mpi send status to sync on sends*/
+    MPI_Status **m_uiSendSts;
 
-            /**@brief mpi send reqs for evolution vars*/
-            MPI_Request ** m_uiSendReqs;
+    /**@brief mpi recv status to sync on recv*/
+    MPI_Status **m_uiRecvSts;
 
-            /**@brief mpi recv reqs for evolution vars*/
-            MPI_Request ** m_uiRecvReqs;
+   public:
+    /**
+     * @brief default constructor
+     * @param[in] pMesh : pointer to the mesh.
+     * @param[in] pTBegin: RK45 time begin
+     * @param[in] pTEnd: RK45 time end
+     * @param[in] pTh: times step size.
+     * * */
+    RK3_BSSN(ot::Mesh *pMesh, double pTBegin, double pTEnd, double pTh);
 
-            /**@brief mpi send status to sync on sends*/
-            MPI_Status ** m_uiSendSts;
+    /**@brief default destructor*/
+    ~RK3_BSSN();
 
-            /**@brief mpi recv status to sync on recv*/
-            MPI_Status ** m_uiRecvSts;
+    /** @brief: read parameters related to BSSN simulation and store them in
+     * static variables defined in parameters.h*/
+    void readConfigFile(const char *fName);
 
+    /**@brief: starts the rk-45 solver. */
+    void rkSolve();
 
+    /** @brief: restore rk45 solver from a given checkpoint. This will overwrite
+     * the parameters given in the original constructor
+     *  @param[in]fNamePrefix: checkpoint file pre-fix name.
+     *  @param[in]step: step number which needs to be restored.
+     *  @param[in]comm: MPI communicator.
+     * */
+    void restoreCheckPoint(const char *fNamePrefix, MPI_Comm comm);
 
+   private:
+    /** apply intial conditions*/
+    void applyInitialConditions(double **zipIn);
 
+    /** refine based on the initial grid until it converges, */
+    void initialGridConverge();
 
+    /** reallocates mpi resources if the mesh is changed, (need to be called
+     * during refmesing)*/
+    void reallocateMPIResources();
 
-        public:
-            /**
-             * @brief default constructor
-             * @param[in] pMesh : pointer to the mesh.
-             * @param[in] pTBegin: RK45 time begin
-             * @param[in] pTEnd: RK45 time end
-             * @param[in] pTh: times step size.
-             * * */
-            RK3_BSSN(ot::Mesh *pMesh, double pTBegin, double pTEnd,double pTh);
+    /** @brief: perform ghost exchange for all vars*/
+    void performGhostExchangeVars(double **zipIn);
 
-            /**@brief default destructor*/
-            ~RK3_BSSN();
+    /**@brief: performs the intergrid transfer*/
+    void intergridTransferVars(double **&zipIn, const ot::Mesh *pnewMesh);
 
-            /** @brief: read parameters related to BSSN simulation and store them in static variables defined in parameters.h*/
-            void readConfigFile(const char * fName);
+    /**@brief unzip all the vars specified in VARS*/
+    void unzipVars(double **zipIn, double **uzipOut);
 
-            /**@brief: starts the rk-45 solver. */
-            void rkSolve();
+    /**@brief unzip all the vars specified in VARS*/
+    void unzipVars_async(double **zipIn, double **uzipOut);
 
-            /** @brief: restore rk45 solver from a given checkpoint. This will overwrite the parameters given in the original constructor
-             *  @param[in]fNamePrefix: checkpoint file pre-fix name.
-             *  @param[in]step: step number which needs to be restored.
-             *  @param[in]comm: MPI communicator.
-             * */
-            void restoreCheckPoint(const char * fNamePrefix,MPI_Comm comm);
+    /**@brief zip all the variables specified in VARS*/
+    void zipVars(double **uzipIn, double **zipOut);
 
-        private:
-            /** apply intial conditions*/
-            void applyInitialConditions(double ** zipIn);
+    /**@brief write the solution to vtu file. */
+    void writeToVTU(double **evolZipVarIn, double **constrZipVarIn,
+                    unsigned int numEvolVars, unsigned int numConstVars,
+                    const unsigned int *evolVarIndices,
+                    const unsigned int *constVarIndices);
 
-            /** refine based on the initial grid until it converges, */
-            void initialGridConverge();
+    /**@brief: Implementation of the base class time step function*/
+    void performSingleIteration();
 
-            /** reallocates mpi resources if the mesh is changed, (need to be called during refmesing)*/
-            void reallocateMPIResources();
+    /**@brief: Implementation of the base class function to apply boundary
+     * conditions. */
+    void applyBoundaryConditions();
 
-            /** @brief: perform ghost exchange for all vars*/
-            void performGhostExchangeVars(double** zipIn);
+    /**@brief: stores the all the variables that is required to restore the rk45
+     * solver at a given stage.
+     * @param[in] fNamePrefix: checkpoint file pre-fix name.
+     * */
+    void storeCheckPoint(const char *fNamePrefix);
+};
 
-            /**@brief: performs the intergrid transfer*/
-            void intergridTransferVars(double **& zipIn, const ot::Mesh* pnewMesh);
+}  // end of namespace solver
+}  // end of namespace ode
 
-            /**@brief unzip all the vars specified in VARS*/
-            void unzipVars(double ** zipIn , double **uzipOut);
-
-            /**@brief unzip all the vars specified in VARS*/
-            void unzipVars_async(double ** zipIn , double **uzipOut);
-
-            /**@brief zip all the variables specified in VARS*/
-            void zipVars(double** uzipIn , double** zipOut);
-
-            /**@brief write the solution to vtu file. */
-            void writeToVTU(double **evolZipVarIn, double ** constrZipVarIn, unsigned int numEvolVars,unsigned int numConstVars,const unsigned int * evolVarIndices, const unsigned int * constVarIndices);
-
-            /**@brief: Implementation of the base class time step function*/
-            void performSingleIteration();
-
-            /**@brief: Implementation of the base class function to apply boundary conditions. */
-            void applyBoundaryConditions();
-
-            /**@brief: stores the all the variables that is required to restore the rk45 solver at a given stage.
-             * @param[in] fNamePrefix: checkpoint file pre-fix name.
-             * */
-            void storeCheckPoint(const char * fNamePrefix);
-
-
-        };
-
-    } // end of namespace solver
-}// end of namespace ode
-
-
-
-#endif //SFCSORTBENCH_RK3BSSN_H
+#endif  // SFCSORTBENCH_RK3BSSN_H

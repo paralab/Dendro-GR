@@ -44,7 +44,8 @@ if(MPI_LINK_FLAGS)
   set(LINK_FLAGS "${LINK_FLAGS} ${MPI_LINK_FLAGS}")
 endif()
 
-# options for dendro -- not sure if these need to be declared here, but they might be due to header definitions...
+# options for dendro -- not sure if these need to be declared here, but they
+# might be due to header definitions...
 option(USE_64BIT_INDICES "Use 64-Bit indices. Reverts to 32-bit if turned off"
        ON)
 option(HILBERT_ORDERING "Use Hilbert ordering instead of Morton" ON)
@@ -201,7 +202,7 @@ endif()
 
 if(DENDRO_VTK_BINARY)
   add_definitions(-DDENDRO_VTU_BINARY)
-if(DENDRO_VTK_ZLIB_COMPRES)
+  if(DENDRO_VTK_ZLIB_COMPRES)
     add_definitions(-DDENDRO_VTU_ZLIB)
   endif()
 else()
@@ -216,8 +217,11 @@ add_definitions(-DMATVEC_PROFILE)
 
 set(CHECK_GIT_INCLUDE_PATH ${CMAKE_SOURCE_DIR}/cmake-modules)
 include(${CHECK_GIT_INCLUDE_PATH}/CheckGit.cmake)
-message(STATUS "Setting up adding Git Information directly to compile options, header file should be in ${CHECK_GIT_INCLUDE_PATH}")
-CheckGitSetup()
+message(
+  STATUS
+    "Setting up adding Git Information directly to compile options, header file should be in ${CHECK_GIT_INCLUDE_PATH}"
+)
+checkgitsetup()
 
 # === END REQUIRED CONFIGURATIONS FOR DENDRO ===
 

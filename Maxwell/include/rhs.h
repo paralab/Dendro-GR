@@ -1,15 +1,17 @@
 #ifndef RHS_H
 #define RHS_H
 
+#include <time.h>
+
 #include <cmath>
 #include <iostream>
-#include <time.h>
-#include "derivs.h"
-#include "parameters.h"
-#include "maxwellUtils.h"
-#include "mathUtils.h"
 
-#define IDX(i,j,k) ( (i) + nx * ( (j) + ny * (k) ) )
+#include "derivs.h"
+#include "mathUtils.h"
+#include "maxwellUtils.h"
+#include "parameters.h"
+
+#define IDX(i, j, k) ((i) + nx * ((j) + ny * (k)))
 
 #define deriv_x deriv42_x
 #define deriv_y deriv42_y
@@ -28,16 +30,15 @@
 #define ko_deriv_z ko_deriv42_z
 
 void maxwellRhs(double time, double **uzipVarsRHS, const double **uZipVars,
-             const unsigned int &offset,
-             const double *ptmin, const double *ptmax, const unsigned int *sz,
-             const unsigned int &bflag);
+                const unsigned int &offset, const double *ptmin,
+                const double *ptmax, const unsigned int *sz,
+                const unsigned int &bflag);
 
-
-void maxwell_bcs(double *f_rhs, const double *f,
-              const double *dxf, const double *dyf, const double *dzf,
-              const double *pmin, const double *pmax,
-              const double f_falloff, const double f_asymptotic,
-              const unsigned int *sz, const unsigned int &bflag);
+void maxwell_bcs(double *f_rhs, const double *f, const double *dxf,
+                 const double *dyf, const double *dzf, const double *pmin,
+                 const double *pmax, const double f_falloff,
+                 const double f_asymptotic, const unsigned int *sz,
+                 const unsigned int &bflag);
 
 void fake_initial_data(double x, double y, double z, double *u);
 

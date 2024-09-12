@@ -1,72 +1,141 @@
-const DEVICE_REAL *  const kograd_0_alpha = (deriv_evars->kograd_0_alpha + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_alpha = (deriv_evars->kograd_1_alpha + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_alpha = (deriv_evars->kograd_2_alpha + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_0_beta0 = (deriv_evars->kograd_0_beta0 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_beta0 = (deriv_evars->kograd_1_beta0 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_beta0 = (deriv_evars->kograd_2_beta0 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_0_beta1 = (deriv_evars->kograd_0_beta1 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_beta1 = (deriv_evars->kograd_1_beta1 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_beta1 = (deriv_evars->kograd_2_beta1 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_0_beta2 = (deriv_evars->kograd_0_beta2 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_beta2 = (deriv_evars->kograd_1_beta2 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_beta2 = (deriv_evars->kograd_2_beta2 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_0_B0 = (deriv_evars->kograd_0_B0 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_B0 = (deriv_evars->kograd_1_B0 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_B0 = (deriv_evars->kograd_2_B0 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_0_B1 = (deriv_evars->kograd_0_B1 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_B1 = (deriv_evars->kograd_1_B1 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_B1 = (deriv_evars->kograd_2_B1 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_0_B2 = (deriv_evars->kograd_0_B2 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_B2 = (deriv_evars->kograd_1_B2 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_B2 = (deriv_evars->kograd_2_B2 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_0_chi = (deriv_evars->kograd_0_chi + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_chi = (deriv_evars->kograd_1_chi + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_chi = (deriv_evars->kograd_2_chi + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_0_Gt0 = (deriv_evars->kograd_0_Gt0 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_Gt0 = (deriv_evars->kograd_1_Gt0 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_Gt0 = (deriv_evars->kograd_2_Gt0 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_0_Gt1 = (deriv_evars->kograd_0_Gt1 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_Gt1 = (deriv_evars->kograd_1_Gt1 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_Gt1 = (deriv_evars->kograd_2_Gt1 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_0_Gt2 = (deriv_evars->kograd_0_Gt2 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_Gt2 = (deriv_evars->kograd_1_Gt2 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_Gt2 = (deriv_evars->kograd_2_Gt2 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_0_K = (deriv_evars->kograd_0_K + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_K = (deriv_evars->kograd_1_K + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_K = (deriv_evars->kograd_2_K + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_0_gt0 = (deriv_evars->kograd_0_gt0 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_gt0 = (deriv_evars->kograd_1_gt0 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_gt0 = (deriv_evars->kograd_2_gt0 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_0_gt1 = (deriv_evars->kograd_0_gt1 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_gt1 = (deriv_evars->kograd_1_gt1 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_gt1 = (deriv_evars->kograd_2_gt1 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_0_gt2 = (deriv_evars->kograd_0_gt2 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_gt2 = (deriv_evars->kograd_1_gt2 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_gt2 = (deriv_evars->kograd_2_gt2 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_0_gt3 = (deriv_evars->kograd_0_gt3 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_gt3 = (deriv_evars->kograd_1_gt3 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_gt3 = (deriv_evars->kograd_2_gt3 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_0_gt4 = (deriv_evars->kograd_0_gt4 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_gt4 = (deriv_evars->kograd_1_gt4 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_gt4 = (deriv_evars->kograd_2_gt4 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_0_gt5 = (deriv_evars->kograd_0_gt5 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_gt5 = (deriv_evars->kograd_1_gt5 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_gt5 = (deriv_evars->kograd_2_gt5 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_0_At0 = (deriv_evars->kograd_0_At0 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_At0 = (deriv_evars->kograd_1_At0 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_At0 = (deriv_evars->kograd_2_At0 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_0_At1 = (deriv_evars->kograd_0_At1 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_At1 = (deriv_evars->kograd_1_At1 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_At1 = (deriv_evars->kograd_2_At1 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_0_At2 = (deriv_evars->kograd_0_At2 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_At2 = (deriv_evars->kograd_1_At2 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_At2 = (deriv_evars->kograd_2_At2 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_0_At3 = (deriv_evars->kograd_0_At3 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_At3 = (deriv_evars->kograd_1_At3 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_At3 = (deriv_evars->kograd_2_At3 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_0_At4 = (deriv_evars->kograd_0_At4 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_At4 = (deriv_evars->kograd_1_At4 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_At4 = (deriv_evars->kograd_2_At4 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_0_At5 = (deriv_evars->kograd_0_At5 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_1_At5 = (deriv_evars->kograd_1_At5 + Z_ID * BLK_SZ );
-const DEVICE_REAL *  const kograd_2_At5 = (deriv_evars->kograd_2_At5 + Z_ID * BLK_SZ );
+const DEVICE_REAL* const kograd_0_alpha =
+    (deriv_evars->kograd_0_alpha + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_alpha =
+    (deriv_evars->kograd_1_alpha + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_alpha =
+    (deriv_evars->kograd_2_alpha + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_0_beta0 =
+    (deriv_evars->kograd_0_beta0 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_beta0 =
+    (deriv_evars->kograd_1_beta0 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_beta0 =
+    (deriv_evars->kograd_2_beta0 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_0_beta1 =
+    (deriv_evars->kograd_0_beta1 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_beta1 =
+    (deriv_evars->kograd_1_beta1 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_beta1 =
+    (deriv_evars->kograd_2_beta1 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_0_beta2 =
+    (deriv_evars->kograd_0_beta2 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_beta2 =
+    (deriv_evars->kograd_1_beta2 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_beta2 =
+    (deriv_evars->kograd_2_beta2 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_0_B0 =
+    (deriv_evars->kograd_0_B0 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_B0 =
+    (deriv_evars->kograd_1_B0 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_B0 =
+    (deriv_evars->kograd_2_B0 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_0_B1 =
+    (deriv_evars->kograd_0_B1 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_B1 =
+    (deriv_evars->kograd_1_B1 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_B1 =
+    (deriv_evars->kograd_2_B1 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_0_B2 =
+    (deriv_evars->kograd_0_B2 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_B2 =
+    (deriv_evars->kograd_1_B2 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_B2 =
+    (deriv_evars->kograd_2_B2 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_0_chi =
+    (deriv_evars->kograd_0_chi + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_chi =
+    (deriv_evars->kograd_1_chi + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_chi =
+    (deriv_evars->kograd_2_chi + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_0_Gt0 =
+    (deriv_evars->kograd_0_Gt0 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_Gt0 =
+    (deriv_evars->kograd_1_Gt0 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_Gt0 =
+    (deriv_evars->kograd_2_Gt0 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_0_Gt1 =
+    (deriv_evars->kograd_0_Gt1 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_Gt1 =
+    (deriv_evars->kograd_1_Gt1 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_Gt1 =
+    (deriv_evars->kograd_2_Gt1 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_0_Gt2 =
+    (deriv_evars->kograd_0_Gt2 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_Gt2 =
+    (deriv_evars->kograd_1_Gt2 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_Gt2 =
+    (deriv_evars->kograd_2_Gt2 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_0_K = (deriv_evars->kograd_0_K + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_K = (deriv_evars->kograd_1_K + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_K = (deriv_evars->kograd_2_K + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_0_gt0 =
+    (deriv_evars->kograd_0_gt0 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_gt0 =
+    (deriv_evars->kograd_1_gt0 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_gt0 =
+    (deriv_evars->kograd_2_gt0 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_0_gt1 =
+    (deriv_evars->kograd_0_gt1 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_gt1 =
+    (deriv_evars->kograd_1_gt1 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_gt1 =
+    (deriv_evars->kograd_2_gt1 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_0_gt2 =
+    (deriv_evars->kograd_0_gt2 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_gt2 =
+    (deriv_evars->kograd_1_gt2 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_gt2 =
+    (deriv_evars->kograd_2_gt2 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_0_gt3 =
+    (deriv_evars->kograd_0_gt3 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_gt3 =
+    (deriv_evars->kograd_1_gt3 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_gt3 =
+    (deriv_evars->kograd_2_gt3 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_0_gt4 =
+    (deriv_evars->kograd_0_gt4 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_gt4 =
+    (deriv_evars->kograd_1_gt4 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_gt4 =
+    (deriv_evars->kograd_2_gt4 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_0_gt5 =
+    (deriv_evars->kograd_0_gt5 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_gt5 =
+    (deriv_evars->kograd_1_gt5 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_gt5 =
+    (deriv_evars->kograd_2_gt5 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_0_At0 =
+    (deriv_evars->kograd_0_At0 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_At0 =
+    (deriv_evars->kograd_1_At0 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_At0 =
+    (deriv_evars->kograd_2_At0 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_0_At1 =
+    (deriv_evars->kograd_0_At1 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_At1 =
+    (deriv_evars->kograd_1_At1 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_At1 =
+    (deriv_evars->kograd_2_At1 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_0_At2 =
+    (deriv_evars->kograd_0_At2 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_At2 =
+    (deriv_evars->kograd_1_At2 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_At2 =
+    (deriv_evars->kograd_2_At2 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_0_At3 =
+    (deriv_evars->kograd_0_At3 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_At3 =
+    (deriv_evars->kograd_1_At3 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_At3 =
+    (deriv_evars->kograd_2_At3 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_0_At4 =
+    (deriv_evars->kograd_0_At4 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_At4 =
+    (deriv_evars->kograd_1_At4 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_At4 =
+    (deriv_evars->kograd_2_At4 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_0_At5 =
+    (deriv_evars->kograd_0_At5 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_1_At5 =
+    (deriv_evars->kograd_1_At5 + Z_ID * BLK_SZ);
+const DEVICE_REAL* const kograd_2_At5 =
+    (deriv_evars->kograd_2_At5 + Z_ID * BLK_SZ);
