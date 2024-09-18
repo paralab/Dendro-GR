@@ -1,10 +1,10 @@
 //
 // Created by milinda on 7/25/17.
 /**
-*@author Milinda Fernando
-*School of Computing, University of Utah
-*@brief Header file for the GR simulation.
-*/
+ *@author Milinda Fernando
+ *School of Computing, University of Utah
+ *@brief Header file for the GR simulation.
+ */
 //
 
 #ifndef SFCSORTBENCH_GR_H
@@ -15,6 +15,4 @@
 
 #include "dendroProfileParams.h"
 
-
-
-#endif //SFCSORTBENCH_GR_H
+#endif  // SFCSORTBENCH_GR_H

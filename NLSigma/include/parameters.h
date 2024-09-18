@@ -1,269 +1,268 @@
 //
 // Created by milinda on 7/25/17.
 /**
-*@author Milinda Fernando
-*School of Computing, University of Utah
-*@brief This file contains all the parameters related to NLSM simulation.
-*/
+ *@author Milinda Fernando
+ *School of Computing, University of Utah
+ *@brief This file contains all the parameters related to NLSM simulation.
+ */
 //
 
 #pragma once
 #include <string.h>
+
 #include <iostream>
 
+namespace nlsm {
 
+/** @brief These variable indexes are based on the variables defined in rkNLSM.h
+ */
+enum VAR { U_CHI = 0, U_PHI };
 
+/**@brief variable names. */
+static const char* NLSM_VAR_NAMES[] = {"U_CHI", "U_PHI"};
 
-namespace nlsm
-{
+/**
+ * @brief refinement modes
+ * WAMR for wavelet bases refinement
+ * FR: force refinement based on limit of a specific variable.
+ * WAMR_FR : combine WAMR and FR.
+ */
+enum RefineMode { WAMR = 0, FR, WAMR_FR };
 
-    /** @brief These variable indexes are based on the variables defined in rkNLSM.h */
-    enum VAR {U_CHI=0,U_PHI};
+/**@brief element order*/
+extern unsigned int NLSM_ELE_ORDER;
 
+/**@brief: padding width for NLSM, Set to element order /2 */
+extern unsigned int NLSM_PADDING_WIDTH;
 
-    /**@brief variable names. */
-    static const char * NLSM_VAR_NAMES[]={"U_CHI","U_PHI"};
+/**@brief number of variables*/
+static const unsigned int NLSM_NUM_VARS    = 2;
 
+/***@brief number of RK45 stages*/
+static const unsigned int NLSM_RK45_STAGES = 6;
 
-    /**
-     * @brief refinement modes
-     * WAMR for wavelet bases refinement 
-     * FR: force refinement based on limit of a specific variable. 
-     * WAMR_FR : combine WAMR and FR.
-    */
-    enum RefineMode {WAMR=0,FR,WAMR_FR};
+/***@brief number of RK4 stages*/
+static const unsigned int NLSM_RK4_STAGES  = 4;
 
-    /**@brief element order*/
-    extern unsigned int NLSM_ELE_ORDER;
+/**@brief number of rk4 stages*/
+static const unsigned int NLSM_RK3_STAGES  = 3;
 
-    /**@brief: padding width for NLSM, Set to element order /2 */
-    extern unsigned int NLSM_PADDING_WIDTH;
+/**@brief: parameter used for adaptive time step update. */
+static const double NLSM_SAFETY_FAC        = 0.8;
 
-    /**@brief number of variables*/
-    static const unsigned int NLSM_NUM_VARS=2;
+/**@brief number of internal variables*/
+static const unsigned int NLSM_NUM_VARS_INTENL =
+    (NLSM_RK45_STAGES + 1) * NLSM_NUM_VARS;
 
-    /***@brief number of RK45 stages*/
-    static const unsigned int NLSM_RK45_STAGES=6;
+/**@brief min bh domain add these to the parameter file.*/
+extern double NLSM_COMPD_MIN[3];
+/**@brief min bh domain @todo add these to the parameter file. */
+extern double NLSM_COMPD_MAX[3];
 
-    /***@brief number of RK4 stages*/
-    static const unsigned int NLSM_RK4_STAGES=4;
+/**@brief CFL stability number number (specifies how dt=NLSM_CFL_FACTOR*dx)*/
+extern double NLSM_CFL_FACTOR;
 
-    /**@brief number of rk4 stages*/
-    static const unsigned int NLSM_RK3_STAGES=3;
-    
-    /**@brief: parameter used for adaptive time step update. */
-    static const double NLSM_SAFETY_FAC=0.8;
+/**@brief min coords of the OCTREE */
+extern double NLSM_OCTREE_MIN[3];
+/**@brief max coords of the OCTREE */
+extern double NLSM_OCTREE_MAX[3];
 
-    /**@brief number of internal variables*/
-    static const unsigned int NLSM_NUM_VARS_INTENL=(NLSM_RK45_STAGES+1)*NLSM_NUM_VARS;
+/**@brief solution output frequency*/
+extern unsigned int NLSM_IO_OUTPUT_FREQ;
 
-    /**@brief min bh domain add these to the parameter file.*/
-    extern double NLSM_COMPD_MIN[3];
-    /**@brief min bh domain @todo add these to the parameter file. */
-    extern double NLSM_COMPD_MAX[3];
+/**@brief timestep norms out put freq.*/
+extern unsigned int NLSM_TIME_STEP_OUTPUT_FREQ;
 
-    /**@brief CFL stability number number (specifies how dt=NLSM_CFL_FACTOR*dx)*/
-    extern double NLSM_CFL_FACTOR;
+/**@brief remesh test frequency*/
+extern unsigned int NLSM_REMESH_TEST_FREQ;
 
-    /**@brief min coords of the OCTREE */
-    extern double NLSM_OCTREE_MIN[3];
-    /**@brief max coords of the OCTREE */
-    extern double NLSM_OCTREE_MAX[3];
+/**@brief checkpoint store frequency*/
+extern unsigned int NLSM_CHECKPT_FREQ;
 
-    /**@brief solution output frequency*/
-    extern unsigned int NLSM_IO_OUTPUT_FREQ;
+/**@brief restore the solver from check point if set to 1. */
+extern unsigned int NLSM_RESTORE_SOLVER;
 
-    /**@brief timestep norms out put freq.*/
-    extern unsigned int NLSM_TIME_STEP_OUTPUT_FREQ;
+/**@brief use the block adaptivity and disable the AMR*/
+extern unsigned int NLSM_ENABLE_BLOCK_ADAPTIVITY;
 
-    /**@brief remesh test frequency*/
-    extern unsigned int NLSM_REMESH_TEST_FREQ;
+/**@brief file prefix for VTU*/
+extern std::string NLSM_VTU_FILE_PREFIX;
 
-    /**@brief checkpoint store frequency*/
-    extern unsigned int NLSM_CHECKPT_FREQ;
+/**@brief file prefix for write check point*/
+extern std::string NLSM_CHKPT_FILE_PREFIX;
 
-    /**@brief restore the solver from check point if set to 1. */
-    extern unsigned int NLSM_RESTORE_SOLVER;
+/**@brief file prefix to write profile info.*/
+extern std::string NLSM_PROFILE_FILE_PREFIX;
 
-    /**@brief use the block adaptivity and disable the AMR*/
-    extern unsigned int NLSM_ENABLE_BLOCK_ADAPTIVITY;
+/**@brief number of refine variables*/
+extern unsigned int NLSM_NUM_REFINE_VARS;
 
-    /**@brief file prefix for VTU*/
-    extern std::string NLSM_VTU_FILE_PREFIX;
+/**@brief indices of refine var ids*/
+extern unsigned int NLSM_REFINE_VARIABLE_INDICES[NLSM_NUM_VARS];
 
-    /**@brief file prefix for write check point*/
-    extern std::string NLSM_CHKPT_FILE_PREFIX;
+/**@brief number of evolution variables written to vtu files*/
+extern unsigned int NLSM_NUM_EVOL_VARS_VTU_OUTPUT;
 
-    /**@brief file prefix to write profile info.*/
-    extern std::string NLSM_PROFILE_FILE_PREFIX;
+/**@brief evolution variable IDs written to vtu files*/
+extern unsigned int NLSM_VTU_OUTPUT_EVOL_INDICES[NLSM_NUM_VARS];
 
-    /**@brief number of refine variables*/
-    extern unsigned int NLSM_NUM_REFINE_VARS;
+/**@brief solution output gap (instead of freq. we can use to output the
+ * solution if currentTime > lastIOOutputTime + NLSM_IO_OUTPUT_GAP)*/
+extern double NLSM_IO_OUTPUT_GAP;
 
-    /**@brief indices of refine var ids*/
-    extern unsigned int NLSM_REFINE_VARIABLE_INDICES[NLSM_NUM_VARS];
+/**@brief prefered grain sz to use when selecting active npes*/
+extern unsigned int NLSM_DENDRO_GRAIN_SZ;
 
-    /**@brief number of evolution variables written to vtu files*/
-    extern unsigned int NLSM_NUM_EVOL_VARS_VTU_OUTPUT;
+/**@brief AMR coarsening factor (we coarsen if
+ * tol<NLSM_DENDRO_AMR_FAC*NLSM_WAVELET_TOL)*/
+extern double NLSM_DENDRO_AMR_FAC;
 
-    /**@brief evolution variable IDs written to vtu files*/
-    extern unsigned int NLSM_VTU_OUTPUT_EVOL_INDICES[NLSM_NUM_VARS];
+/**@brief wavelet tolerance value. */
+extern double NLSM_WAVELET_TOL;
+/**@brief load-imbalance tolerance value. */
+extern double NLSM_LOAD_IMB_TOL;
+/**@brief: Splitter fix value*/
+extern unsigned int NLSM_SPLIT_FIX;
 
-    /**@brief solution output gap (instead of freq. we can use to output the solution if currentTime > lastIOOutputTime + NLSM_IO_OUTPUT_GAP)*/
-    extern  double NLSM_IO_OUTPUT_GAP;
+/**@brief: async. communication at a time. (upper bound shoud be NLSM_NUM_VARS)
+ */
+extern unsigned int NLSM_ASYNC_COMM_K;
 
-    /**@brief prefered grain sz to use when selecting active npes*/
-    extern unsigned int NLSM_DENDRO_GRAIN_SZ;
+/**@brief simulation begin time. */
+extern double NLSM_RK45_TIME_BEGIN;
+/**@brief simulation end time*/
+extern double NLSM_RK45_TIME_END;
+/**@brief rk time step size. */
+extern double NLSM_RK45_TIME_STEP_SIZE;
 
-    /**@brief AMR coarsening factor (we coarsen if tol<NLSM_DENDRO_AMR_FAC*NLSM_WAVELET_TOL)*/
-    extern double NLSM_DENDRO_AMR_FAC;
+/** desired tolerance value for the rk45 method (adaptive time stepping. )*/
+extern double NLSM_RK45_DESIRED_TOL;
 
-    /**@brief wavelet tolerance value. */
-    extern  double NLSM_WAVELET_TOL;
-    /**@brief load-imbalance tolerance value. */
-    extern  double NLSM_LOAD_IMB_TOL;
-    /**@brief: Splitter fix value*/
-    extern unsigned int NLSM_SPLIT_FIX;
+/**@brief BBH initial data type */
+extern unsigned int NLSM_ID_TYPE;
 
-    /**@brief: async. communication at a time. (upper bound shoud be NLSM_NUM_VARS) */
-    extern unsigned int NLSM_ASYNC_COMM_K;
+/**@brief physical coordinates for grid, x_min */
+extern double NLSM_GRID_MIN_X;
 
-    /**@brief simulation begin time. */
-    extern double NLSM_RK45_TIME_BEGIN;
-    /**@brief simulation end time*/
-    extern double NLSM_RK45_TIME_END;
-    /**@brief rk time step size. */
-    extern double NLSM_RK45_TIME_STEP_SIZE;
+/**@brief physical coordinates for grid, x_max */
+extern double NLSM_GRID_MAX_X;
 
-    /** desired tolerance value for the rk45 method (adaptive time stepping. )*/
-    extern double NLSM_RK45_DESIRED_TOL;
+/**@brief physical coordinates for grid, y_min */
+extern double NLSM_GRID_MIN_Y;
 
-    /**@brief BBH initial data type */
-    extern unsigned int NLSM_ID_TYPE;
+/**@brief physical coordinates for grid, y_max */
+extern double NLSM_GRID_MAX_Y;
 
-    /**@brief physical coordinates for grid, x_min */
-    extern double NLSM_GRID_MIN_X;
+/**@brief physical coordinates for grid, z_min */
+extern double NLSM_GRID_MIN_Z;
 
-    /**@brief physical coordinates for grid, x_max */
-    extern double NLSM_GRID_MAX_X;
+/**@brief physical coordinates for grid, z_max */
+extern double NLSM_GRID_MAX_Z;
 
-    /**@brief physical coordinates for grid, y_min */
-    extern double NLSM_GRID_MIN_Y;
+/**@brief physical coordinates for the blk adaptive x_min*/
+extern double NLSM_BLK_MIN_X;
 
-    /**@brief physical coordinates for grid, y_max */
-    extern double NLSM_GRID_MAX_Y;
+/**@brief physical coordinates for the blk adaptive x_min*/
+extern double NLSM_BLK_MIN_Y;
 
-    /**@brief physical coordinates for grid, z_min */
-    extern double NLSM_GRID_MIN_Z;
+/**@brief physical coordinates for the blk adaptive x_min*/
+extern double NLSM_BLK_MIN_Z;
 
-    /**@brief physical coordinates for grid, z_max */
-    extern double NLSM_GRID_MAX_Z;
+/**@brief physical coordinates for the blk adaptive x_min*/
+extern double NLSM_BLK_MAX_X;
 
-    /**@brief physical coordinates for the blk adaptive x_min*/
-    extern double NLSM_BLK_MIN_X;
+/**@brief physical coordinates for the blk adaptive x_min*/
+extern double NLSM_BLK_MAX_Y;
 
-    /**@brief physical coordinates for the blk adaptive x_min*/
-    extern double NLSM_BLK_MIN_Y;
+/**@brief physical coordinates for the blk adaptive x_min*/
+extern double NLSM_BLK_MAX_Z;
 
-    /**@brief physical coordinates for the blk adaptive x_min*/
-    extern double NLSM_BLK_MIN_Z;
+/**@brief: dimension of the grid*/
+extern unsigned int NLSM_DIM;
 
-    /**@brief physical coordinates for the blk adaptive x_min*/
-    extern double NLSM_BLK_MAX_X;
+/**@brief: max refinement level*/
+extern unsigned int NLSM_MAXDEPTH;
 
-    /**@brief physical coordinates for the blk adaptive x_min*/
-    extern double NLSM_BLK_MAX_Y;
+/**@brief: min refinement level*/
+extern unsigned int NLSM_MINDEPTH;
 
-    /**@brief physical coordinates for the blk adaptive x_min*/
-    extern double NLSM_BLK_MAX_Z;
+/**@brief: Kreiss-Oliger dissipation */
+extern double KO_DISS_SIGMA;
 
-    /**@brief: dimension of the grid*/
-    extern unsigned int NLSM_DIM;
+/**@brief: Kreiss-Oliger dissipation */
+extern double KO_DISS_SIGMA;
 
-    /**@brief: max refinement level*/
-    extern unsigned int NLSM_MAXDEPTH;
+/**@brief: Initial data Gaussian amplitude */
+extern double NLSM_ID_AMP1;
 
-    /**@brief: min refinement level*/
-    extern unsigned int NLSM_MINDEPTH;
+/**@brief: Initial data Gaussian amplitude */
+extern double NLSM_ID_AMP2;
 
-    /**@brief: Kreiss-Oliger dissipation */
-    extern double KO_DISS_SIGMA;
+/**@brief: Initial data Gaussian width */
+extern double NLSM_ID_DELTA1;
 
-    /**@brief: Kreiss-Oliger dissipation */
-    extern double KO_DISS_SIGMA;
+/**@brief: Initial data Gaussian width */
+extern double NLSM_ID_DELTA2;
 
-    /**@brief: Initial data Gaussian amplitude */
-    extern double NLSM_ID_AMP1;
+/**@brief: Initial data Gaussian x offset */
+extern double NLSM_ID_XC1;
+extern double NLSM_ID_YC1;
+extern double NLSM_ID_ZC1;
 
-    /**@brief: Initial data Gaussian amplitude */
-    extern double NLSM_ID_AMP2;
+/**@brief: Initial data Gaussian x offset */
+extern double NLSM_ID_XC2;
+extern double NLSM_ID_YC2;
+extern double NLSM_ID_ZC2;
 
-    /**@brief: Initial data Gaussian width */
-    extern double NLSM_ID_DELTA1;
+/**@brief: Initial data Gaussian elliptic x factor */
+extern double NLSM_ID_EPSX1;
 
-    /**@brief: Initial data Gaussian width */
-    extern double NLSM_ID_DELTA2;
+/**@brief: Initial data Gaussian elliptic y factor */
+extern double NLSM_ID_EPSY1;
 
-    /**@brief: Initial data Gaussian x offset */
-    extern double NLSM_ID_XC1;
-    extern double NLSM_ID_YC1;
-    extern double NLSM_ID_ZC1;
+/**@brief: Initial data Gaussian elliptic z factor */
+extern double NLSM_ID_EPSZ1;
 
-    /**@brief: Initial data Gaussian x offset */
-    extern double NLSM_ID_XC2;
-    extern double NLSM_ID_YC2;
-    extern double NLSM_ID_ZC2;
+/**@brief: Initial data Gaussian elliptic x factor */
+extern double NLSM_ID_EPSX2;
 
-    /**@brief: Initial data Gaussian elliptic x factor */
-    extern double NLSM_ID_EPSX1;
+/**@brief: Initial data Gaussian elliptic y factor */
+extern double NLSM_ID_EPSY2;
 
-    /**@brief: Initial data Gaussian elliptic y factor */
-    extern double NLSM_ID_EPSY1;
+/**@brief: Initial data Gaussian elliptic z factor */
+extern double NLSM_ID_EPSZ2;
 
-    /**@brief: Initial data Gaussian elliptic z factor */
-    extern double NLSM_ID_EPSZ1;
+/**@brief: Initial data Gaussian R */
+extern double NLSM_ID_R1;
 
-    /**@brief: Initial data Gaussian elliptic x factor */
-    extern double NLSM_ID_EPSX2;
+/**@brief: Initial data Gaussian R */
+extern double NLSM_ID_R2;
 
-    /**@brief: Initial data Gaussian elliptic y factor */
-    extern double NLSM_ID_EPSY2;
+/**@brief: Initial data Gaussian nu */
+extern double NLSM_ID_NU1;
 
-    /**@brief: Initial data Gaussian elliptic z factor */
-    extern double NLSM_ID_EPSZ2;
+/**@brief: Initial data Gaussian nu */
+extern double NLSM_ID_NU2;
 
-    /**@brief: Initial data Gaussian R */
-    extern double NLSM_ID_R1;
+/**@brief: Initial data Gaussian Omega */
+extern double NLSM_ID_OMEGA;
 
-    /**@brief: Initial data Gaussian R */
-    extern double NLSM_ID_R2;
+/**@brief: wave speed direction x*/
+extern double NLSM_WAVE_SPEED_X;
 
-    /**@brief: Initial data Gaussian nu */
-    extern double NLSM_ID_NU1;
+/**@brief: wave speed direction y*/
+extern double NLSM_WAVE_SPEED_Y;
 
-    /**@brief: Initial data Gaussian nu */
-    extern double NLSM_ID_NU2;
+/**@brief: wave speed direction z*/
+extern double NLSM_WAVE_SPEED_Z;
 
-    /**@brief: Initial data Gaussian Omega */
-    extern double NLSM_ID_OMEGA;
+/**@brief: nlsm force refinement threshold for */
+extern double NLSM_CHI_REFINE_VAL;
 
-    /**@brief: wave speed direction x*/
-    extern double NLSM_WAVE_SPEED_X;
+/**@brief: nlsm force coarsen threshold for */
+extern double NLSM_CHI_COARSEN_VAL;
 
-    /**@brief: wave speed direction y*/
-    extern double NLSM_WAVE_SPEED_Y;
-    
-    /**@brief: wave speed direction z*/
-    extern double NLSM_WAVE_SPEED_Z;
+/**@brief: nlsm specify the refinement mode.  */
+extern RefineMode NLSM_REFINE_MODE;
 
-    /**@brief: nlsm force refinement threshold for */
-    extern double NLSM_CHI_REFINE_VAL;
-
-    /**@brief: nlsm force coarsen threshold for */
-    extern double NLSM_CHI_COARSEN_VAL;
-
-    /**@brief: nlsm specify the refinement mode.  */
-    extern RefineMode NLSM_REFINE_MODE;
-    
-
-}// end of namespace nlsm
+}  // end of namespace nlsm

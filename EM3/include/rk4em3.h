@@ -1,167 +1,164 @@
 //
 // Created by milinda on 12/1/17.
 /**
-*@author Milinda Fernando
-*School of Computing, University of Utah
-*@brief rk4 solver for em3 equations.
-*/
+ *@author Milinda Fernando
+ *School of Computing, University of Utah
+ *@brief rk4 solver for em3 equations.
+ */
 //
 
 #ifndef SFCSORTBENCH_RK4EM3_H
 #define SFCSORTBENCH_RK4EM3_H
 
-
-#include "rk.h"
-#include "fdCoefficient.h"
-#include "oct2vtk.h"
-#include "checkPoint.h"
-#include "mesh.h"
-#include <string>
 #include <iostream>
-#include "em3Utils.h"
-#include "parameters.h"
+#include <string>
+
+#include "checkPoint.h"
 #include "em3.h"
-#include "rhs.h"
-#include "meshTestUtils.h"
+#include "em3Utils.h"
+#include "fdCoefficient.h"
 #include "mathMeshUtils.h"
+#include "mesh.h"
+#include "meshTestUtils.h"
+#include "oct2vtk.h"
+#include "parameters.h"
 #include "physcon.h"
+#include "rhs.h"
+#include "rk.h"
 
-static const double RK4_C[]={1.0/6.0,1.0/3.0,1.0/3.0,1.0/6.0};
+static const double RK4_C[] = {1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0};
 
-static const double RK4_T[]={0,1.0/2.0,1.0/2.0,1.0};
-static const double RK4_U[]={0.0,1.0/2.0,1.0/2.0,1.0};
+static const double RK4_T[] = {0, 1.0 / 2.0, 1.0 / 2.0, 1.0};
+static const double RK4_U[] = {0.0, 1.0 / 2.0, 1.0 / 2.0, 1.0};
 
-namespace ode
-{
-    namespace solver
-    {
+namespace ode {
+namespace solver {
 
-        class RK4_EM3 : public RK
-        {
+class RK4_EM3 : public RK {
+   private:
+    // variables for EM3 formulation.
 
-        private:
+    /**@brief: list of pointers to the variable set indexed by enum VAR */
+    double **m_uiVar;
 
-            // variables for EM3 formulation.
+    /**@brief: previous time step solution*/
+    double **m_uiPrevVar;
 
-            /**@brief: list of pointers to the variable set indexed by enum VAR */
-            double ** m_uiVar;
+    /**@brief: intermediate variable for RK*/
+    double **m_uiVarIm;
 
-            /**@brief: previous time step solution*/
-            double ** m_uiPrevVar;
+    /**@brief list of pointers to unzip version of the variables **/
+    double **m_uiUnzipVar;
 
-            /**@brief: intermediate variable for RK*/
-            double ** m_uiVarIm;
+    /**@brief unzip rhs for each variable.*/
+    double **m_uiUnzipVarRHS;
 
-            /**@brief list of pointers to unzip version of the variables **/
-            double **m_uiUnzipVar;
+    /** stage - value vector of RK45 method*/
+    double ***m_uiStage;
 
-            /**@brief unzip rhs for each variable.*/
-            double **m_uiUnzipVarRHS;
+    /** @brief zipped version physical constraint equations*/
+    double **m_uiConstraintVars;
 
-            /** stage - value vector of RK45 method*/
-            double *** m_uiStage;
+    /** @brief unzip physical constrint vars*/
+    double **m_uiUnzipConstraintVars;
 
-            /** @brief zipped version physical constraint equations*/
-            double ** m_uiConstraintVars;
+    /**Send node buffers for async (send) communication*/
+    double **m_uiSendNodeBuf;
 
-            /** @brief unzip physical constrint vars*/
-            double ** m_uiUnzipConstraintVars;
+    /**recv node buffers for async (receive) communciation*/
+    double **m_uiRecvNodeBuf;
 
-            /**Send node buffers for async (send) communication*/
-            double ** m_uiSendNodeBuf;
+    /**@brief mpi send reqs for evolution vars*/
+    MPI_Request **m_uiSendReqs;
 
-            /**recv node buffers for async (receive) communciation*/
-            double ** m_uiRecvNodeBuf;
+    /**@brief mpi recv reqs for evolution vars*/
+    MPI_Request **m_uiRecvReqs;
 
-            /**@brief mpi send reqs for evolution vars*/
-            MPI_Request ** m_uiSendReqs;
+    /**@brief mpi send status to sync on sends*/
+    MPI_Status **m_uiSendSts;
 
-            /**@brief mpi recv reqs for evolution vars*/
-            MPI_Request ** m_uiRecvReqs;
+    /**@brief mpi recv status to sync on recv*/
+    MPI_Status **m_uiRecvSts;
 
-            /**@brief mpi send status to sync on sends*/
-            MPI_Status ** m_uiSendSts;
+   public:
+    /**
+     * @brief default constructor
+     * @param[in] pMesh : pointer to the mesh.
+     * @param[in] pTBegin: RK45 time begin
+     * @param[in] pTEnd: RK45 time end
+     * @param[in] pTh: times step size.
+     * * */
+    RK4_EM3(ot::Mesh *pMesh, double pTBegin, double pTEnd, double pTh);
 
-            /**@brief mpi recv status to sync on recv*/
-            MPI_Status ** m_uiRecvSts;
+    /**@brief default destructor*/
+    ~RK4_EM3();
 
+    /** @brief: read parameters related to EM3 simulation and store them in
+     * static variables defined in parameters.h*/
+    void readConfigFile(const char *fName);
 
+    /**@brief: starts the rk-45 solver. */
+    void rkSolve();
 
+    /** @brief: restore rk45 solver from a given checkpoint. This will overwrite
+     * the parameters given in the original constructor
+     *  @param[in]fNamePrefix: checkpoint file pre-fix name.
+     *  @param[in]step: step number which needs to be restored.
+     *  @param[in]comm: MPI communicator.
+     * */
+    void restoreCheckPoint(const char *fNamePrefix, MPI_Comm comm);
 
-        public:
-            /**
-             * @brief default constructor
-             * @param[in] pMesh : pointer to the mesh.
-             * @param[in] pTBegin: RK45 time begin
-             * @param[in] pTEnd: RK45 time end
-             * @param[in] pTh: times step size.
-             * * */
-            RK4_EM3(ot::Mesh *pMesh, double pTBegin, double pTEnd,double pTh);
+   private:
+    /** apply intial conditions*/
+    void applyInitialConditions(double **zipIn);
 
-            /**@brief default destructor*/
-            ~RK4_EM3();
+    /**performs initial grid convergence until the mesh converges to initial
+     * data. */
+    void initialGridConverge();
 
-            /** @brief: read parameters related to EM3 simulation and store them in static variables defined in parameters.h*/
-            void readConfigFile(const char * fName);
+    /** reallocates mpi resources if the mesh is changed, (need to be called
+     * during refmesing)*/
+    void reallocateMPIResources();
 
-            /**@brief: starts the rk-45 solver. */
-            void rkSolve();
+    /** @brief: perform ghost exchange for all vars*/
+    void performGhostExchangeVars(double **zipIn);
 
-            /** @brief: restore rk45 solver from a given checkpoint. This will overwrite the parameters given in the original constructor
-             *  @param[in]fNamePrefix: checkpoint file pre-fix name.
-             *  @param[in]step: step number which needs to be restored.
-             *  @param[in]comm: MPI communicator.
-             * */
-            void restoreCheckPoint(const char * fNamePrefix,MPI_Comm comm);
+    /**@brief: performs the intergrid transfer*/
+    void intergridTransferVars(double **&zipIn, const ot::Mesh *pnewMesh);
 
-        private:
-            /** apply intial conditions*/
-            void applyInitialConditions(double ** zipIn);
+    /**@brief unzip all the vars specified in VARS*/
+    void unzipVars(double **zipIn, double **uzipOut);
 
-            /**performs initial grid convergence until the mesh converges to initial data. */
-            void initialGridConverge();
+    /**@brief unzip all the vars specified in VARS*/
+    void unzipVars_async(double **zipIn, double **uzipOut);
 
-            /** reallocates mpi resources if the mesh is changed, (need to be called during refmesing)*/
-            void reallocateMPIResources();
+    /**@brief zip all the variables specified in VARS*/
+    void zipVars(double **uzipIn, double **zipOut);
 
-            /** @brief: perform ghost exchange for all vars*/
-            void performGhostExchangeVars(double** zipIn);
+    /**@brief write the solution to vtu file. */
+    // void writeToVTU(double **evolZipVarIn, double ** constrZipVarIn, unsigned
+    // int numEvolVars,unsigned int numConstVars,const unsigned int *
+    // evolVarIndices, const unsigned int * constVarIndices);
+    void writeToVTU(double **evolZipVarIn, double **constrZipVarIn,
+                    unsigned int numEvolVars, unsigned int numConstVars,
+                    const unsigned int *evolVarIndices,
+                    const unsigned int *constVarIndices, bool zslice);
 
-            /**@brief: performs the intergrid transfer*/
-            void intergridTransferVars(double **& zipIn, const ot::Mesh* pnewMesh);
+    /**@brief: Implementation of the base class time step function*/
+    void performSingleIteration();
 
-            /**@brief unzip all the vars specified in VARS*/
-            void unzipVars(double ** zipIn , double **uzipOut);
+    /**@brief: Implementation of the base class function to apply boundary
+     * conditions. */
+    void applyBoundaryConditions();
 
-            /**@brief unzip all the vars specified in VARS*/
-            void unzipVars_async(double ** zipIn , double **uzipOut);
+    /**@brief: stores the all the variables that is required to restore the rk45
+     * solver at a given stage.
+     * @param[in] fNamePrefix: checkpoint file pre-fix name.
+     * */
+    void storeCheckPoint(const char *fNamePrefix);
+};
 
-            /**@brief zip all the variables specified in VARS*/
-            void zipVars(double** uzipIn , double** zipOut);
+}  // end of namespace solver
+}  // end of namespace ode
 
-            /**@brief write the solution to vtu file. */
-            //void writeToVTU(double **evolZipVarIn, double ** constrZipVarIn, unsigned int numEvolVars,unsigned int numConstVars,const unsigned int * evolVarIndices, const unsigned int * constVarIndices);
-            void writeToVTU(double **evolZipVarIn, double ** constrZipVarIn, unsigned int numEvolVars,unsigned int numConstVars,const unsigned int * evolVarIndices, const unsigned int * constVarIndices, bool zslice);
-
-            /**@brief: Implementation of the base class time step function*/
-            void performSingleIteration();
-
-            /**@brief: Implementation of the base class function to apply boundary conditions. */
-            void applyBoundaryConditions();
-
-            /**@brief: stores the all the variables that is required to restore the rk45 solver at a given stage.
-             * @param[in] fNamePrefix: checkpoint file pre-fix name.
-             * */
-            void storeCheckPoint(const char * fNamePrefix);
-
-
-        };
-
-    } // end of namespace solver
-}// end of namespace ode
-
-
-
-
-
-#endif //SFCSORTBENCH_RK4EM3_H
+#endif  // SFCSORTBENCH_RK4EM3_H
