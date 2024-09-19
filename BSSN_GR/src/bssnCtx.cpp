@@ -818,6 +818,10 @@ int BSSNCtx::write_checkpt() {
     io::checkpoint::writeVecToFile(fName, m_uiMesh, (const double**)eVar,
                                    bssn::BSSN_NUM_VARS);
 
+    if (!rank)
+        std::cout << "   ...Finished writing the octree checkpoints!"
+                  << std::endl;
+
     if (!rank) {
         sprintf(fName, "%s_%d_step.cp", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
                 cpIndex);
@@ -858,8 +862,32 @@ int BSSNCtx::write_checkpt() {
         checkPoint["DENDRO_BSSN_BH_MERGE_TIME"] = m_dMergeTime;
         checkPoint["DENDRO_BSSN_BH_MERGE_STEP"] = m_uiMergeStep;
 
+        // then also the BH time history
+        checkPoint["DENDRO_BSSN_BH_LOC_TIMES"]  = m_uiBHTimeHistory;
+        // then the X, Y, Z points for the BSSN BH locations
+
+        // inline lambda conversion for point to json
+        auto point_to_json                      = [](const Point& p) {
+            return json{{"x", p.x()}, {"y", p.y()}, {"z", p.z()}};
+        };
+
+        json bhloc_out = json::array();
+
+        for (const auto& pair : m_uiBHLocHistory) {
+            bhloc_out.push_back({{"bh1", point_to_json(pair.first)},
+                                 {"bh2", point_to_json(pair.second)}}
+
+            );
+        }
+
+        checkPoint["DENDRO_BSSN_BH_LOC_HISTORY"] = bhloc_out;
+
         outfile << std::setw(4) << checkPoint << std::endl;
         outfile.close();
+
+        std::cout << "   ...Finished writing the plain-text checkpoint!"
+                  << std::endl;
+        std::cout << "[BSSNCtx] \t finished writing checkpoint! " << std::endl;
     }
 
     return 0;
@@ -950,6 +978,29 @@ int BSSNCtx::restore_checkpt() {
                     m_uiMergeStep = checkPoint["DENDRO_BSSN_BH_MERGE_STEP"];
                 }
 
+                if (checkPoint.find("DENDRO_BSSN_BH_LOC_TIMES") !=
+                    checkPoint.end()) {
+                    // restore bh location data
+
+                    for (const auto& pair_json :
+                         checkPoint["DENDRO_BSSN_BH_LOC_HISTORY"]) {
+                        Point bh1pt =
+                            Point(pair_json["bh1"]["x"].get<double>(),
+                                  pair_json["bh1"]["y"].get<double>(),
+                                  pair_json["bh1"]["z"].get<double>());
+                        Point bh2pt =
+                            Point(pair_json["bh2"]["x"].get<double>(),
+                                  pair_json["bh2"]["y"].get<double>(),
+                                  pair_json["bh2"]["z"].get<double>());
+
+                        m_uiBHLocHistory.emplace_back(bh1pt, bh2pt);
+                    }
+
+                    // then restore the times the bh's were output
+                    m_uiBHTimeHistory = checkPoint["DENDRO_BSSN_BH_LOC_TIMES"]
+                                            .get<std::vector<double>>();
+                }
+
                 restoreStep[cpIndex] = m_uiTinfo._m_uiStep;
             }
         }
@@ -1011,6 +1062,39 @@ int BSSNCtx::restore_checkpt() {
                 m_uiBHLoc[1] = Point((double)checkPoint["DENDRO_BH2_X"],
                                      (double)checkPoint["DENDRO_BH2_Y"],
                                      (double)checkPoint["DENDRO_BH2_Z"]);
+
+                // if this key is in, then all three keys should be
+                if (checkPoint.find("DENDRO_BSSN_BH_MERGE") !=
+                    checkPoint.end()) {
+                    // restore bh merge and merge time information
+                    m_bIsBHMerged = checkPoint["DENDRO_BSSN_BH_MERGE"];
+                    m_dMergeTime  = checkPoint["DENDRO_BSSN_BH_MERGE_TIME"];
+                    m_uiMergeStep = checkPoint["DENDRO_BSSN_BH_MERGE_STEP"];
+                }
+
+                if (checkPoint.find("DENDRO_BSSN_BH_LOC_TIMES") !=
+                    checkPoint.end()) {
+                    // restore bh location data
+
+                    for (const auto& pair_json :
+                         checkPoint["DENDRO_BSSN_BH_LOC_HISTORY"]) {
+                        Point bh1pt =
+                            Point(pair_json["bh1"]["x"].get<double>(),
+                                  pair_json["bh1"]["y"].get<double>(),
+                                  pair_json["bh1"]["z"].get<double>());
+                        Point bh2pt =
+                            Point(pair_json["bh2"]["x"].get<double>(),
+                                  pair_json["bh2"]["y"].get<double>(),
+                                  pair_json["bh2"]["z"].get<double>());
+
+                        m_uiBHLocHistory.emplace_back(bh1pt, bh2pt);
+                    }
+
+                    // then restore the times the bh's were output
+                    m_uiBHTimeHistory = checkPoint["DENDRO_BSSN_BH_LOC_TIMES"]
+                                            .get<std::vector<double>>();
+                }
+
                 restoreStep[restoreFileIndex] = m_uiTinfo._m_uiStep;
             }
         }
@@ -1170,8 +1254,8 @@ int BSSNCtx::restore_checkpt() {
         std::cout << "CHECKPOINT RESTORE SUCCESSFUL: " << NRM << std::endl;
         std::cout << "   checkpoint at step : " << m_uiTinfo._m_uiStep
                   << "active Comm. sz: " << activeCommSz
-                  << " restore successful: "
-                  << " restored mesh size: " << totalElems << std::endl
+                  << " restore successful: " << " restored mesh size: "
+                  << totalElems << std::endl
                   << std::endl;
         std::cout << " restored mesh min dx: " << bssn::BSSN_CURRENT_MIN_DX
                   << std::endl;
@@ -1484,6 +1568,10 @@ void BSSNCtx::evolve_bh_loc(DVec sIn, double dt) {
 
     bssn::BSSN_BH_LOC[0] = m_uiBHLoc[0];
     bssn::BSSN_BH_LOC[1] = m_uiBHLoc[1];
+
+    // append the bssn location points to our history
+    m_uiBHLocHistory.push_back(std::make_pair(m_uiBHLoc[0], m_uiBHLoc[1]));
+    m_uiBHTimeHistory.push_back(m_uiTinfo._m_uiT);
 
 // old bh location extractor.
 #if 0
