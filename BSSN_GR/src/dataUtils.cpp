@@ -151,6 +151,14 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
     const double r_far[2]  = {bssn::BSSN_AMR_R_RATIO * r_near[0],
                               bssn::BSSN_AMR_R_RATIO * r_near[1]};
     const unsigned int DEPTH_LEV_OFFSET = 1;
+    // set up level offsets for easier code reading
+    // level offset immediately about the BHs
+    const unsigned int LVL_OFF_0 = MAXDEAPTH_LEVEL_DIFF + 1;
+    // level offset in vicinity of the BHs
+    const unsigned int LVL_OFF_1 = LVL_OFF_0 + DEPTH_LEV_OFFSET;
+    
+    // consider BHs merged if punctures are less than this value
+    const double BH_MERGED_SEP_TOL = 0.1;
 
     const unsigned int eleLocalBegin    = pMesh->getElementLocalBegin();
     const unsigned int eleLocalEnd      = pMesh->getElementLocalEnd();
@@ -182,18 +190,15 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
             // calculate which region of the grid we're in
             const unsigned int ln = 1u
                                     << (m_uiMaxDepth - pNodes[ele].getLevel());
-
-            bool isNearTobh1    = false;
-            bool isNearTobh2    = false;
-
-            bool isNearFarTobh1 = false;
-            bool isNearFarTobh2 = false;
             
-            // minimum radius from grid center contained in this node
-            // start at large value to be overwritten
+            // Set obnoxiously large values for minimum radii 
+            // (to be overwritten) so as we go through box edges 
+            // we find minimum distances to BHs and to grid center 
             double r_min = 1000000; 
+            double r1_min = 1000000; 
+            double r2_min = 1000000; 
 
-            // measure distances between both BHs
+            // measure minimum distances between both BHs
             for (unsigned int kk = 0; kk < 2; kk++)
                 for (unsigned int jj = 0; jj < 2; jj++)
                     for (unsigned int ii = 0; ii < 2; ii++) {
@@ -203,111 +208,22 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
                         const Point oct_mid = Point(x, y, z);
                         pMesh->octCoordToDomainCoord(oct_mid, temp);
                         
-                        // update minimum distance from grid center
-                        r_min = std::min(r_min,temp.abs());
-                        
                         // vectors pointing toward each BH
                         d1 = temp - bhLoc[0];
                         d2 = temp - bhLoc[1];
-                        // distances to each BH
-                        const double rd1 = d1.abs();
-                        const double rd2 = d2.abs();
-
-                        // if w/i innermost radii
-                        if (!isNearTobh1) isNearTobh1 = (rd1 <= r_near[0]);
-
-                        if (!isNearTobh2) isNearTobh2 = (rd2 <= r_near[1]);
-
-                        // if in second ring
-                        if (!isNearFarTobh1)
-                            isNearFarTobh1 =
-                                ((rd1 > r_near[0]) && (rd1 <= r_far[0]));
-
-                        if (!isNearFarTobh2)
-                            isNearFarTobh2 =
-                                ((rd2 > r_near[1]) && (rd2 <= r_far[1]));
+                        // update minimum distance from each BH
+                        r1_min = std::min(r1_min,d1.abs());
+                        r2_min = std::min(r2_min,d2.abs());
+                        // update minimum distance from grid center
+                        r_min = std::min(r_min,temp.abs());
                     }
             
-            if (dBH < 0.1) {
-                // BHs have merged.
-
-                if (isNearTobh1 || isNearTobh2) {
-                    // in either inner radii
-                    // set towards correct level
-                    if ((pNodes[ele].getLevel() + MAXDEAPTH_LEVEL_DIFF + 1) <
-                        refLevMin) // if lower refinement than goal, split
-                        refine_flags[ele - eleLocalBegin] = OCT_SPLIT;
-                    else if ((pNodes[ele].getLevel() + MAXDEAPTH_LEVEL_DIFF +
-                              1) > refLevMin) // if overrefined, coarsen
-                        refine_flags[ele - eleLocalBegin] = OCT_COARSE;
-                    else
-                        refine_flags[ele - eleLocalBegin] = OCT_NO_CHANGE;
-
-                } else if (isNearFarTobh1 || isNearFarTobh2) {
-                    // in either mid radii
-                    refine_flags[ele - eleLocalBegin] = OCT_NO_CHANGE;
-                } else { 
-                    // far from both BHs
-                    refine_flags[ele - eleLocalBegin] = OCT_COARSE;
-                }
-
-            } else {
-                // inspiral phase of merger 
-
-                if (isNearTobh1 || isNearTobh2) {
-                    if (isNearTobh1) {
-                        if ((pNodes[ele].getLevel() + MAXDEAPTH_LEVEL_DIFF +
-                             1) < bssn::BSSN_BH1_MAX_LEV)
-                            refine_flags[ele - eleLocalBegin] = OCT_SPLIT;
-                        else if ((pNodes[ele].getLevel() +
-                                  MAXDEAPTH_LEVEL_DIFF + 1) >
-                                 bssn::BSSN_BH1_MAX_LEV)
-                            refine_flags[ele - eleLocalBegin] = OCT_COARSE;
-                        else
-                            refine_flags[ele - eleLocalBegin] = OCT_NO_CHANGE;
-                    } else { // is near to BH 2
-                        if ((pNodes[ele].getLevel() + MAXDEAPTH_LEVEL_DIFF +
-                             1) < bssn::BSSN_BH2_MAX_LEV)
-                            refine_flags[ele - eleLocalBegin] = OCT_SPLIT;
-                        else if ((pNodes[ele].getLevel() +
-                                  MAXDEAPTH_LEVEL_DIFF + 1) >
-                                 bssn::BSSN_BH2_MAX_LEV)
-                            refine_flags[ele - eleLocalBegin] = OCT_COARSE;
-                        else
-                            refine_flags[ele - eleLocalBegin] = OCT_NO_CHANGE;
-                    }
-
-                } else if (isNearFarTobh1 || isNearFarTobh2) {
-                    // refine_flags[ele-eleLocalBegin] = OCT_NO_CHANGE;
-                    if (isNearFarTobh1) {
-                        if ((pNodes[ele].getLevel() + MAXDEAPTH_LEVEL_DIFF +
-                             1) < (bssn::BSSN_BH1_MAX_LEV - DEPTH_LEV_OFFSET))
-                            refine_flags[ele - eleLocalBegin] = OCT_SPLIT;
-                        else if ((pNodes[ele].getLevel() +
-                                  MAXDEAPTH_LEVEL_DIFF + 1) >
-                                 (bssn::BSSN_BH1_MAX_LEV - DEPTH_LEV_OFFSET))
-                            refine_flags[ele - eleLocalBegin] = OCT_COARSE;
-                        else
-                            refine_flags[ele - eleLocalBegin] = OCT_NO_CHANGE;
-                    } else {
-                        if ((pNodes[ele].getLevel() + MAXDEAPTH_LEVEL_DIFF +
-                             1) < (bssn::BSSN_BH2_MAX_LEV - DEPTH_LEV_OFFSET))
-                            refine_flags[ele - eleLocalBegin] = OCT_SPLIT;
-                        else if ((pNodes[ele].getLevel() +
-                                  MAXDEAPTH_LEVEL_DIFF + 1) >
-                                 (bssn::BSSN_BH2_MAX_LEV - DEPTH_LEV_OFFSET))
-                            refine_flags[ele - eleLocalBegin] = OCT_COARSE;
-                        else
-                            refine_flags[ele - eleLocalBegin] = OCT_NO_CHANGE;
-                    }
-
-                } else {
-                    refine_flags[ele - eleLocalBegin] = OCT_COARSE;
-                }
-            }
             
             ////////////////////////////////////////////////////////////
             // wkb 5 Sept 2024: make this into nice functions 
+            
+            // set default of coarsening; use BHLB before any others!
+            refine_flags[ele - eleLocalBegin] == OCT_COARSE;
             
             // function which ensures we're at least at a given level
             auto setLevelFloor = [&](int l_min) {
@@ -323,6 +239,40 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
                 }
                 // else: sufficiently refined
             };
+            
+            
+            ////////////////////////////////////////////////////////////
+            // wkb 2 Oct 2024: 
+            // set up new logic for BHLB core refinement about BHs
+            
+            if (dBH < BH_MERGED_SEP_TOL) { // BHs have merged
+                if ((r1_min <= r_near[0]) || (r2_min <= r_near[1])) {
+                    // near to either BH
+                    setLevelFloor(refLevMin - LVL_OFF_0);
+                } else if ((r1_min <= r_far[0]) || (r2_min <= r_far[1])) {
+                    // in vicinity of either BH
+                    setLevelFloor(refLevMin - LVL_OFF_1);
+                }
+            } else { // BHs are inspiralling
+                // // // // // // // // // // // // // // // // // // //
+                // Set baseline refinement about BH1: 
+                if (r1_min <= r_near[0]) {
+                    // we're near BH1; set max refinement
+                    setLevelFloor(bssn::BSSN_BH1_MAX_LEV - LVL_OFF_0);
+                } else if (r1_min <= r_far[0]) {
+                    // we're in the vicinity of BH1; set next highest
+                    setLevelFloor(bssn::BSSN_BH1_MAX_LEV - LVL_OFF_1);
+                } // else: coarsen. 
+                // // // // // // // // // // // // // // // // // // //
+                // Set baseline refinement about BH2: 
+                if (r2_min <= r_near[1]) {
+                    // we're near BH2; set max refinement
+                    setLevelFloor(bssn::BSSN_BH2_MAX_LEV - LVL_OFF_0);
+                } else if (r2_min <= r_far[1]) {
+                    // we're in the vicinity of BH2; set next highest
+                    setLevelFloor(bssn::BSSN_BH2_MAX_LEV - LVL_OFF_1);
+                } // else: coarsen. 
+            }
             
             ////////////////////////////////////////////////////////////
             // wkb 29 Aug 2024: add refinement based on radius
@@ -340,9 +290,17 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
             ////////////////////////////////////////////////////////////
             // @wkb 4 Sept 2024: 
             // add refinement based on expected gravitational wavelength
+            #if 0
+            // q=1 parameters
             constexpr double A = 9.4;
             constexpr double tau0 = 445.0;
-            constexpr double mn = 6.9;
+            constexpr double mn = 10.5;
+            #else
+            // q=4 parameters
+            constexpr double A = 17;
+            constexpr double tau0 = 490.0;
+            constexpr double mn = 22.90;
+            #endif
             
             auto get_ell = [A, tau0, mn](double t_ret, int m = 6) -> int {
                 // Get refinement level necessary from wavelength
@@ -352,18 +310,25 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
                 lambda = std::max(lambda, mn);
                 return static_cast<int>(std::ceil(std::log2(800.0 * m / (3.0 * lambda))));
             };
+            
             // calculate retarded time
             const double t_ret = bssn::BSSN_CURRENT_RK_COORD_TIME - r_min; 
             const double R_GW = 100.;
             int ell_star; 
+            
+            /*
             // min refinement level required from GWs
+            // use this code here to have different criteria beyond
+            // the GW extraction radii to cut down costs
             if (r_min <= R_GW) {
               // if w/i region of capturing GWs, resolve highly
-              ell_star = get_ell(t_ret, 4); 
+              ell_star = get_ell(t_ret, 6); 
             } else {
               // otherwise, only prevent major backreflections
-              ell_star = get_ell(t_ret, 2); 
+              ell_star = get_ell(t_ret, 6); 
             }
+            */ 
+            ell_star = get_ell(t_ret, 6); 
             setLevelFloor(ell_star);
 #endif
 
