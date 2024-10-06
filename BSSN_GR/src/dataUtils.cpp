@@ -150,11 +150,12 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
     // const double r_far[2]  =  {2.5 * r_near[0], 2.5 * r_near[1] };
     const double r_far[2]  = {bssn::BSSN_AMR_R_RATIO * r_near[0],
                               bssn::BSSN_AMR_R_RATIO * r_near[1]};
-    const unsigned int DEPTH_LEV_OFFSET = 1;
-    // set up level offsets for easier code reading
+    // set up level offsets near black holes 
+    // (we don't actually refine to BSSN_BH?_MAX_LEV)
     // level offset immediately about the BHs
     const unsigned int LVL_OFF_0 = MAXDEAPTH_LEVEL_DIFF + 1;
     // level offset in vicinity of the BHs
+    const unsigned int DEPTH_LEV_OFFSET = 1;
     const unsigned int LVL_OFF_1 = LVL_OFF_0 + DEPTH_LEV_OFFSET;
     
     // consider BHs merged if punctures are less than this value
@@ -223,7 +224,7 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
             // wkb 5 Sept 2024: make this into nice functions 
             
             // set default of coarsening; use BHLB before any others!
-            refine_flags[ele - eleLocalBegin] == OCT_COARSE;
+            refine_flags[ele - eleLocalBegin] = OCT_COARSE;
             
             // function which ensures we're at least at a given level
             auto setLevelFloor = [&](int l_min) {
@@ -328,7 +329,8 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
               ell_star = get_ell(t_ret, 6); 
             }
             */ 
-            ell_star = get_ell(t_ret, 6); 
+            const unsigned int m_goal = 8;
+            ell_star = get_ell(t_ret, m_goal); 
             setLevelFloor(ell_star);
 #endif
 
