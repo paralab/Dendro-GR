@@ -57,6 +57,10 @@ class BSSNCtx : public ts::Ctx<BSSNCtx, DendroScalar, unsigned int> {
 
     Point m_uiBHLoc[2];
 
+    // keep track of both black holes
+    std::vector<std::pair<Point, Point>> m_uiBHLocHistory;
+    std::vector<double> m_uiBHTimeHistory;
+
    private:
     // TODO: move these into the main Ctx object and have the remesh logic work
     // there
