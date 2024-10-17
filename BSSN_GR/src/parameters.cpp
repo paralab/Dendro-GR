@@ -177,6 +177,8 @@ bool BSSN_MERGED_CHKPT_WRITTEN                  = false;
 double BSSN_CURRENT_RK_COORD_TIME               = 0;
 unsigned int BSSN_CURRENT_RK_STEP               = 0;
 
+unsigned int BSSN_NYQUIST_M                     = 0;
+
 /***@brief: derivs workspace*/
 double* BSSN_DERIV_WORKSPACE                    = nullptr;
 
@@ -419,6 +421,10 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
     if (parFile.contains("BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE"))
         bssn::BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE =
             parFile["BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE"].as_boolean();
+
+    if (parFile.contains("BSSN_NYQUIST_M")) {
+        bssn::BSSN_NYQUIST_M = parFile["BSSN_NYQUIST_M"].as_integer();
+    }
 
     /* Parameters for TPID */
     TPID::target_M_plus  = parFile["TPID_TARGET_M_PLUS"].as_floating();

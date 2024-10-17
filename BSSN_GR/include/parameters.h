@@ -376,6 +376,9 @@ extern unsigned int BSSN_CURRENT_RK_STEP;
 /***@brief: derivs workspace*/
 extern double* BSSN_DERIV_WORKSPACE;
 
+/** @brief: Nyquist goal for nyquist-based refinement **/
+extern unsigned int BSSN_NYQUIST_M;
+
 // note ko derivs are not included
 #ifdef BSSN_USE_ADVECTIVE_DERIVS
 const unsigned int BSSN_NUM_DERIVS = 138 + 74;

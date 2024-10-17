@@ -764,6 +764,8 @@ void dumpParamFile(std::ostream& sout, int root, MPI_Comm comm) {
             sout << YLW << "\t\tBSSN_PSILON_CAKO_OTHER: "
                  << bssn::BSSN_EPSILON_CAKO_OTHER << NRM << std::endl;
         }
+        sout << YLW << "\tBSSN_NYQUIST_M: " << bssn::BSSN_NYQUIST_M << NRM
+             << std::endl;
     }
 }
 
@@ -1730,10 +1732,10 @@ double computeWTolDCoords(double x, double y, double z, double* hx) {
     // set up a few useful values for computing the wavelet tolerances
     // element order: how many points we have in each grid
     const unsigned int eleOrder = bssn::BSSN_ELE_ORDER;
-    // current simulation time 
-    const double T_CURRENT = bssn::BSSN_CURRENT_RK_COORD_TIME;
+    // current simulation time
+    const double T_CURRENT      = bssn::BSSN_CURRENT_RK_COORD_TIME;
     // radius (from the center of the grid)
-    const double r = sqrt(x * x + y * y + z * z);
+    const double r              = sqrt(x * x + y * y + z * z);
     // distance between the BHs
     const double dbh = (bssn::BSSN_BH_LOC[0] - bssn::BSSN_BH_LOC[1]).abs();
     // set up grid point for relative distances to each BH
@@ -1753,7 +1755,6 @@ double computeWTolDCoords(double x, double y, double z, double* hx) {
         // R_Max is defined based on the initial separation.
         const double R_MAX =
             (bssn::BH1.getBHCoord() - bssn::BH2.getBHCoord()).abs() + R0 + R1;
-
 
 #ifdef BSSN_EXTRACT_GRAVITATIONAL_WAVES
         if (dbh < 0.1) {
@@ -1889,7 +1890,6 @@ double computeWTolDCoords(double x, double y, double z, double* hx) {
 #endif
 
     } else if (bssn::BSSN_USE_WAVELET_TOL_FUNCTION == 2) {
-
 #ifdef BSSN_EXTRACT_GRAVITATIONAL_WAVES
         if (dbh < 0.1) {
             const double R0 =
@@ -2039,58 +2039,63 @@ double computeWTolDCoords(double x, double y, double z, double* hx) {
 
     } else if (bssn::BSSN_USE_WAVELET_TOL_FUNCTION == 6) {
         // WKB Aug 2024
-        // use different sensitivities for regions of spacetime which 
+        // use different sensitivities for regions of spacetime which
         // are causally connected to the BHs as cf regions which are
-        // spacelike, causally disconnected from the BHs. 
-        
+        // spacelike, causally disconnected from the BHs.
+
         ////////////////////////////////////////////////////////////////
         // set up constants used in this function
-        
+
         // (max) orbital radius; use strictest refinement here
-        const double R_orbit = 8;
+        const double R_orbit     = 8;
         // outer radius of simulation
-        const double R_max = 400;
-        
+        const double R_max       = 400;
+
         // expected lapse wave tail length (M)
-        const double L = 50;
-        // calculate the time after which a given radius's relationship 
+        const double L           = 50;
+        // calculate the time after which a given radius's relationship
         // with the grid center is both time-like & clean of lapse noise
-        const double t_lim = std::max(r, (r + L) / std::sqrt(2));
-        
-        // wavelet tolerance in acausal (or dirty) regions. 
+        const double t_lim       = std::max(r, (r + L) / std::sqrt(2));
+
+        // wavelet tolerance in acausal (or dirty) regions.
         const double eps_disable = .001;
         // time to fade from eps_disable to eps_goal
-        const double t_fade = 200;
-        
+        const double t_fade      = 200;
+
         ////////////////////////////////////////////////////////////////
         // set up goal resolution to hit in causal clean regions
         // linearly interpolate log tolerances vs log radii
-        
+
         double eps_goal;
         if (r <= R_orbit) {
             eps_goal = bssn::BSSN_WAVELET_TOL;
-        } else { // log falloff
+        } else {  // log falloff
             // power we're raising the next expression to, scaling out radius
-            const double pwr = std::log(r / R_orbit) / std::log(R_max / R_orbit);
+            const double pwr =
+                std::log(r / R_orbit) / std::log(R_max / R_orbit);
             // goal wavelet tolerance at end times
-            eps_goal = bssn::BSSN_WAVELET_TOL * std::pow(bssn::BSSN_WAVELET_TOL_MAX / bssn::BSSN_WAVELET_TOL, pwr);
+            eps_goal =
+                bssn::BSSN_WAVELET_TOL *
+                std::pow(bssn::BSSN_WAVELET_TOL_MAX / bssn::BSSN_WAVELET_TOL,
+                         pwr);
         }
-        
+
         ////////////////////////////////////////////////////////////////
         // return time-delayed & smoothed wavelet tolerance
-        
-        if (T_CURRENT < t_lim) { // in spacelike or dirty region
+
+        if (T_CURRENT < t_lim) {  // in spacelike or dirty region
             // return max permissible wavelet tolerance
             // effectively disabling / kneecapping WAMR
-            return eps_disable; 
-        } else if (T_CURRENT > t_lim + t_fade) { // in clean timelike region
+            return eps_disable;
+        } else if (T_CURRENT > t_lim + t_fade) {  // in clean timelike region
             // return standard wavelet tolerance
-            return eps_goal; 
-        } else { // in transition region
+            return eps_goal;
+        } else {  // in transition region
             // return linear transition between log tolerance values
             // slope of transition region
             const double slope = std::log10(eps_goal / eps_disable) / t_fade;
-            const double lg_eps = std::log10(eps_disable) + slope * (T_CURRENT - t_lim);
+            const double lg_eps =
+                std::log10(eps_disable) + slope * (T_CURRENT - t_lim);
             return std::pow(10.0, lg_eps);
         }
     } else {

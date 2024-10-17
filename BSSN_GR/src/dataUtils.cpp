@@ -4,6 +4,8 @@
 
 #include "dataUtils.h"
 
+#include "parameters.h"
+
 namespace bssn {
 
 void extractBHCoords(const ot::Mesh* pMesh, const DendroScalar* var,
@@ -127,14 +129,9 @@ void writeBHCoordinates(const ot::Mesh* pMesh, const Point* ptLocs,
 
         // writes the header
         if (timestep == 0)
-            fileGW << "TimeStep\t"
-                   << " time\t"
-                   << " bh1_x\t"
-                   << " bh1_y\t"
-                   << " bh1_z\t"
-                   << " bh2_x\t"
-                   << " bh2_y\t"
-                   << " bh2_z\t" << std::endl;
+            fileGW << "TimeStep\t" << " time\t" << " bh1_x\t" << " bh1_y\t"
+                   << " bh1_z\t" << " bh2_x\t" << " bh2_y\t" << " bh2_z\t"
+                   << std::endl;
 
         fileGW << timestep << "\t" << time << "\t" << ptLocs[0].x() << "\t"
                << ptLocs[0].y() << "\t" << ptLocs[0].z() << "\t"
@@ -146,20 +143,20 @@ void writeBHCoordinates(const ot::Mesh* pMesh, const Point* ptLocs,
 }
 
 bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
-    const double r_near[2] = {bssn::BSSN_BH1_AMR_R, bssn::BSSN_BH2_AMR_R};
+    const double r_near[2]       = {bssn::BSSN_BH1_AMR_R, bssn::BSSN_BH2_AMR_R};
     // const double r_far[2]  =  {2.5 * r_near[0], 2.5 * r_near[1] };
-    const double r_far[2]  = {bssn::BSSN_AMR_R_RATIO * r_near[0],
-                              bssn::BSSN_AMR_R_RATIO * r_near[1]};
-    // set up level offsets near black holes 
+    const double r_far[2]        = {bssn::BSSN_AMR_R_RATIO * r_near[0],
+                                    bssn::BSSN_AMR_R_RATIO * r_near[1]};
+    // set up level offsets near black holes
     // (we don't actually refine to BSSN_BH?_MAX_LEV)
     // level offset immediately about the BHs
     const unsigned int LVL_OFF_0 = MAXDEAPTH_LEVEL_DIFF + 1;
     // level offset in vicinity of the BHs
     const unsigned int DEPTH_LEV_OFFSET = 1;
-    const unsigned int LVL_OFF_1 = LVL_OFF_0 + DEPTH_LEV_OFFSET;
-    
+    const unsigned int LVL_OFF_1        = LVL_OFF_0 + DEPTH_LEV_OFFSET;
+
     // consider BHs merged if punctures are less than this value
-    const double BH_MERGED_SEP_TOL = 0.1;
+    const double BH_MERGED_SEP_TOL      = 0.1;
 
     const unsigned int eleLocalBegin    = pMesh->getElementLocalBegin();
     const unsigned int eleLocalEnd      = pMesh->getElementLocalEnd();
@@ -174,7 +171,7 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
 
     std::vector<unsigned int> refine_flags;
 
-    // NOTE: these are the previous refine flags, 
+    // NOTE: these are the previous refine flags,
     // they're usually "no change" on remesh
     std::vector<unsigned int> prev_refine_flags =
         pMesh->getAllRefinementFlags();
@@ -191,13 +188,13 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
             // calculate which region of the grid we're in
             const unsigned int ln = 1u
                                     << (m_uiMaxDepth - pNodes[ele].getLevel());
-            
-            // Set obnoxiously large values for minimum radii 
-            // (to be overwritten) so as we go through box edges 
-            // we find minimum distances to BHs and to grid center 
-            double r_min = 1000000; 
-            double r1_min = 1000000; 
-            double r2_min = 1000000; 
+
+            // Set obnoxiously large values for minimum radii
+            // (to be overwritten) so as we go through box edges
+            // we find minimum distances to BHs and to grid center
+            double r_min  = 1000000;
+            double r1_min = 1000000;
+            double r2_min = 1000000;
 
             // measure minimum distances between both BHs
             for (unsigned int kk = 0; kk < 2; kk++)
@@ -208,45 +205,43 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
                         const double z      = pNodes[ele].minZ() + kk * ln;
                         const Point oct_mid = Point(x, y, z);
                         pMesh->octCoordToDomainCoord(oct_mid, temp);
-                        
+
                         // vectors pointing toward each BH
-                        d1 = temp - bhLoc[0];
-                        d2 = temp - bhLoc[1];
+                        d1     = temp - bhLoc[0];
+                        d2     = temp - bhLoc[1];
                         // update minimum distance from each BH
-                        r1_min = std::min(r1_min,d1.abs());
-                        r2_min = std::min(r2_min,d2.abs());
+                        r1_min = std::min(r1_min, d1.abs());
+                        r2_min = std::min(r2_min, d2.abs());
                         // update minimum distance from grid center
-                        r_min = std::min(r_min,temp.abs());
+                        r_min  = std::min(r_min, temp.abs());
                     }
-            
-            
+
             ////////////////////////////////////////////////////////////
-            // wkb 5 Sept 2024: make this into nice functions 
-            
+            // wkb 5 Sept 2024: make this into nice functions
+
             // set default of coarsening; use BHLB before any others!
             refine_flags[ele - eleLocalBegin] = OCT_COARSE;
-            
+
             // function which ensures we're at least at a given level
-            auto setLevelFloor = [&](int l_min) {
+            auto setLevelFloor                = [&](int l_min) {
                 int currentLevel = pNodes[ele].getLevel();
-            
+
                 if (currentLevel < l_min) {
                     // if below desired refinement level, split
                     refine_flags[ele - eleLocalBegin] = OCT_SPLIT;
-                } else if (currentLevel == l_min && 
+                } else if (currentLevel == l_min &&
                            refine_flags[ele - eleLocalBegin] == OCT_COARSE) {
                     // if at desired level, prevent coarsening
                     refine_flags[ele - eleLocalBegin] = OCT_NO_CHANGE;
                 }
                 // else: sufficiently refined
             };
-            
-            
+
             ////////////////////////////////////////////////////////////
-            // wkb 2 Oct 2024: 
+            // wkb 2 Oct 2024:
             // set up new logic for BHLB core refinement about BHs
-            
-            if (dBH < BH_MERGED_SEP_TOL) { // BHs have merged
+
+            if (dBH < BH_MERGED_SEP_TOL) {  // BHs have merged
                 if ((r1_min <= r_near[0]) || (r2_min <= r_near[1])) {
                     // near to either BH
                     setLevelFloor(refLevMin - LVL_OFF_0);
@@ -254,96 +249,97 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
                     // in vicinity of either BH
                     setLevelFloor(refLevMin - LVL_OFF_1);
                 }
-            } else { // BHs are inspiralling
+            } else {  // BHs are inspiralling
                 // // // // // // // // // // // // // // // // // // //
-                // Set baseline refinement about BH1: 
+                // Set baseline refinement about BH1:
                 if (r1_min <= r_near[0]) {
                     // we're near BH1; set max refinement
                     setLevelFloor(bssn::BSSN_BH1_MAX_LEV - LVL_OFF_0);
                 } else if (r1_min <= r_far[0]) {
                     // we're in the vicinity of BH1; set next highest
                     setLevelFloor(bssn::BSSN_BH1_MAX_LEV - LVL_OFF_1);
-                } // else: coarsen. 
+                }  // else: coarsen.
                 // // // // // // // // // // // // // // // // // // //
-                // Set baseline refinement about BH2: 
+                // Set baseline refinement about BH2:
                 if (r2_min <= r_near[1]) {
                     // we're near BH2; set max refinement
                     setLevelFloor(bssn::BSSN_BH2_MAX_LEV - LVL_OFF_0);
                 } else if (r2_min <= r_far[1]) {
                     // we're in the vicinity of BH2; set next highest
                     setLevelFloor(bssn::BSSN_BH2_MAX_LEV - LVL_OFF_1);
-                } // else: coarsen. 
+                }  // else: coarsen.
             }
-            
+
             ////////////////////////////////////////////////////////////
             // wkb 29 Aug 2024: add refinement based on radius
             // if radius r <= r*, keep level l >= l*
             // 9/9/24: change to depend on current BH separation dist.
-            
+
             // set up orbital scale
-            const double m1 = bssn::BSSN_BH1_MASS; // mass of BH1
-            const double m2 = bssn::BSSN_BH2_MASS; // mass of BH2
+            const double m1      = bssn::BSSN_BH1_MASS;  // mass of BH1
+            const double m2      = bssn::BSSN_BH2_MASS;  // mass of BH2
             // calculate relative distance to each BH
-            const double f1 = m2 / (m1 + m2); 
-            const double f2 = m1 / (m1 + m2); 
-            const double f = std::max(f1,f2); 
-            const double R_orbit = f * dBH + 5; // M; resolve scale
-            const int l_orbit = 9; // desired refinement level within 
+            const double f1      = m2 / (m1 + m2);
+            const double f2      = m1 / (m1 + m2);
+            const double f       = std::max(f1, f2);
+            const double R_orbit = f * dBH + 5;  // M; resolve scale
+            const int l_orbit    = 9;  // desired refinement level within
             if (r_min <= R_orbit) {
-              setLevelFloor(l_orbit);
+                setLevelFloor(l_orbit);
             }
-            
+
 #ifdef BSSN_EXTRACT_GRAVITATIONAL_WAVES
             ////////////////////////////////////////////////////////////
-            // @wkb 4 Sept 2024: 
+            // @wkb 4 Sept 2024:
             // add refinement based on expected gravitational wavelength
-            const double eta = f1 * f2; // symmetric mass ratio
+            const double eta     = f1 * f2;  // symmetric mass ratio
             const double lam_min = 4 * M_PI / (.37009 + .6475 * eta);
-            #if 1
+#if 1
             // q=1 parameters
-            constexpr double A = 9.4;
+            constexpr double A    = 9.4;
             constexpr double tau0 = 445.0;
-            // constexpr double mn = 10.5;
-            #else
+// constexpr double mn = 10.5;
+#else
             // q=4 parameters
-            constexpr double A = 17;
+            constexpr double A    = 17;
             constexpr double tau0 = 490.0;
-            // constexpr double mn = 22.90;
-            #endif
-            
-            auto get_ell = [A, tau0, lam_min](double t_ret, int m = 6) -> int {
+// constexpr double mn = 22.90;
+#endif
+
+            auto get_ell = [A, tau0, lam_min](double t_ret,
+                                              unsigned int m = 6) -> int {
                 // Get refinement level necessary from wavelength
                 double lambda = (t_ret < tau0)
-                    ? A * std::pow(tau0 - t_ret, 3.0/8.0)
-                    : lam_min;
-                lambda = std::max(lambda, lam_min);
-                return static_cast<int>(std::ceil(std::log2(800.0 * m / (3.0 * lambda))));
+                                    ? A * std::pow(tau0 - t_ret, 3.0 / 8.0)
+                                    : lam_min;
+                lambda        = std::max(lambda, lam_min);
+                return static_cast<int>(
+                    std::ceil(std::log2(800.0 * m / (3.0 * lambda))));
             };
-            
+
             // calculate retarded time
-            const double t_ret = bssn::BSSN_CURRENT_RK_COORD_TIME - r_min; 
-            const double R_GW = 100.;
-            int ell_star; 
-            
+            const double t_ret = bssn::BSSN_CURRENT_RK_COORD_TIME - r_min;
+            const double R_GW  = 100.;
+            int ell_star;
+
             /*
             // min refinement level required from GWs
             // use this code here to have different criteria beyond
             // the GW extraction radii to cut down costs
             if (r_min <= R_GW) {
               // if w/i region of capturing GWs, resolve highly
-              ell_star = get_ell(t_ret, 6); 
+              ell_star = get_ell(t_ret, 6);
             } else {
               // otherwise, only prevent major backreflections
-              ell_star = get_ell(t_ret, 4); 
+              ell_star = get_ell(t_ret, 4);
             }
-            */ 
-            
+            */
+
             // goal spherical harmonic order m to refine to
-            const unsigned int m_goal = 6;
-            
-            if (m_goal > 0) {
+            // DFVK NOTE: put the variable is now in the global parameter
+            if (bssn::BSSN_NYQUIST_M > 0) {
                 // same ell_star everywhere
-                ell_star = get_ell(t_ret, m_goal); 
+                ell_star = get_ell(t_ret, bssn::BSSN_NYQUIST_M);
                 setLevelFloor(ell_star);
             }
 #endif
@@ -577,9 +573,8 @@ bool isReMeshWAMR(
     const double BH_MERGED_SEP_TOL = 0.1;
 
     if (pMesh->isActive()) {
-        if (!pMesh->getMPIRank())
-            printf("BH coord sep: %.8E \n", dBH);  
-            // std::cout<<"BH coord sep: "<<dBH<<std::endl;
+        if (!pMesh->getMPIRank()) printf("BH coord sep: %.8E \n", dBH);
+        // std::cout<<"BH coord sep: "<<dBH<<std::endl;
 
         const RefElement* refEl    = pMesh->getReferenceElement();
         wavelet::WaveletEl* wrefEl = new wavelet::WaveletEl((RefElement*)refEl);
@@ -634,8 +629,8 @@ bool isReMeshWAMR(
                 for (unsigned int v = 0; v < BSSN_NUM_VARS; v++)
                     wtol_vals[v] = 0;
 
-                // calculate L2 norm of wavelet coefficients 
-                // for each variable; if any exceed limit, 
+                // calculate L2 norm of wavelet coefficients
+                // for each variable; if any exceed limit,
                 // break out early
                 for (unsigned int v = 0; v < numVars; v++) {
                     const unsigned int vid = varIds[v];
@@ -647,9 +642,9 @@ bool isReMeshWAMR(
                                                 wCout, isBdyOct);
                     // calculate the L-infinity norm of values on the grid
                     // double Linf = normLInfty(eVecTmp.data(), eVecTmp.size());
-                    double Linf = 1.0; // remove this for relWAMR
+                    double Linf    = 1.0;  // remove this for relWAMR
                     // ensure not exploding with the relative values (div by 0)
-                    Linf = std::max(Linf,1e-2);
+                    Linf           = std::max(Linf, 1e-2);
                     // renormalize waveleth values as relative to L-infty norm
                     wtol_vals[vid] = (normL2(wCout.data(), wCout.size())) /
                                      sqrt(wCout.size()) / Linf;
@@ -661,12 +656,12 @@ bool isReMeshWAMR(
                 const double l_max = vecMax(wtol_vals.data(), wtol_vals.size());
 
                 // use max wavelet coefficient to decide whether
-                // to coaresen / refine / no change 
+                // to coaresen / refine / no change
                 if (l_max > tol_ele) {
-                    // if under-refined, then refine 
+                    // if under-refined, then refine
                     refine_flags[(ele - eleLocalBegin)] = OCT_SPLIT;
                 } else if (l_max < amr_coarse_fac * tol_ele) {
-                    // if over-refined, then coarsen 
+                    // if over-refined, then coarsen
                     refine_flags[(ele - eleLocalBegin)] = OCT_COARSE;
                 } else {
                     // Goldilox zone - no changes needed
@@ -676,11 +671,11 @@ bool isReMeshWAMR(
         }
 
         delete wrefEl;
-        // end of WAMR core calculation. 
+        // end of WAMR core calculation.
 
         ////////////////////////////////////////////////////////////////
         // Below code enforces a certain level of refinement at the BHs,
-        // overriding what's currently set by the wavelets. 
+        // overriding what's currently set by the wavelets.
         for (unsigned int ele = eleLocalBegin; ele < eleLocalEnd; ele++) {
             // refine_flags[ele-eleLocalBegin] =
             // (pNodes[ele].getFlag()>>NUM_LEVEL_BITS); std::cout<<"ref flag:
@@ -883,7 +878,7 @@ bool isReMeshWAMR(
         isOctChange = pMesh->setMeshRefinementFlags(refine_flags);
     }
 
-    // communicate refinement between cores. 
+    // communicate refinement between cores.
     MPI_Allreduce(&isOctChange, &isOctChange_g, 1, MPI_CXX_BOOL, MPI_LOR,
                   pMesh->getMPIGlobalCommunicator());
     return isOctChange_g;
@@ -1123,25 +1118,20 @@ bool isReMeshBHRadial(ot::Mesh* pMesh) {
     return isOctChange_g;
 }
 
-
-
-
-
 bool addRemeshWAMR(
-    ot::Mesh* pMesh, const double** unzippedVec, 
-    const unsigned int* varIds, const unsigned int numVars,
+    ot::Mesh* pMesh, const double** unzippedVec, const unsigned int* varIds,
+    const unsigned int numVars,
     std::function<double(double, double, double, double*)> wavelet_tol,
     double amr_coarse_fac, bool relative_WAMR) {
-    // WKB Aug 2024: add new refinement helper to add on refinement 
+    // WKB Aug 2024: add new refinement helper to add on refinement
     // in regions where wavelets say so, but don't use wavelets
-    // directly for de-refinement. This adds up to this equalling 
+    // directly for de-refinement. This adds up to this equalling
     // isReMeshWAMR, but without calling 'COARSEN' (nor trying to do
-    // its own BHLB method 
+    // its own BHLB method
 
     // pull in current refinement flags
-    std::vector<unsigned int> refine_flags =
-        pMesh->getAllRefinementFlags();
-    
+    std::vector<unsigned int> refine_flags = pMesh->getAllRefinementFlags();
+
     const double r_near[2] = {bssn::BSSN_BH1_AMR_R, bssn::BSSN_BH2_AMR_R};
 
     const unsigned int eleLocalBegin = pMesh->getElementLocalBegin();
@@ -1160,9 +1150,8 @@ bool addRemeshWAMR(
     const double BH_MERGED_SEP_TOL = 0.1;
 
     if (pMesh->isActive()) {
-        if (!pMesh->getMPIRank())
-            printf("BH coord sep: %.8E \n", dBH);
-            // std::cout<<"BH coord sep: "<<dBH<<std::endl;
+        if (!pMesh->getMPIRank()) printf("BH coord sep: %.8E \n", dBH);
+        // std::cout<<"BH coord sep: "<<dBH<<std::endl;
 
         const RefElement* refEl    = pMesh->getReferenceElement();
         wavelet::WaveletEl* wrefEl = new wavelet::WaveletEl((RefElement*)refEl);
@@ -1170,7 +1159,7 @@ bool addRemeshWAMR(
         // pull current refinement flags
         const ot::TreeNode* pNodes = pMesh->getAllElements().data();
 
-        // set up vector to collect wavelet tolerance values 
+        // set up vector to collect wavelet tolerance values
         std::vector<double> wtol_vals(BSSN_NUM_VARS, 0.0);
 
         const std::vector<ot::Block>& blkList = pMesh->getLocalBlockList();
@@ -1217,7 +1206,7 @@ bool addRemeshWAMR(
                 for (unsigned int v = 0; v < BSSN_NUM_VARS; v++)
                     wtol_vals[v] = 0;
 
-                // calculate L2 norm of wavelet tolerances for each 
+                // calculate L2 norm of wavelet tolerances for each
                 // variable; if any exceed limit, break out early
                 for (unsigned int v = 0; v < numVars; v++) {
                     const unsigned int vid = varIds[v];
@@ -1229,16 +1218,17 @@ bool addRemeshWAMR(
                                                 wCout, isBdyOct);
 
                     // toggle using relative wavelets or not
-                    double Linf; // initialize normalization
+                    double Linf;  // initialize normalization
                     if (relative_WAMR) {
                         // calculate the L-infinity norm of values on the grid
                         Linf = normLInfty(eVecTmp.data(), eVecTmp.size());
-                        // ensure not exploding with the relative values (div by 0)
-                        Linf = std::max(Linf,1e-2);
+                        // ensure not exploding with the relative values (div by
+                        // 0)
+                        Linf = std::max(Linf, 1e-2);
                     } else {
                         Linf = 1.0;
                     }
-                    
+
                     // renormalize wavelet tolerance values
                     wtol_vals[vid] = (normL2(wCout.data(), wCout.size())) /
                                      sqrt(wCout.size()) / Linf;
@@ -1252,11 +1242,11 @@ bool addRemeshWAMR(
                 // overwriting whatever the current flag is
                 if (l_max > tol_ele) {
                     refine_flags[(ele - eleLocalBegin)] = OCT_SPLIT;
-                } else if (refine_flags[(ele - eleLocalBegin)] == OCT_COARSE
-                      && l_max >= amr_coarse_fac * tol_ele) {
-                    // if it wanted to coarsen, but the current level of 
-                    // refinement is actually necessary, then we're in 
-                    // the Goldilocks zone: Don't change! 
+                } else if (refine_flags[(ele - eleLocalBegin)] == OCT_COARSE &&
+                           l_max >= amr_coarse_fac * tol_ele) {
+                    // if it wanted to coarsen, but the current level of
+                    // refinement is actually necessary, then we're in
+                    // the Goldilocks zone: Don't change!
                     refine_flags[(ele - eleLocalBegin)] = OCT_NO_CHANGE;
                 }
             }
@@ -1273,9 +1263,5 @@ bool addRemeshWAMR(
                   pMesh->getMPIGlobalCommunicator());
     return isOctChange_g;
 }
-
-
-
-
 
 }  // end of namespace bssn
