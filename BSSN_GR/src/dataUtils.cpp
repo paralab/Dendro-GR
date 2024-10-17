@@ -281,7 +281,13 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
             // 9/9/24: change to depend on current BH separation dist.
             
             // set up orbital scale
-            const double R_orbit = (8 + dBH) / 2.; // M; resolve scale
+            const double m1 = bssn::BSSN_BH1_MASS; // mass of BH1
+            const double m2 = bssn::BSSN_BH2_MASS; // mass of BH2
+            // calculate relative distance to each BH
+            const double f1 = m2 / (m1 + m2); 
+            const double f2 = m1 / (m1 + m2); 
+            const double f = std::max(f1,f2); 
+            const double R_orbit = f * dBH + 5; // M; resolve scale
             const int l_orbit = 9; // desired refinement level within 
             if (r_min <= R_orbit) {
               setLevelFloor(l_orbit);
@@ -291,24 +297,26 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
             ////////////////////////////////////////////////////////////
             // @wkb 4 Sept 2024: 
             // add refinement based on expected gravitational wavelength
-            #if 0
+            const double eta = f1 * f2; // symmetric mass ratio
+            const double lam_min = 4 * M_PI / (.37009 + .6475 * eta);
+            #if 1
             // q=1 parameters
             constexpr double A = 9.4;
             constexpr double tau0 = 445.0;
-            constexpr double mn = 10.5;
+            // constexpr double mn = 10.5;
             #else
             // q=4 parameters
             constexpr double A = 17;
             constexpr double tau0 = 490.0;
-            constexpr double mn = 22.90;
+            // constexpr double mn = 22.90;
             #endif
             
-            auto get_ell = [A, tau0, mn](double t_ret, int m = 6) -> int {
+            auto get_ell = [A, tau0, lam_min](double t_ret, int m = 6) -> int {
                 // Get refinement level necessary from wavelength
                 double lambda = (t_ret < tau0)
                     ? A * std::pow(tau0 - t_ret, 3.0/8.0)
-                    : mn;
-                lambda = std::max(lambda, mn);
+                    : lam_min;
+                lambda = std::max(lambda, lam_min);
                 return static_cast<int>(std::ceil(std::log2(800.0 * m / (3.0 * lambda))));
             };
             
@@ -326,12 +334,18 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
               ell_star = get_ell(t_ret, 6); 
             } else {
               // otherwise, only prevent major backreflections
-              ell_star = get_ell(t_ret, 6); 
+              ell_star = get_ell(t_ret, 4); 
             }
             */ 
-            const unsigned int m_goal = 8;
-            ell_star = get_ell(t_ret, m_goal); 
-            setLevelFloor(ell_star);
+            
+            // goal spherical harmonic order m to refine to
+            const unsigned int m_goal = 6;
+            
+            if (m_goal > 0) {
+                // same ell_star everywhere
+                ell_star = get_ell(t_ret, m_goal); 
+                setLevelFloor(ell_star);
+            }
 #endif
 
             ////////////////////////////////////////////////////////////
@@ -1238,7 +1252,13 @@ bool addRemeshWAMR(
                 // overwriting whatever the current flag is
                 if (l_max > tol_ele) {
                     refine_flags[(ele - eleLocalBegin)] = OCT_SPLIT;
-                } 
+                } else if (refine_flags[(ele - eleLocalBegin)] == OCT_COARSE
+                      && l_max >= amr_coarse_fac * tol_ele) {
+                    // if it wanted to coarsen, but the current level of 
+                    // refinement is actually necessary, then we're in 
+                    // the Goldilocks zone: Don't change! 
+                    refine_flags[(ele - eleLocalBegin)] = OCT_NO_CHANGE;
+                }
             }
         }
 
