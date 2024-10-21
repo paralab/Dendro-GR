@@ -481,6 +481,14 @@ int BSSNCtx::initialize() {
          ((double)(1u << (m_uiMaxDepth))));
     m_uiTinfo._m_uiTh = bssn::BSSN_RK45_TIME_STEP_SIZE;
 
+    if (bssn::BSSN_SCALE_VTU_AND_GW_EXTRACTION) {
+        // REMEMBER: the true max depth of the array is two minus m_uiMaxDepth
+        bssn::BSSN_IO_OUTPUT_FREQ_TRUE =
+            bssn::BSSN_IO_OUTPUT_FREQ >> (m_uiMaxDepth - 2 - lmax);
+        bssn::BSSN_GW_EXTRACT_FREQ_TRUE =
+            bssn::BSSN_GW_EXTRACT_FREQ >> (m_uiMaxDepth - 2 - lmax);
+    }
+
     if (!m_uiMesh->getMPIRankGlobal()) {
         const DendroScalar dx_finest =
             ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
@@ -495,6 +503,10 @@ int BSSNCtx::initialize() {
         std::cout << "lmin: " << lmin << " lmax:" << lmax << std::endl;
         std::cout << "dx: " << dx_finest << std::endl;
         std::cout << "dt: " << dt_finest << std::endl;
+        std::cout << "VTU IO Output Freq: " << bssn::BSSN_IO_OUTPUT_FREQ_TRUE
+                  << std::endl;
+        std::cout << "GW IO Output Freq: " << bssn::BSSN_GW_EXTRACT_FREQ_TRUE
+                  << std::endl;
         std::cout << "========================================================="
                      "======================================================"
                   << std::endl;
@@ -716,7 +728,7 @@ int BSSNCtx::write_vtu() {
 
 #ifdef BSSN_ENABLE_VTU_OUTPUT
 
-    if ((m_uiTinfo._m_uiStep % bssn::BSSN_IO_OUTPUT_FREQ) == 0) {
+    if ((m_uiTinfo._m_uiStep % bssn::BSSN_IO_OUTPUT_FREQ_TRUE) == 0) {
         std::vector<std::string> pDataNames;
         const unsigned int numConstVars = bssn::BSSN_NUM_CONST_VARS_VTU_OUTPUT;
         const unsigned int numEvolVars  = bssn::BSSN_NUM_EVOL_VARS_VTU_OUTPUT;

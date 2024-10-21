@@ -454,6 +454,24 @@ bssn:
                     ts_in._m_uiTh    = bssn::BSSN_RK45_TIME_STEP_SIZE;
                     bssnCtx->set_ts_info(ts_in);
 
+                    // REMEMBER: the true max depth of the array is two minus
+                    // m_uiMaxDepth
+                    if (bssn::BSSN_SCALE_VTU_AND_GW_EXTRACTION) {
+                        // REMEMBER: the true max depth of the array is two
+                        // minus m_uiMaxDepth
+                        bssn::BSSN_IO_OUTPUT_FREQ_TRUE =
+                            bssn::BSSN_IO_OUTPUT_FREQ >>
+                            (m_uiMaxDepth - 2 - lmax);
+                        bssn::BSSN_GW_EXTRACT_FREQ_TRUE =
+                            bssn::BSSN_GW_EXTRACT_FREQ >>
+                            (m_uiMaxDepth - 2 - lmax);
+                        std::cout << "    IO Output Freq updated to: "
+                                  << bssn::BSSN_IO_OUTPUT_FREQ_TRUE
+                                  << " | GW Output Freq updated to: "
+                                  << bssn::BSSN_GW_EXTRACT_FREQ_TRUE
+                                  << std::endl;
+                    }
+
                     if (!rank_global) {
                         std::cout << GRN << "[ETS] : Remesh sequence finished"
                                   << NRM << std::endl;
@@ -503,7 +521,7 @@ bssn:
                 bssnCtx->terminal_output();
             }
 
-            if ((step % bssn::BSSN_GW_EXTRACT_FREQ) == 0) {
+            if ((step % bssn::BSSN_GW_EXTRACT_FREQ_TRUE) == 0) {
                 bssnCtx->write_vtu();
                 bssnCtx->evolve_bh_loc(
                     bssnCtx->get_evolution_vars(),
