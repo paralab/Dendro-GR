@@ -1199,9 +1199,21 @@ bool addRemeshWAMR(
                 pMesh->octCoordToDomainCoord(oct_pt2, domain_pt2);
                 dx_domain    = domain_pt2 - domain_pt1;
                 double hx[3] = {dx_domain.x(), dx_domain.y(), dx_domain.z()};
-                const double tol_ele = wavelet_tol(
+                double tol_ele = wavelet_tol(
                     domain_pt1.x(), domain_pt1.y(), domain_pt1.z(), hx);
-
+                
+                ////////////////////////////////////////////////////////
+                // wkb 17 Oct: amplify wavelet tolerance if w/i BH radii
+                // calculate distances to each black hole
+                const double r_BH1 = (domain_pt1 - BSSN_BH_LOC[0]).abs() / bssn::BSSN_BH1_AMR_R;
+                const double r_BH2 = (domain_pt1 - BSSN_BH_LOC[1]).abs() / bssn::BSSN_BH2_AMR_R;
+                // overwrite if we're w/i the AMR radius of either BH
+                if (std::min(r_BH1,r_BH2) <= 1) {
+                    // large amplification of tolerance should 
+                    // effectively disable WAMR w/i the BHs.
+                    tol_ele *= 1e9; 
+                }
+                
                 // initialize all the wavelet errors to zero initially.
                 for (unsigned int v = 0; v < BSSN_NUM_VARS; v++)
                     wtol_vals[v] = 0;
