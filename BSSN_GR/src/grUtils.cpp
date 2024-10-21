@@ -2051,8 +2051,8 @@ double computeWTolDCoords(double x, double y, double z, double* hx) {
         // outer radius of simulation
         const double R_max       = 400;
 
-        // expected lapse wave tail length (M)
-        const double L           = 50;
+        // expected lapse wave tail length (M) + backreflections
+        const double L           = 100;
         // calculate the time after which a given radius's relationship
         // with the grid center is both time-like & clean of lapse noise
         const double t_lim       = std::max(r, (r + L) / std::sqrt(2));
@@ -2060,7 +2060,7 @@ double computeWTolDCoords(double x, double y, double z, double* hx) {
         // wavelet tolerance in acausal (or dirty) regions.
         const double eps_disable = .001;
         // time to fade from eps_disable to eps_goal
-        const double t_fade      = 200;
+        const double t_fade      = 100;
 
         ////////////////////////////////////////////////////////////////
         // set up goal resolution to hit in causal clean regions
