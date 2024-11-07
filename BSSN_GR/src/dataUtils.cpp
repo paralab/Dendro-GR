@@ -150,7 +150,14 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
     // set up level offsets near black holes
     // (we don't actually refine to BSSN_BH?_MAX_LEV)
     // level offset immediately about the BHs
-    const unsigned int LVL_OFF_0 = MAXDEAPTH_LEVEL_DIFF + 1;
+    unsigned int LVL_OFF_0; 
+    if (bssn::BSSN_CURRENT_RK_COORD_TIME < -10) {
+        // boost level temporarily at simulation start
+        // disabled for now. 
+        LVL_OFF_0 = MAXDEAPTH_LEVEL_DIFF - 1;
+    } else {
+        LVL_OFF_0 = MAXDEAPTH_LEVEL_DIFF + 1;
+    }
     // level offset in vicinity of the BHs
     const unsigned int DEPTH_LEV_OFFSET = 1;
     const unsigned int LVL_OFF_1        = LVL_OFF_0 + DEPTH_LEV_OFFSET;
@@ -293,21 +300,32 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
             // @wkb 4 Sept 2024:
             // add refinement based on expected gravitational wavelength
             const double eta     = f1 * f2;  // symmetric mass ratio
-            const double lam_min = 4 * M_PI / (.37009 + .6475 * eta);
-#if 1
+            // estimate ending GW frequency from quasi-normal modes 
+            const double lam_qnm = 4 * M_PI / (.37009 + .6475 * eta);
+            // clang-format off
+            #if 1
             // q=1 parameters
-            constexpr double A    = 9.4;
+            constexpr double A    = 18.8;
+            // More nuanced fit: A tau^(3/8) * (1 + B tau^(-2/8))
+            // constexpr double B    = 0.0; 
             constexpr double tau0 = 445.0;
-// constexpr double mn = 10.5;
-#else
+            // constexpr double mn = 10.5; // old
+            constexpr double mn = 14.49;
+            #else
             // q=4 parameters
             constexpr double A    = 17;
+            // More nuanced fit: A tau^(3/8) * (1 + B tau^(-2/8))
+            // constexpr double B    = .75;
             constexpr double tau0 = 490.0;
-// constexpr double mn = 22.90;
-#endif
+            // constexpr double mn = 22.90; // old
+            constexpr double mn = 18.10;
+            #endif
+            // decide whether to use QNM or orbital freq for ending
+            const double lam_min = mn; // use orbital freq @ ds = .1
+            // clang-format on
 
             auto get_ell = [A, tau0, lam_min](double t_ret,
-                                              unsigned int m = 6) -> int {
+                                              unsigned int m = 8) -> int {
                 // Get refinement level necessary from wavelength
                 double lambda = (t_ret < tau0)
                                     ? A * std::pow(tau0 - t_ret, 3.0 / 8.0)
@@ -328,10 +346,10 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
             // the GW extraction radii to cut down costs
             if (r_min <= R_GW) {
               // if w/i region of capturing GWs, resolve highly
-              ell_star = get_ell(t_ret, 6);
+              ell_star = get_ell(t_ret, bssn::BSSN_NYQUIST_M);
             } else {
               // otherwise, only prevent major backreflections
-              ell_star = get_ell(t_ret, 4);
+              ell_star = get_ell(t_ret, bssn::BSSN_NYQUIST_M - 2);
             }
             */
 
