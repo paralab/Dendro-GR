@@ -465,11 +465,12 @@ bssn:
                         bssn::BSSN_GW_EXTRACT_FREQ_TRUE =
                             bssn::BSSN_GW_EXTRACT_FREQ >>
                             (m_uiMaxDepth - 2 - lmax);
-                        std::cout << "    IO Output Freq updated to: "
-                                  << bssn::BSSN_IO_OUTPUT_FREQ_TRUE
-                                  << " | GW Output Freq updated to: "
-                                  << bssn::BSSN_GW_EXTRACT_FREQ_TRUE
-                                  << std::endl;
+                        if (!rank_global)
+                            std::cout << "    IO Output Freq updated to: "
+                                      << bssn::BSSN_IO_OUTPUT_FREQ_TRUE
+                                      << " | GW Output Freq updated to: "
+                                      << bssn::BSSN_GW_EXTRACT_FREQ_TRUE
+                                      << std::endl;
                     }
 
                     if (!rank_global) {
