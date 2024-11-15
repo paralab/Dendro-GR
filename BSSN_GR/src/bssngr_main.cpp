@@ -374,8 +374,11 @@ bssn:
             hh[3][i] = 0.0;
         }
 
-        hh[0][0] = r_plus * sqrt(4 * M_PI);
-        hh[2][0] = r_minus * sqrt(4 * M_PI);
+        hh[0][0]                    = r_plus * sqrt(4 * M_PI);
+        hh[2][0]                    = r_minus * sqrt(4 * M_PI);
+
+        // capture the curr step
+        const DendroIntL start_step = ets->curr_step();
 
         while (ets->curr_time() < bssn::BSSN_RK_TIME_END) {
             const DendroIntL step            = ets->curr_step();
@@ -524,9 +527,14 @@ bssn:
 
             if ((step % bssn::BSSN_GW_EXTRACT_FREQ_TRUE) == 0) {
                 bssnCtx->write_vtu();
-                bssnCtx->evolve_bh_loc(
-                    bssnCtx->get_evolution_vars(),
-                    ets->ts_size() * bssn::BSSN_GW_EXTRACT_FREQ);
+
+                // we should not evolve the puncutre locations at the very first
+                // timestep either step=0 or after a checkpoint restore
+                if (step != start_step) {
+                    bssnCtx->evolve_bh_loc(
+                        bssnCtx->get_evolution_vars(),
+                        ets->ts_size() * bssn::BSSN_GW_EXTRACT_FREQ);
+                }
             }
 
             if ((step % bssn::BSSN_CHECKPT_FREQ) == 0) {
