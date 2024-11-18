@@ -611,6 +611,8 @@ int BSSNCtx::init_grid() {
 int BSSNCtx::finalize() { return 0; }
 
 void BSSNCtx::compute_constraint_variables() {
+    if (m_bConstraintsComputed) return;
+
     DVec& m_evar     = m_var[VL::CPU_EV];
     DVec& m_evar_unz = m_var[VL::CPU_EV_UZ_IN];
     DVec& m_cvar     = m_var[VL::CPU_CV];
@@ -698,6 +700,8 @@ void BSSNCtx::compute_constraint_variables() {
     }
 
 #endif
+
+    m_bConstraintsComputed = true;
 }
 
 int BSSNCtx::write_vtu() {
@@ -727,7 +731,8 @@ int BSSNCtx::write_vtu() {
     m_evar.to_2d(evolVar);
     m_cvar.to_2d(consVar);
 
-    // make sure the constraint variables are computed
+    // make sure the constraint variables are computed, they should be, but at
+    // least it'll early exit if they are this time step
     this->compute_constraint_variables();
 
 #ifdef BSSN_ENABLE_VTU_OUTPUT
@@ -1281,17 +1286,16 @@ int BSSNCtx::restore_checkpt() {
          ((double)(1u << (m_uiMaxDepth))));
 
     if (!rank) {
-        std::cout << GRN
-                  << "=======================================" << std::endl;
+        std::cout << GRN << "---------------------------------------"
+                  << std::endl;
         std::cout << "CHECKPOINT RESTORE SUCCESSFUL: " << NRM << std::endl;
         std::cout << "   checkpoint at step : " << m_uiTinfo._m_uiStep
-                  << "active Comm. sz: " << activeCommSz
-                  << " restore successful: " << " restored mesh size: "
-                  << totalElems << std::endl
+                  << " | active Comm. sz: " << activeCommSz
+                  << " | restored mesh size: " << totalElems << std::endl
                   << std::endl;
         std::cout << " restored mesh min dx: " << bssn::BSSN_CURRENT_MIN_DX
                   << std::endl;
-        std::cout << GRN << "=======================================" << NRM
+        std::cout << GRN << "---------------------------------------" << NRM
                   << std::endl;
     }
 

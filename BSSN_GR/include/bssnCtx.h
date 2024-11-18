@@ -73,12 +73,19 @@ class BSSNCtx : public ts::Ctx<BSSNCtx, DendroScalar, unsigned int> {
     uint32_t m_uiMergeStep       = std::numeric_limits<uint32_t>::max();
     bool m_bIsBHMerged           = false;
 
+    bool m_bConstraintsComputed  = false;
+
    public:
     /**@brief: default constructor*/
     BSSNCtx(ot::Mesh* pMesh);
 
     /**@brief: default deconstructor*/
     ~BSSNCtx();
+
+    void prepare_for_next_iter() {
+        // make sure some things are ready for the next iteration
+        m_bConstraintsComputed = false;
+    }
 
     /**@brief get bh locations*/
     const Point& get_bh0_loc() const { return m_uiBHLoc[0]; }

@@ -388,6 +388,19 @@ bssn:
                 }
             }
 
+            // on restore, but only on restore and not at the beginning
+            if (step != 0 && step == start_step) {
+                if (!rank_global)
+                    std::cout << BLD << GRN
+                              << "[ETS] : CHECKPOINT RESTORED. Doing "
+                                 "additional cleanup.\n"
+                              << NRM << std::endl;
+                // there's no guarantee that the constraints will be computed
+                // right on restore, due to the timing. we still need them
+                // populated with "good" data
+                bssnCtx->compute_constraint_variables();
+            }
+
             const bool is_merged = bssnCtx->is_bh_merged(0.1);
             if (is_merged) {
                 // make sure we set that bh is merged!
@@ -501,7 +514,8 @@ bssn:
             }
 
             if ((step % bssn::BSSN_GW_EXTRACT_FREQ_TRUE) == 0) {
-                bssnCtx->write_vtu();
+                // compute the constraints
+                bssnCtx->compute_constraint_variables();
 
                 // we should not evolve the puncture locations at the very first
                 // timestep step=0
@@ -511,8 +525,11 @@ bssn:
                         ets->ts_size() * bssn::BSSN_GW_EXTRACT_FREQ);
                 }
 
-                // this should always be stored
+                // make sure the BH locations are stored
                 bssnCtx->store_bh_loc_history();
+
+                // write to vtu, which includes writing the BH location data
+                bssnCtx->write_vtu();
             }
 
             if ((AEH::AEH_SOLVER_FREQ > 0) &&
@@ -526,6 +543,8 @@ bssn:
                 bssnCtx->write_checkpt();
                 bssnCtx->get_mesh()->waitAll();
             }
+
+            bssnCtx->prepare_for_next_iter();
         }
 
 #if defined __PROFILE_CTX__ && defined __PROFILE_ETS__
