@@ -503,9 +503,9 @@ bssn:
             if ((step % bssn::BSSN_GW_EXTRACT_FREQ_TRUE) == 0) {
                 bssnCtx->write_vtu();
 
-                // we should not evolve the puncutre locations at the very first
-                // timestep either step=0 or after a checkpoint restore
-                if (step != start_step) {
+                // we should not evolve the puncture locations at the very first
+                // timestep step=0
+                if (step != 0) {
                     bssnCtx->evolve_bh_loc(
                         bssnCtx->get_evolution_vars(),
                         ets->ts_size() * bssn::BSSN_GW_EXTRACT_FREQ);
