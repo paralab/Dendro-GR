@@ -365,7 +365,30 @@ bssn:
             const bool isActive              = ets->is_active();
             const unsigned int rank_global   = ets->get_global_rank();
 
-            const bool is_merged             = bssnCtx->is_bh_merged(0.1);
+            // things that should happen **only** on time step 0
+            if (step == 0) {
+                if (!rank_global) {
+                    std::cout << BLU
+                              << "[ETS] : Timestep 0 - ensuring a few things "
+                                 "are taken care of..."
+                              << NRM << std::endl;
+                }
+                // for our scaling operation, we want to make sure that the
+                // constraints are computed and handled
+                bssnCtx->compute_constraint_variables();
+
+                // make sure we write about the grid size at time 0
+                bssnCtx->write_grid_summary_data();
+
+                if (!rank_global) {
+                    std::cout << BLU
+                              << "[ETS] : Timestep 0 - Finished with things "
+                                 "that should always be done at time 0!"
+                              << NRM << std::endl;
+                }
+            }
+
+            const bool is_merged = bssnCtx->is_bh_merged(0.1);
             if (is_merged) {
                 // make sure we set that bh is merged!
                 // NOTE: don't worry, this won't update the bssn ctx object
@@ -466,29 +489,6 @@ bssn:
                 bssnCtx->write_grid_summary_data();
             }
 
-            // things that should happen **only** on time step 0
-            if (step == 0) {
-                if (!rank_global) {
-                    std::cout << BLU
-                              << "[ETS] : Timestep 0 - ensuring a few things "
-                                 "are taken care of..."
-                              << NRM << std::endl;
-                }
-                // for our scaling operation, we want to make sure that the
-                // constraints are computed and handled
-                bssnCtx->compute_constraint_variables();
-
-                // make sure we write about the grid size at time 0
-                bssnCtx->write_grid_summary_data();
-
-                if (!rank_global) {
-                    std::cout << BLU
-                              << "[ETS] : Timestep 0 - Finished with things "
-                                 "that should always be done at time 0!"
-                              << NRM << std::endl;
-                }
-            }
-
             if ((step % bssn::BSSN_TIME_STEP_OUTPUT_FREQ) == 0) {
                 if (!rank_global)
                     std::cout << BLD << GRN << "[ETS - BSSN] : SOLVER UPDATE\n"
@@ -512,17 +512,17 @@ bssn:
                 }
             }
 
-            if ((step % bssn::BSSN_CHECKPT_FREQ) == 0) {
-                bssnCtx->write_checkpt();
-                bssnCtx->get_mesh()->waitAll();
-            }
-
             if ((AEH::AEH_SOLVER_FREQ > 0) &&
                 (step % AEH::AEH_SOLVER_FREQ) == 0) {
                 bssnaeh::perform_aeh_step(bssnCtx, rank);
             }
 
             ets->evolve();
+
+            if ((step % bssn::BSSN_CHECKPT_FREQ) == 0) {
+                bssnCtx->write_checkpt();
+                bssnCtx->get_mesh()->waitAll();
+            }
         }
 
 #if defined __PROFILE_CTX__ && defined __PROFILE_ETS__
