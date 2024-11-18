@@ -510,6 +510,9 @@ bssn:
                         bssnCtx->get_evolution_vars(),
                         ets->ts_size() * bssn::BSSN_GW_EXTRACT_FREQ);
                 }
+
+                // this should always be stored
+                bssnCtx->store_bh_loc_history();
             }
 
             if ((AEH::AEH_SOLVER_FREQ > 0) &&

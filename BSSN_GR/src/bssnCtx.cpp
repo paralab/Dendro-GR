@@ -12,6 +12,10 @@
 
 #include "bssnCtx.h"
 
+#include <sys/types.h>
+
+#include <cstdint>
+
 #include "parameters.h"
 
 namespace bssn {
@@ -883,14 +887,22 @@ int BSSNCtx::write_checkpt() {
             return json{{"x", p.x()}, {"y", p.y()}, {"z", p.z()}};
         };
 
-        json bhloc_out = json::array();
+        json bhloc_out       = json::array();
+
+        uint32_t times_wrote = 0;
+        std::cout << "bhloc history size: " << m_uiBHLocHistory.size()
+                  << std::endl;
 
         for (const auto& pair : m_uiBHLocHistory) {
             bhloc_out.push_back({{"bh1", point_to_json(pair.first)},
                                  {"bh2", point_to_json(pair.second)}}
 
             );
+            times_wrote++;
         }
+
+        std::cout << "Wrote bhloc history " << times_wrote << " times"
+                  << std::endl;
 
         checkPoint["DENDRO_BSSN_BH_LOC_HISTORY"] = bhloc_out;
 
@@ -994,6 +1006,9 @@ int BSSNCtx::restore_checkpt() {
                     checkPoint.end()) {
                     // restore bh location data
 
+                    // clear bhLocHistory vector to start fresh
+                    m_uiBHLocHistory.clear();
+
                     for (const auto& pair_json :
                          checkPoint["DENDRO_BSSN_BH_LOC_HISTORY"]) {
                         Point bh1pt =
@@ -1033,6 +1048,8 @@ int BSSNCtx::restore_checkpt() {
         std::cout << "[BSSNCtx] :  Trying to restore from checkpoint index : "
                   << restoreFileIndex << std::endl;
 
+    // now we do the "true" restore, where every process knows which one is the
+    // right one
     if (!rank) {
         sprintf(fName, "%s_%d_step.cp", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
                 restoreFileIndex);
@@ -1087,6 +1104,9 @@ int BSSNCtx::restore_checkpt() {
                 if (checkPoint.find("DENDRO_BSSN_BH_LOC_TIMES") !=
                     checkPoint.end()) {
                     // restore bh location data
+
+                    // make sure BHLocHistory is completely empty upon reading!
+                    m_uiBHLocHistory.clear();
 
                     for (const auto& pair_json :
                          checkPoint["DENDRO_BSSN_BH_LOC_HISTORY"]) {
@@ -1582,8 +1602,7 @@ void BSSNCtx::evolve_bh_loc(DVec sIn, double dt) {
     bssn::BSSN_BH_LOC[1] = m_uiBHLoc[1];
 
     // append the bssn location points to our history
-    m_uiBHLocHistory.push_back(std::make_pair(m_uiBHLoc[0], m_uiBHLoc[1]));
-    m_uiBHTimeHistory.push_back(m_uiTinfo._m_uiT);
+    // THIS SHOULD HAPPEN IN THE MAIN LOOP!
 
 // old bh location extractor.
 #if 0
@@ -1598,6 +1617,13 @@ void BSSNCtx::evolve_bh_loc(DVec sIn, double dt) {
 #endif
 
     return;
+}
+
+void BSSNCtx::store_bh_loc_history() {
+    // simple call that stores bh loc history based on bssn::BSSN_BH_LOC
+    m_uiBHLocHistory.push_back(
+        std::make_pair(bssn::BSSN_BH_LOC[0], bssn::BSSN_BH_LOC[1]));
+    m_uiBHTimeHistory.push_back(m_uiTinfo._m_uiT);
 }
 
 int BSSNCtx::aeh_expansion(const Point& origin, aeh::AEH_VARS* m_aeh_vars,

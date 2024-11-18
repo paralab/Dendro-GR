@@ -291,6 +291,8 @@ class BSSNCtx : public ts::Ctx<BSSNCtx, DendroScalar, unsigned int> {
     int grid_transfer(const ot::Mesh* m_new);
 
     void calculate_full_grid_size();
+
+    void store_bh_loc_history();
 };
 
 }  // end of namespace bssn
