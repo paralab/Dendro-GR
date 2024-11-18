@@ -892,22 +892,14 @@ int BSSNCtx::write_checkpt() {
             return json{{"x", p.x()}, {"y", p.y()}, {"z", p.z()}};
         };
 
-        json bhloc_out       = json::array();
-
-        uint32_t times_wrote = 0;
-        std::cout << "bhloc history size: " << m_uiBHLocHistory.size()
-                  << std::endl;
+        json bhloc_out = json::array();
 
         for (const auto& pair : m_uiBHLocHistory) {
             bhloc_out.push_back({{"bh1", point_to_json(pair.first)},
                                  {"bh2", point_to_json(pair.second)}}
 
             );
-            times_wrote++;
         }
-
-        std::cout << "Wrote bhloc history " << times_wrote << " times"
-                  << std::endl;
 
         checkPoint["DENDRO_BSSN_BH_LOC_HISTORY"] = bhloc_out;
 
