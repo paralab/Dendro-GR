@@ -12,10 +12,12 @@
 
 #include "bssnCtx.h"
 
+#include <mpi.h>
 #include <sys/types.h>
 
 #include <cstdint>
 
+#include "parUtils.h"
 #include "parameters.h"
 
 namespace bssn {
@@ -394,10 +396,11 @@ int BSSNCtx::initialize() {
     // calculate the initial size of the grid
     this->calculate_full_grid_size();
 
-    unsigned int num_no_change         = 0;
-    unsigned int previous_global_elems = 0;
-
     do {
+        // hold on to the "old numbers" for final check
+        oldElements_g   = m_uiGlobalMeshElements;
+        oldGridPoints_g = m_uiGlobalGridPoints;
+
         this->unzip(m_evar, m_evar_unz, bssn::BSSN_ASYNC_COMM_K);
         m_evar_unz.to_2d(unzipVar);
         // isRefine=this->is_remesh();
@@ -427,7 +430,7 @@ int BSSNCtx::initialize() {
 
             par::Mpi_Allreduce(&newElements, &newElements_g, 1, MPI_SUM, gcomm);
             par::Mpi_Allreduce(&newGridPoints, &newGridPoints_g, 1, MPI_SUM,
-                               m_uiMesh->getMPIGlobalCommunicator());
+                               gcomm);
 
             if (!rank_global) {
                 std::cout << "[bssnCtx] iter : " << iterCount
@@ -449,19 +452,6 @@ int BSSNCtx::initialize() {
             // then update the size of the grid, no need to recompute
             m_uiGlobalMeshElements = newElements_g;
             m_uiGlobalGridPoints   = newGridPoints_g;
-
-            if (previous_global_elems != m_uiGlobalMeshElements) {
-                num_no_change         = 0;
-                previous_global_elems = m_uiGlobalMeshElements;
-            } else {
-                num_no_change++;
-            }
-
-            if (num_no_change > _BSSN_INITIAL_NUM_ITERATION_NO_CHANGE_) {
-                // if there hasn't been a change in 2 iterations, we can just
-                // early exit
-                isRefine = false;
-            }
 
 #ifdef __CUDACC__
             device::MeshGPU*& dptr_mesh = this->get_meshgpu_device_ptr();
@@ -1460,11 +1450,11 @@ void BSSNCtx::calculate_full_grid_size() {
         DendroIntL grid_points   = m_uiMesh->getNumLocalMeshNodes();
 
         // perform an all reduce on the mesh
-        par::Mpi_Reduce(&mesh_elements, &m_uiGlobalMeshElements, 1, MPI_SUM, 0,
-                        m_uiMesh->getMPICommunicator());
+        par::Mpi_Allreduce(&mesh_elements, &m_uiGlobalMeshElements, 1, MPI_SUM,
+                           m_uiMesh->getMPICommunicator());
 
-        par::Mpi_Reduce(&grid_points, &m_uiGlobalGridPoints, 1, MPI_SUM, 0,
-                        m_uiMesh->getMPICommunicator());
+        par::Mpi_Allreduce(&grid_points, &m_uiGlobalGridPoints, 1, MPI_SUM,
+                           m_uiMesh->getMPICommunicator());
     }
 }
 

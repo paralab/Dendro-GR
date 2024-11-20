@@ -33,9 +33,6 @@
 #include "physcon.h"
 #include "rhs.h"
 
-// if we go over this number, we can stop our initial refinement
-#define _BSSN_INITIAL_NUM_ITERATION_NO_CHANGE_ 2
-
 namespace bssn {
 
 /**@brief smoothing modes avail for LTS recomended for LTS time stepping. */
