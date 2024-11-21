@@ -640,7 +640,7 @@ void BSSNCtx::compute_constraint_variables() {
 
 #if BSSN_COMPUTE_CONSTRAINTS
 
-    if (!(m_uiMesh->getMPIRank())) {
+    if (!(m_uiMesh->getMPIRankGlobal())) {
         std::cout << BLU << "[BSSN] - Now computing constraints" << NRM
                   << std::endl;
     }
@@ -700,7 +700,7 @@ void BSSNCtx::compute_constraint_variables() {
 #endif
 #endif
 
-    if (!(m_uiMesh->getMPIRank())) {
+    if (!(m_uiMesh->getMPIRankGlobal())) {
         std::cout << BLU << "[BSSN] - Finished computing constraints!" << NRM
                   << std::endl;
     }
