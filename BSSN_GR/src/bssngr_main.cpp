@@ -522,7 +522,7 @@ bssn:
                 if (step != 0) {
                     bssnCtx->evolve_bh_loc(
                         bssnCtx->get_evolution_vars(),
-                        ets->ts_size() * bssn::BSSN_GW_EXTRACT_FREQ);
+                        ets->ts_size() * bssn::BSSN_GW_EXTRACT_FREQ_TRUE);
                 }
 
                 // make sure the BH locations are stored
