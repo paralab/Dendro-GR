@@ -1,5 +1,5 @@
 """
- BSSN core variables . 
+BSSN core variables .
 """
 
 import argparse
@@ -55,14 +55,14 @@ ad = dendro.ad
 kod = dendro.kod
 d2 = dendro.d2
 
-t = symbols("t") # time; needed for SSL
+t = symbols("t")  # time; needed for SSL
 
-# add symbols used for CAHD 
-ham = symbols('ham[pp]') # hamiltonian constraint violation
-C_CAHD = symbols('BSSN_CAHD_C') # coefficient for CAHD strength
-dt = symbols('dt') # simulation time step
-dx_i = symbols('dx_i') # spatial resolution of current grid
-dx_min = symbols('dx_min') # spatial resolution of finest grid
+# add symbols used for CAHD
+ham = symbols("ham[pp]")  # hamiltonian constraint violation
+C_CAHD = symbols("BSSN_CAHD_C")  # coefficient for CAHD strength
+dt = symbols("dt")  # simulation time step
+dx_i = symbols("dx_i")  # spatial resolution of current grid
+dx_min = symbols("dx_min")  # spatial resolution of finest grid
 
 dendro.set_metric(gt)
 igt = dendro.get_inverse_metric()
@@ -75,13 +75,14 @@ eta_func = (
 )
 
 
-def bssn_puncture_gauge(eta_damp, isStaged=False, prefix="", sslGaugeCondition=False, enableCAHD=False):
+def bssn_puncture_gauge(
+    eta_damp, isStaged=False, prefix="", sslGaugeCondition=False, enableCAHD=False
+):
     """
     BSSN puncture gauge (HAD/ traditional BSSN puncture gaugue) with const eta damping
     """
 
     if not isStaged:
-
         C1 = dendro.get_first_christoffel()
         C2 = dendro.get_second_christoffel()
         C2_spatial = dendro.get_complete_christoffel(chi)
@@ -108,11 +109,11 @@ def bssn_puncture_gauge(eta_damp, isStaged=False, prefix="", sslGaugeCondition=F
         gt_rhs = dendro.lie(b, gt, weight) - 2 * a * At
 
         chi_rhs = dendro.lie(b, chi, weight) + Rational(2, 3) * (chi * a * K)
-        
-        if enableCAHD: 
-          # turn on curvature-adjusted Hamiltonian-constraint damping
-          # chi_rhs += C_CAHD * chi * (dt * dx_i / dx_min) * ham # Etienne's method
-          chi_rhs += C_CAHD * chi * (dx_i**2 / dt) * ham # WKB's method
+
+        if enableCAHD:
+            # turn on curvature-adjusted Hamiltonian-constraint damping
+            # chi_rhs += C_CAHD * chi * (dt * dx_i / dx_min) * ham # Etienne's method
+            chi_rhs += C_CAHD * chi * (dx_i**2 / dt) * ham  # WKB's method
 
         AikAkj = Matrix(
             [
@@ -274,11 +275,11 @@ def bssn_puncture_gauge(eta_damp, isStaged=False, prefix="", sslGaugeCondition=F
         gt_rhs = dendro.lie(b, gt, weight) - 2 * a * At
 
         chi_rhs = dendro.lie(b, chi, weight) + Rational(2, 3) * (chi * a * K)
-        
-        if enableCAHD: 
-          # turn on curvature-adjusted Hamiltonian-constraint damping
-          # chi_rhs += C_CAHD * chi * (dt * dx_i / dx_min) * ham # Etienne's method
-          chi_rhs += C_CAHD * chi * (dx_i**2 / dt) * ham # WKB's method
+
+        if enableCAHD:
+            # turn on curvature-adjusted Hamiltonian-constraint damping
+            # chi_rhs += C_CAHD * chi * (dt * dx_i / dx_min) * ham # Etienne's method
+            chi_rhs += C_CAHD * chi * (dx_i**2 / dt) * ham  # WKB's method
 
         AikAkj = Matrix(
             [
@@ -420,7 +421,6 @@ def bssn_rochester_puncture_gauge(
     """
 
     if not isStaged:
-
         C1 = dendro.get_first_christoffel()
         C2 = dendro.get_second_christoffel()
         C2_spatial = dendro.get_complete_christoffel(chi)
@@ -429,14 +429,14 @@ def bssn_rochester_puncture_gauge(
         if sslGaugeCondition:
             # enable slow-start lapse
             W = chi**0.5
-            h = 0.6 # M; Gaussian height
-            sig = 20 # M; Gaussian stddev
+            h = 0.6  # M; Gaussian height
+            sig = 20  # M; Gaussian stddev
             a_rhs = (
                 l1 * dendro.lie(b, a)
                 - 2 * a * K
                 - W * (h * exp(-(t**2) / (2 * sig**2))) * (a - W)
             )
-        else: # no SSL
+        else:  # no SSL
             a_rhs = l1 * dendro.lie(b, a) - 2 * a * K
 
         b_rhs = [
@@ -546,7 +546,6 @@ def bssn_rochester_puncture_gauge(
         dendro.generate_cpu(outs, vnames, "[pp]")
 
     else:
-
         _Gt_rhs_s1 = dendro.vec3("Gt_rhs_s1_", "[pp]")
         _Gt_rhs_s2 = dendro.vec3("Gt_rhs_s2_", "[pp]")
         _Gt_rhs_s3 = dendro.vec3("Gt_rhs_s3_", "[pp]")
@@ -576,14 +575,14 @@ def bssn_rochester_puncture_gauge(
         if sslGaugeCondition:
             # enable slow-start lapse
             W = chi**0.5
-            h = 0.6 # M; Gaussian height
-            sig = 20 # M; Gaussian stddev
+            h = 0.6  # M; Gaussian height
+            sig = 20  # M; Gaussian stddev
             a_rhs = (
                 l1 * dendro.lie(b, a)
                 - 2 * a * K
                 - W * (h * exp(-(t**2) / (2 * sig**2))) * (a - W)
             )
-        else: # no SSL
+        else:  # no SSL
             a_rhs = l1 * dendro.lie(b, a) - 2 * a * K
 
         b_rhs = [
@@ -722,7 +721,6 @@ def bssn_rochester_puncture_gauge(
 
 
 def main(staged_type, gauge, eta_damp, prefix, enable_ssl, enable_cahd):
-
     if enable_ssl:
         print("// CODEGEN: SSL was enabled, adding term to gauge condition!")
 
@@ -771,7 +769,6 @@ def main(staged_type, gauge, eta_damp, prefix, enable_ssl, enable_cahd):
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser(
         prog="BSSN Code Generation",
         description="Generate the Code for the BSSN RHS equations.",
