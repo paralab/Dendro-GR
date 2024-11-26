@@ -689,17 +689,6 @@ void BSSNCtx::compute_constraint_variables() {
     m_uiMesh->readFromGhostBegin(m_cvar.get_vec_ptr(), m_cvar.get_dof());
     m_uiMesh->readFromGhostEnd(m_cvar.get_vec_ptr(), m_cvar.get_dof());
 
-    bssn::extractConstraints(m_uiMesh, (const DendroScalar**)consVar,
-                             evolVar[BHLOC::EXTRACTION_VAR_ID],
-                             BHLOC::EXTRACTION_TOL, m_uiTinfo._m_uiStep,
-                             m_uiTinfo._m_uiT);
-#ifndef BSSN_KERR_SCHILD_TEST
-#ifdef BSSN_EXTRACT_GRAVITATIONAL_WAVES
-    GW::extractFarFieldPsi4(m_uiMesh, (const DendroScalar**)consVar,
-                            m_uiTinfo._m_uiStep, m_uiTinfo._m_uiT);
-#endif
-#endif
-
     if (!(m_uiMesh->getMPIRankGlobal())) {
         std::cout << BLU << "[BSSN] - Finished computing constraints!" << NRM
                   << std::endl;
@@ -710,13 +699,50 @@ void BSSNCtx::compute_constraint_variables() {
     m_bConstraintsComputed = true;
 }
 
+int BSSNCtx::extract_constraints() {
+    // make sure constraints are computed
+    this->compute_constraint_variables();
+
+    // variables should be ghost-exchanged and unzipped thanks to
+    // compute_constraint_variables
+
+    DVec& m_evar     = m_var[VL::CPU_EV];
+    DVec& m_evar_unz = m_var[VL::CPU_EV_UZ_IN];
+    DVec& m_cvar     = m_var[VL::CPU_CV];
+    DVec& m_cvar_unz = m_var[VL::CPU_CV_UZ_IN];
+
+    DendroScalar* evolVar[bssn::BSSN_NUM_VARS];
+    DendroScalar* consVar[bssn::BSSN_CONSTRAINT_NUM_VARS];
+
+    m_evar.to_2d(evolVar);
+    m_cvar.to_2d(consVar);
+
+    bssn::extractConstraints(m_uiMesh, (const DendroScalar**)consVar,
+                             evolVar[BHLOC::EXTRACTION_VAR_ID],
+                             BHLOC::EXTRACTION_TOL, m_uiTinfo._m_uiStep,
+                             m_uiTinfo._m_uiT);
+    return 0;
+}
+
+int BSSNCtx::extract_gravitational_waves() {
+#ifndef BSSN_KERR_SCHILD_TEST
+#ifdef BSSN_EXTRACT_GRAVITATIONAL_WAVES
+    // make sure constraints are compuated
+    this->compute_constraint_variables();
+
+    DVec& m_cvar = m_var[VL::CPU_CV];
+    DendroScalar* consVar[bssn::BSSN_CONSTRAINT_NUM_VARS];
+    m_cvar.to_2d(consVar);
+
+    GW::extractFarFieldPsi4(m_uiMesh, (const DendroScalar**)consVar,
+                            m_uiTinfo._m_uiStep, m_uiTinfo._m_uiT);
+#endif
+#endif
+    return 0;
+}
+
 int BSSNCtx::write_vtu() {
     if (!m_uiMesh->isActive()) return 0;
-
-    if (!(m_uiMesh->getMPIRank())) {
-        std::cout << GRN << "=== Now Writing VTU Output Files! ===" << NRM
-                  << std::endl;
-    }
 
     DVec& m_evar     = m_var[VL::CPU_EV];
     DVec& m_evar_unz = m_var[VL::CPU_EV_UZ_IN];
@@ -742,6 +768,10 @@ int BSSNCtx::write_vtu() {
     this->compute_constraint_variables();
 
 #ifdef BSSN_ENABLE_VTU_OUTPUT
+    if (!(m_uiMesh->getMPIRank())) {
+        std::cout << GRN << "=== Now Writing VTU Output Files! ===" << NRM
+                  << std::endl;
+    }
 
     if ((m_uiTinfo._m_uiStep % bssn::BSSN_IO_OUTPUT_FREQ_TRUE) == 0) {
         std::vector<std::string> pDataNames;
@@ -792,18 +822,24 @@ int BSSNCtx::write_vtu() {
                                   (const double**)pData);
     }
 
-#endif
-
-#ifdef BSSN_EXTRACT_BH_LOCATIONS
-    bssn::writeBHCoordinates((const ot::Mesh*)m_uiMesh, (const Point*)m_uiBHLoc,
-                             2, m_uiTinfo._m_uiStep, m_uiTinfo._m_uiT);
-#endif
-
     if (!(m_uiMesh->getMPIRank())) {
         std::cout << GRN << "=== Finished Writing the VTU Files! ===" << NRM
                   << std::endl;
     }
 
+#endif
+
+    return 0;
+}
+
+int BSSNCtx::write_bh_coords() {
+#ifdef BSSN_EXTRACT_BH_LOCATIONS
+    // ensure that the black hole locations have been updated, it does early
+    // exit if it's happened
+    this->evolve_bh_loc();
+    bssn::writeBHCoordinates((const ot::Mesh*)m_uiMesh, (const Point*)m_uiBHLoc,
+                             2, m_uiTinfo._m_uiStep, m_uiTinfo._m_uiT);
+#endif
     return 0;
 }
 
@@ -1579,8 +1615,26 @@ unsigned int BSSNCtx::getBlkTimestepFac(unsigned int blev, unsigned int lmin,
     }
 }
 
-void BSSNCtx::evolve_bh_loc(DVec sIn, double dt) {
+void BSSNCtx::evolve_bh_loc() {
 #ifdef BSSN_EXTRACT_BH_LOCATIONS
+    // early exit if we're at time step zero!
+    if (m_bBHEvolved) return;
+
+    // if time step is zero, don't evolve, just store and return.
+    if (this->m_uiTinfo._m_uiStep == 0) {
+        // make sure initial locations are stored, we need the "last" time
+        // history for dt calculation
+        this->store_bh_loc_history();
+        m_bBHEvolved = true;
+        return;
+    }
+
+    this->compute_constraint_variables();
+
+    // compute how long it's been since the last time we calculatd it, thanks to
+    // storing history!
+    const double dt = m_uiTinfo._m_uiT - m_uiBHTimeHistory.back();
+    DVec sIn        = this->get_evolution_vars();
 
     // m_uiMesh->readFromGhostBegin(sIn.GetVecArray()+ VAR::U_BETA0 *
     // m_uiMesh->getDegOfFreedom(),3);
@@ -1604,7 +1658,7 @@ void BSSNCtx::evolve_bh_loc(DVec sIn, double dt) {
     bssn::BSSN_BH_LOC[1] = m_uiBHLoc[1];
 
     // append the bssn location points to our history
-    // THIS SHOULD HAPPEN IN THE MAIN LOOP!
+    this->store_bh_loc_history();
 
 // old bh location extractor.
 #if 0
@@ -1617,6 +1671,10 @@ void BSSNCtx::evolve_bh_loc(DVec sIn, double dt) {
     m_uiBHLoc[1] = bhLoc[1];
 #endif
 #endif
+
+    // make sure we know that it's been evolved this time step if we're wanting
+    // to evolve it
+    m_bBHEvolved = true;
 
     return;
 }

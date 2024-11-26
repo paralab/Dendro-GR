@@ -45,7 +45,7 @@ inline void enforce_bssn_constraints(double **uiVar, unsigned int node) {
     if (det_gtd < 0.0) {
         std::cout << "metric determinent is negative " << det_gtd << std::endl;
         exit(0);
-        /* FIXME What to do here? The metric is not physical. Do we reset the
+        /* FIXME: What to do here? The metric is not physical. Do we reset the
          * metric to be flat? */
         gtd[0][0] = 1.0;
         gtd[0][1] = 0.0;

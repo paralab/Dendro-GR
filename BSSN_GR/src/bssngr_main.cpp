@@ -514,22 +514,24 @@ bssn:
             }
 
             if ((step % bssn::BSSN_GW_EXTRACT_FREQ_TRUE) == 0) {
-                // compute the constraints
-                bssnCtx->compute_constraint_variables();
+                if (!rank_global)
+                    std::cout << "    Now extracting constraints and GW."
+                              << std::endl;
 
-                // we should not evolve the puncture locations at the very first
-                // timestep step=0
-                if (step != 0) {
-                    bssnCtx->evolve_bh_loc(
-                        bssnCtx->get_evolution_vars(),
-                        ets->ts_size() * bssn::BSSN_GW_EXTRACT_FREQ_TRUE);
-                }
+                // evolving the black holes always stores the updated
+                // information
+                bssnCtx->evolve_bh_loc();
+                bssnCtx->extract_constraints();
+                bssnCtx->extract_gravitational_waves();
+            }
 
-                // make sure the BH locations are stored
-                bssnCtx->store_bh_loc_history();
+            if ((step & bssn::BSSN_IO_OUTPUT_FREQ) == 0) {
+                // this is all IO output, except for extracting the GW waves,
+                // which are "independent"
 
                 // write to vtu, which includes writing the BH location data
                 bssnCtx->write_vtu();
+                bssnCtx->write_bh_coords();
             }
 
             if ((AEH::AEH_SOLVER_FREQ > 0) &&
