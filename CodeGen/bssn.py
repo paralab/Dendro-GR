@@ -67,6 +67,8 @@ dx_min = symbols("dx_min")  # spatial resolution of finest grid
 dendro.set_metric(gt)
 igt = dendro.get_inverse_metric()
 
+ham_temp_var = symbols("ham_temp")
+
 
 eta_func = (
     R0
@@ -87,6 +89,12 @@ def bssn_puncture_gauge(
         C2 = dendro.get_second_christoffel()
         C2_spatial = dendro.get_complete_christoffel(chi)
         [R, Rt, Rphi, CalGt] = dendro.compute_ricci(Gt, chi)
+
+        ham_computation = (
+            sum(chi * igt[j, k] * R[j, k] for j, k in dendro.e_ij)
+            - dendro.sqr(At)
+            + Rational(2, 3) * K**2
+        )
 
         if sslGaugeCondition:
             # enable slow-start lapse
@@ -113,7 +121,7 @@ def bssn_puncture_gauge(
         if enableCAHD:
             # turn on curvature-adjusted Hamiltonian-constraint damping
             # chi_rhs += C_CAHD * chi * (dt * dx_i / dx_min) * ham # Etienne's method
-            chi_rhs += C_CAHD * chi * (dx_i**2 / dt) * ham  # WKB's method
+            chi_rhs += C_CAHD * chi * (dx_i**2 / dt) * ham_computation  # WKB's method
 
         AikAkj = Matrix(
             [
