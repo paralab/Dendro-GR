@@ -773,54 +773,51 @@ int BSSNCtx::write_vtu() {
                   << std::endl;
     }
 
-    if ((m_uiTinfo._m_uiStep % bssn::BSSN_IO_OUTPUT_FREQ_TRUE) == 0) {
-        std::vector<std::string> pDataNames;
-        const unsigned int numConstVars = bssn::BSSN_NUM_CONST_VARS_VTU_OUTPUT;
-        const unsigned int numEvolVars  = bssn::BSSN_NUM_EVOL_VARS_VTU_OUTPUT;
+    std::vector<std::string> pDataNames;
+    const unsigned int numConstVars = bssn::BSSN_NUM_CONST_VARS_VTU_OUTPUT;
+    const unsigned int numEvolVars  = bssn::BSSN_NUM_EVOL_VARS_VTU_OUTPUT;
 
-        double* pData[(numConstVars + numEvolVars)];
+    double* pData[(numConstVars + numEvolVars)];
 
-        for (unsigned int i = 0; i < numEvolVars; i++) {
-            pDataNames.push_back(std::string(
-                bssn::BSSN_VAR_NAMES[BSSN_VTU_OUTPUT_EVOL_INDICES[i]]));
-            pData[i] = evolVar[BSSN_VTU_OUTPUT_EVOL_INDICES[i]];
-        }
-
-        for (unsigned int i = 0; i < numConstVars; i++) {
-            pDataNames.push_back(
-                std::string(bssn::BSSN_CONSTRAINT_VAR_NAMES
-                                [BSSN_VTU_OUTPUT_CONST_INDICES[i]]));
-            pData[numEvolVars + i] = consVar[BSSN_VTU_OUTPUT_CONST_INDICES[i]];
-        }
-
-        std::vector<char*> pDataNames_char;
-        pDataNames_char.reserve(pDataNames.size());
-
-        for (unsigned int i = 0; i < pDataNames.size(); i++)
-            pDataNames_char.push_back(const_cast<char*>(pDataNames[i].c_str()));
-
-        const char* fDataNames[] = {"Time", "Cycle"};
-        const double fData[] = {m_uiTinfo._m_uiT, (double)m_uiTinfo._m_uiStep};
-
-        char fPrefix[256];
-        sprintf(fPrefix, "%s_%d", bssn::BSSN_VTU_FILE_PREFIX.c_str(),
-                m_uiTinfo._m_uiStep);
-
-        if (bssn::BSSN_VTU_Z_SLICE_ONLY) {
-            unsigned int s_val[3]  = {1u << (m_uiMaxDepth - 1),
-                                      1u << (m_uiMaxDepth - 1),
-                                      1u << (m_uiMaxDepth - 1)};
-            unsigned int s_norm[3] = {0, 0, 1};
-            io::vtk::mesh2vtu_slice(
-                m_uiMesh, s_val, s_norm, fPrefix, 2, fDataNames, fData,
-                (numEvolVars + numConstVars), (const char**)&pDataNames_char[0],
-                (const double**)pData);
-        } else
-            io::vtk::mesh2vtuFine(m_uiMesh, fPrefix, 2, fDataNames, fData,
-                                  (numEvolVars + numConstVars),
-                                  (const char**)&pDataNames_char[0],
-                                  (const double**)pData);
+    for (unsigned int i = 0; i < numEvolVars; i++) {
+        pDataNames.push_back(
+            std::string(bssn::BSSN_VAR_NAMES[BSSN_VTU_OUTPUT_EVOL_INDICES[i]]));
+        pData[i] = evolVar[BSSN_VTU_OUTPUT_EVOL_INDICES[i]];
     }
+
+    for (unsigned int i = 0; i < numConstVars; i++) {
+        pDataNames.push_back(std::string(
+            bssn::BSSN_CONSTRAINT_VAR_NAMES[BSSN_VTU_OUTPUT_CONST_INDICES[i]]));
+        pData[numEvolVars + i] = consVar[BSSN_VTU_OUTPUT_CONST_INDICES[i]];
+    }
+
+    std::vector<char*> pDataNames_char;
+    pDataNames_char.reserve(pDataNames.size());
+
+    for (unsigned int i = 0; i < pDataNames.size(); i++)
+        pDataNames_char.push_back(const_cast<char*>(pDataNames[i].c_str()));
+
+    const char* fDataNames[] = {"Time", "Cycle"};
+    const double fData[]     = {m_uiTinfo._m_uiT, (double)m_uiTinfo._m_uiStep};
+
+    char fPrefix[256];
+    sprintf(fPrefix, "%s_%d", bssn::BSSN_VTU_FILE_PREFIX.c_str(),
+            m_uiTinfo._m_uiStep);
+
+    if (bssn::BSSN_VTU_Z_SLICE_ONLY) {
+        unsigned int s_val[3]  = {1u << (m_uiMaxDepth - 1),
+                                  1u << (m_uiMaxDepth - 1),
+                                  1u << (m_uiMaxDepth - 1)};
+        unsigned int s_norm[3] = {0, 0, 1};
+        io::vtk::mesh2vtu_slice(m_uiMesh, s_val, s_norm, fPrefix, 2, fDataNames,
+                                fData, (numEvolVars + numConstVars),
+                                (const char**)&pDataNames_char[0],
+                                (const double**)pData);
+    } else
+        io::vtk::mesh2vtuFine(m_uiMesh, fPrefix, 2, fDataNames, fData,
+                              (numEvolVars + numConstVars),
+                              (const char**)&pDataNames_char[0],
+                              (const double**)pData);
 
     if (!(m_uiMesh->getMPIRank())) {
         std::cout << GRN << "=== Finished Writing the VTU Files! ===" << NRM
