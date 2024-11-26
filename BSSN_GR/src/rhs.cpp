@@ -214,8 +214,9 @@ void bssnrhs(double **unzipVarsRHS, const double **uZipVars,
                     (bssn::RIT_ETA_CENTRAL - bssn::RIT_ETA_OUTER) * exp(arg) +
                     bssn::RIT_ETA_OUTER;
 
-                #pragma message("BSSN: enabling both SSL and CAHD")
-                #include "bssn_eqns_SSL_HD.cpp"
+#pragma message("BSSN: enabling both SSL and CAHD")
+// #include "bssn_eqns_SSL_HD.cpp"
+#include "bssn_eqns_SSL_HD_HAM_INCLUDED.inc.cpp"
             }
         }
     }
