@@ -179,13 +179,9 @@ bssn:
         MPI_Abort(comm, 0);
     }
 
-    if (bssn::BSSN_GW_EXTRACT_FREQ > bssn::BSSN_IO_OUTPUT_FREQ) {
-        if (!rank)
-            std::cout
-                << " BSSN_GW_EXTRACT_FREQ  should be less BSSN_IO_OUTPUT_FREQ "
-                << std::endl;
-        MPI_Abort(comm, 0);
-    }
+    // NOTE: this is where we originally had the check that Extract freq needed
+    // to be greater than IO freq, but decoupling the parameters means that this
+    // isn't "required", even though it's probably recommended.
 
     // 2. generate the initial grid.
     std::vector<ot::TreeNode> tmpNodes;
