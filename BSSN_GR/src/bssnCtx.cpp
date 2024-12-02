@@ -17,6 +17,7 @@
 
 #include <cstdint>
 
+#include "grUtils.h"
 #include "parUtils.h"
 #include "parameters.h"
 
@@ -768,7 +769,7 @@ int BSSNCtx::write_vtu() {
     this->compute_constraint_variables();
 
 #ifdef BSSN_ENABLE_VTU_OUTPUT
-    if (!(m_uiMesh->getMPIRank())) {
+    if (!(m_uiMesh->getMPIRankGlobal())) {
         std::cout << GRN << "=== Now Writing VTU Output Files! ===" << NRM
                   << std::endl;
     }
@@ -819,7 +820,7 @@ int BSSNCtx::write_vtu() {
                               (const char**)&pDataNames_char[0],
                               (const double**)pData);
 
-    if (!(m_uiMesh->getMPIRank())) {
+    if (!(m_uiMesh->getMPIRankGlobal())) {
         std::cout << GRN << "=== Finished Writing the VTU Files! ===" << NRM
                   << std::endl;
     }
@@ -926,21 +927,13 @@ int BSSNCtx::write_checkpt() {
         checkPoint["DENDRO_BSSN_BH_LOC_TIMES"]  = m_uiBHTimeHistory;
         // then the X, Y, Z points for the BSSN BH locations
 
-        // inline lambda conversion for point to json
-        auto point_to_json                      = [](const Point& p) {
-            return json{{"x", p.x()}, {"y", p.y()}, {"z", p.z()}};
-        };
+        std::tuple<std::string, std::string, std::string> temp =
+            encode_bh_locs(m_uiBHLocHistory, m_uiBHTimeHistory);
+        auto [bh1_str, bh2_str, time_str]   = temp;
 
-        json bhloc_out = json::array();
-
-        for (const auto& pair : m_uiBHLocHistory) {
-            bhloc_out.push_back({{"bh1", point_to_json(pair.first)},
-                                 {"bh2", point_to_json(pair.second)}}
-
-            );
-        }
-
-        checkPoint["DENDRO_BSSN_BH_LOC_HISTORY"] = bhloc_out;
+        checkPoint["DENDRO_BSSN_BH_LOC_T"]  = time_str;
+        checkPoint["DENDRO_BSSN_BH_LOC_B1"] = bh1_str;
+        checkPoint["DENDRO_BSSN_BH_LOC_B2"] = bh2_str;
 
         outfile << std::setw(4) << checkPoint << std::endl;
         outfile.close();
@@ -1038,6 +1031,7 @@ int BSSNCtx::restore_checkpt() {
                     m_uiMergeStep = checkPoint["DENDRO_BSSN_BH_MERGE_STEP"];
                 }
 
+                // OLD: DEPRECIATED
                 if (checkPoint.find("DENDRO_BSSN_BH_LOC_TIMES") !=
                     checkPoint.end()) {
                     // restore bh location data
@@ -1064,6 +1058,19 @@ int BSSNCtx::restore_checkpt() {
                                             .get<std::vector<double>>();
                 }
 
+                if (checkPoint.find("DENDRO_BSSN_BH_LOC_T") !=
+                    checkPoint.end()) {
+                    auto bh_decoded = decode_bh_locs(
+                        checkPoint["DENDRO_BSSN_BH_LOC_B1"].get<std::string>(),
+                        checkPoint["DENDRO_BSSN_BH_LOC_B2"].get<std::string>(),
+                        checkPoint["DENDRO_BSSN_BH_LOC_T"].get<std::string>());
+
+                    m_uiBHLocHistory.clear();
+
+                    m_uiBHLocHistory  = std::get<0>(bh_decoded);
+                    m_uiBHTimeHistory = std::get<1>(bh_decoded);
+                }
+
                 restoreStep[cpIndex] = m_uiTinfo._m_uiStep;
             }
         }
@@ -1086,85 +1093,91 @@ int BSSNCtx::restore_checkpt() {
 
     // now we do the "true" restore, where every process knows which one is the
     // right one
-    if (!rank) {
-        sprintf(fName, "%s_%d_step.cp", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
-                restoreFileIndex);
+    sprintf(fName, "%s_%d_step.cp", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
+            restoreFileIndex);
 
-        // first check to see if the file even exists
-        if (!std::filesystem::exists(fName)) {
-            std::cout << YLW << "WARNING: " << NRM << "Checkpoint filename "
-                      << fName << " does not exist!" << std::endl;
-            restoreStatus = 2;
+    // first check to see if the file even exists
+    if (!std::filesystem::exists(fName)) {
+        std::cout << YLW << "WARNING: " << NRM << "Checkpoint filename "
+                  << fName << " does not exist!" << std::endl;
+        restoreStatus = 2;
+    }
+
+    if (restoreStatus == 0) {
+        std::ifstream infile(fName);
+        if (!infile) {
+            std::cout << fName << " file open failed " << std::endl;
+            restoreStatus = 1;
         }
 
         if (restoreStatus == 0) {
-            std::ifstream infile(fName);
-            if (!infile) {
-                std::cout << fName << " file open failed " << std::endl;
-                restoreStatus = 1;
+            infile >> checkPoint;
+            m_uiTinfo._m_uiTb      = checkPoint["DENDRO_TS_TIME_BEGIN"];
+            m_uiTinfo._m_uiTe      = checkPoint["DENDRO_TS_TIME_END"];
+            m_uiTinfo._m_uiT       = checkPoint["DENDRO_TS_TIME_CURRENT"];
+            m_uiTinfo._m_uiStep    = checkPoint["DENDRO_TS_STEP_CURRENT"];
+            m_uiTinfo._m_uiTh      = checkPoint["DENDRO_TS_TIME_STEP_SIZE"];
+            m_uiElementOrder       = checkPoint["DENDRO_TS_ELEMENT_ORDER"];
+
+            bssn::BSSN_WAVELET_TOL = checkPoint["DENDRO_TS_WAVELET_TOLERANCE"];
+            bssn::BSSN_LOAD_IMB_TOL =
+                checkPoint["DENDRO_TS_LOAD_IMB_TOLERANCE"];
+
+            numVars      = checkPoint["DENDRO_TS_NUM_VARS"];
+            activeCommSz = checkPoint["DENDRO_TS_ACTIVE_COMM_SZ"];
+
+            m_uiBHLoc[0] = Point((double)checkPoint["DENDRO_BH1_X"],
+                                 (double)checkPoint["DENDRO_BH1_Y"],
+                                 (double)checkPoint["DENDRO_BH1_Z"]);
+            m_uiBHLoc[1] = Point((double)checkPoint["DENDRO_BH2_X"],
+                                 (double)checkPoint["DENDRO_BH2_Y"],
+                                 (double)checkPoint["DENDRO_BH2_Z"]);
+
+            // if this key is in, then all three keys should be
+            if (checkPoint.find("DENDRO_BSSN_BH_MERGE") != checkPoint.end()) {
+                // restore bh merge and merge time information
+                m_bIsBHMerged = checkPoint["DENDRO_BSSN_BH_MERGE"];
+                m_dMergeTime  = checkPoint["DENDRO_BSSN_BH_MERGE_TIME"];
+                m_uiMergeStep = checkPoint["DENDRO_BSSN_BH_MERGE_STEP"];
             }
 
-            if (restoreStatus == 0) {
-                infile >> checkPoint;
-                m_uiTinfo._m_uiTb   = checkPoint["DENDRO_TS_TIME_BEGIN"];
-                m_uiTinfo._m_uiTe   = checkPoint["DENDRO_TS_TIME_END"];
-                m_uiTinfo._m_uiT    = checkPoint["DENDRO_TS_TIME_CURRENT"];
-                m_uiTinfo._m_uiStep = checkPoint["DENDRO_TS_STEP_CURRENT"];
-                m_uiTinfo._m_uiTh   = checkPoint["DENDRO_TS_TIME_STEP_SIZE"];
-                m_uiElementOrder    = checkPoint["DENDRO_TS_ELEMENT_ORDER"];
+            if (checkPoint.find("DENDRO_BSSN_BH_LOC_TIMES") !=
+                checkPoint.end()) {
+                // restore bh location data
 
-                bssn::BSSN_WAVELET_TOL =
-                    checkPoint["DENDRO_TS_WAVELET_TOLERANCE"];
-                bssn::BSSN_LOAD_IMB_TOL =
-                    checkPoint["DENDRO_TS_LOAD_IMB_TOLERANCE"];
+                // make sure BHLocHistory is completely empty upon reading!
+                m_uiBHLocHistory.clear();
 
-                numVars      = checkPoint["DENDRO_TS_NUM_VARS"];
-                activeCommSz = checkPoint["DENDRO_TS_ACTIVE_COMM_SZ"];
+                for (const auto& pair_json :
+                     checkPoint["DENDRO_BSSN_BH_LOC_HISTORY"]) {
+                    Point bh1pt = Point(pair_json["bh1"]["x"].get<double>(),
+                                        pair_json["bh1"]["y"].get<double>(),
+                                        pair_json["bh1"]["z"].get<double>());
+                    Point bh2pt = Point(pair_json["bh2"]["x"].get<double>(),
+                                        pair_json["bh2"]["y"].get<double>(),
+                                        pair_json["bh2"]["z"].get<double>());
 
-                m_uiBHLoc[0] = Point((double)checkPoint["DENDRO_BH1_X"],
-                                     (double)checkPoint["DENDRO_BH1_Y"],
-                                     (double)checkPoint["DENDRO_BH1_Z"]);
-                m_uiBHLoc[1] = Point((double)checkPoint["DENDRO_BH2_X"],
-                                     (double)checkPoint["DENDRO_BH2_Y"],
-                                     (double)checkPoint["DENDRO_BH2_Z"]);
-
-                // if this key is in, then all three keys should be
-                if (checkPoint.find("DENDRO_BSSN_BH_MERGE") !=
-                    checkPoint.end()) {
-                    // restore bh merge and merge time information
-                    m_bIsBHMerged = checkPoint["DENDRO_BSSN_BH_MERGE"];
-                    m_dMergeTime  = checkPoint["DENDRO_BSSN_BH_MERGE_TIME"];
-                    m_uiMergeStep = checkPoint["DENDRO_BSSN_BH_MERGE_STEP"];
+                    m_uiBHLocHistory.emplace_back(bh1pt, bh2pt);
                 }
 
-                if (checkPoint.find("DENDRO_BSSN_BH_LOC_TIMES") !=
-                    checkPoint.end()) {
-                    // restore bh location data
-
-                    // make sure BHLocHistory is completely empty upon reading!
-                    m_uiBHLocHistory.clear();
-
-                    for (const auto& pair_json :
-                         checkPoint["DENDRO_BSSN_BH_LOC_HISTORY"]) {
-                        Point bh1pt =
-                            Point(pair_json["bh1"]["x"].get<double>(),
-                                  pair_json["bh1"]["y"].get<double>(),
-                                  pair_json["bh1"]["z"].get<double>());
-                        Point bh2pt =
-                            Point(pair_json["bh2"]["x"].get<double>(),
-                                  pair_json["bh2"]["y"].get<double>(),
-                                  pair_json["bh2"]["z"].get<double>());
-
-                        m_uiBHLocHistory.emplace_back(bh1pt, bh2pt);
-                    }
-
-                    // then restore the times the bh's were output
-                    m_uiBHTimeHistory = checkPoint["DENDRO_BSSN_BH_LOC_TIMES"]
-                                            .get<std::vector<double>>();
-                }
-
-                restoreStep[restoreFileIndex] = m_uiTinfo._m_uiStep;
+                // then restore the times the bh's were output
+                m_uiBHTimeHistory = checkPoint["DENDRO_BSSN_BH_LOC_TIMES"]
+                                        .get<std::vector<double>>();
             }
+
+            if (checkPoint.find("DENDRO_BSSN_BH_LOC_T") != checkPoint.end()) {
+                auto bh_decoded = decode_bh_locs(
+                    checkPoint["DENDRO_BSSN_BH_LOC_B1"].get<std::string>(),
+                    checkPoint["DENDRO_BSSN_BH_LOC_B2"].get<std::string>(),
+                    checkPoint["DENDRO_BSSN_BH_LOC_T"].get<std::string>());
+
+                m_uiBHLocHistory.clear();
+
+                m_uiBHLocHistory  = std::get<0>(bh_decoded);
+                m_uiBHTimeHistory = std::get<1>(bh_decoded);
+            }
+
+            restoreStep[restoreFileIndex] = m_uiTinfo._m_uiStep;
         }
     }
 
@@ -1185,15 +1198,6 @@ int BSSNCtx::restore_checkpt() {
         return 2;
     }
 
-    MPI_Bcast(&m_uiTinfo, sizeof(ts::TSInfo), MPI_BYTE, 0, comm);
-    par::Mpi_Bcast(&bssn::BSSN_WAVELET_TOL, 1, 0, comm);
-    par::Mpi_Bcast(&bssn::BSSN_LOAD_IMB_TOL, 1, 0, comm);
-
-    par::Mpi_Bcast(&numVars, 1, 0, comm);
-    par::Mpi_Bcast(&m_uiElementOrder, 1, 0, comm);
-    par::Mpi_Bcast(&activeCommSz, 1, 0, comm);
-
-    par::Mpi_Bcast(m_uiBHLoc, 2, 0, comm);
     bssn::BSSN_BH_LOC[0] = m_uiBHLoc[0];
     bssn::BSSN_BH_LOC[1] = m_uiBHLoc[1];
 
@@ -1421,7 +1425,7 @@ int BSSNCtx::terminal_output() {
         max = vecMax(m_uiMesh, m_evar.get_vec_ptr(), ot::VEC_TYPE::CG_NODAL,
                      true);
 
-        if (!(m_uiMesh->getMPIRank())) {
+        if (!(m_uiMesh->getMPIRankGlobal())) {
             std::cout << "[BSSNCtx]:  "
                       << bssn::BSSN_VAR_NAMES[bssn::VAR::U_ALPHA]
                       << " (min,max) : \t ( " << min << ", " << max << " ) "
@@ -1596,7 +1600,7 @@ unsigned int BSSNCtx::compute_lts_ts_offset() {
                        m_uiMesh->getMPIGlobalCommunicator());
     BSSN_LTS_TS_OFFSET = lts_offset_max;
 
-    if (m_uiMesh->isActive() && (!(m_uiMesh->getMPIRank())))
+    if (m_uiMesh->isActive() && (!(m_uiMesh->getMPIRankGlobal())))
         std::cout << "LTS offset : " << BSSN_LTS_TS_OFFSET << std::endl;
 
     return BSSN_LTS_TS_OFFSET;

@@ -9,6 +9,9 @@
 
 #include "grUtils.h"
 
+#include <tuple>
+
+#include "base.h"
 #include "git_version_and_date.h"
 #include "parameters.h"
 
@@ -2448,6 +2451,76 @@ void deallocate_bssn_deriv_workspace() {
         delete[] bssn::BSSN_DERIV_WORKSPACE;
         bssn::BSSN_DERIV_WORKSPACE = nullptr;
     }
+}
+
+std::tuple<std::string, std::string, std::string> encode_bh_locs(
+    const std::vector<std::pair<Point, Point>>& bh_history,
+    const std::vector<double>& bh_times) {
+    std::vector<unsigned char> bh1_bytes;
+    std::vector<unsigned char> bh2_bytes;
+
+    for (const auto& pair : bh_history) {
+        double coords1[3] = {pair.first.x(), pair.first.y(), pair.first.z()};
+        double coords2[3] = {pair.second.x(), pair.second.y(), pair.second.z()};
+
+        bh1_bytes.insert(
+            bh1_bytes.end(), reinterpret_cast<unsigned char*>(coords1),
+            reinterpret_cast<unsigned char*>(coords1) + sizeof(coords1));
+
+        bh2_bytes.insert(
+            bh2_bytes.end(), reinterpret_cast<unsigned char*>(coords2),
+            reinterpret_cast<unsigned char*>(coords2) + sizeof(coords2));
+    }
+
+    // with bytes available, now we can encode with base91_encoding
+    std::string bh1_str  = base<91>::encode(std::string(
+        reinterpret_cast<const char*>(bh1_bytes.data()), bh1_bytes.size()));
+
+    std::string bh2_str  = base<91>::encode(std::string(
+        reinterpret_cast<const char*>(bh2_bytes.data()), bh2_bytes.size()));
+
+    std::string time_str = base<91>::encode(
+        std::string(reinterpret_cast<const char*>(bh_times.data()),
+                    bh_times.size() * sizeof(double)));
+
+    return std::make_tuple(bh1_str, bh2_str, time_str);
+}
+
+std::tuple<std::vector<std::pair<Point, Point>>, std::vector<double>>
+decode_bh_locs(const std::string& bh1_str, const std::string& bh2_str,
+               const std::string& time_str) {
+    const size_t double_size = sizeof(double);
+    // decode the strings
+    std::string bh1_bytes    = base<91>::decode(bh1_str);
+    std::string bh2_bytes    = base<91>::decode(bh2_str);
+    std::string time_bytes   = base<91>::decode(time_str);
+
+    const size_t num_entries = time_bytes.size() / double_size;
+
+    // with the bytes back in place, we need to do a reinterpret cast for time
+    std::vector<double> time_vector;
+    std::vector<std::pair<Point, Point>> bh_locs;
+    for (size_t i = 0; i < num_entries; ++i) {
+        double value;
+        std::memcpy(&value, time_bytes.data() + i * double_size, double_size);
+        time_vector.push_back(value);
+
+        double bh_temp[3];
+
+        // create the point for b1
+        std::memcpy(&bh_temp, bh1_bytes.data() + i * double_size * 3,
+                    double_size * 3);
+        Point bh1Pt = Point(bh_temp[0], bh_temp[1], bh_temp[2]);
+
+        // then do it for bh2
+        std::memcpy(&bh_temp, bh2_bytes.data() + i * double_size * 3,
+                    double_size * 3);
+        Point bh2Pt = Point(bh_temp[0], bh_temp[1], bh_temp[2]);
+
+        bh_locs.push_back(std::make_pair(bh1Pt, bh2Pt));
+    }
+
+    return std::make_tuple(bh_locs, time_vector);
 }
 
 }  // end of namespace bssn
