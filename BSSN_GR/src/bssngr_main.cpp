@@ -521,7 +521,7 @@ bssn:
                 bssnCtx->extract_gravitational_waves();
             }
 
-            if ((step & bssn::BSSN_IO_OUTPUT_FREQ_TRUE) == 0) {
+            if ((step % bssn::BSSN_IO_OUTPUT_FREQ_TRUE) == 0) {
                 // this is all IO output, except for extracting the GW waves,
                 // which are "independent"
 
