@@ -2055,7 +2055,7 @@ double computeWTolDCoords(double x, double y, double z, double* hx) {
         const double R_max       = 400;
 
         // expected lapse wave tail length (M) + backreflections
-        const double L           = 100;
+        const double L           = 120;
         // calculate the time after which a given radius's relationship
         // with the grid center is both time-like & clean of lapse noise
         const double t_lim       = std::max(r, (r + L) / std::sqrt(2));

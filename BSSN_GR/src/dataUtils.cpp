@@ -150,17 +150,7 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
     // set up level offsets near black holes
     // (we don't actually refine to BSSN_BH?_MAX_LEV)
     // level offset immediately about the BHs
-    unsigned int LVL_OFF_0; 
-    if (bssn::BSSN_CURRENT_RK_COORD_TIME < -10) {
-        // boost level temporarily at simulation start
-        // disabled for now. 
-        LVL_OFF_0 = MAXDEAPTH_LEVEL_DIFF - 1;
-    } else {
-        LVL_OFF_0 = MAXDEAPTH_LEVEL_DIFF + 1;
-    }
-    // level offset in vicinity of the BHs
-    const unsigned int DEPTH_LEV_OFFSET = 1;
-    const unsigned int LVL_OFF_1        = LVL_OFF_0 + DEPTH_LEV_OFFSET;
+    const unsigned int LVL_OFF = MAXDEAPTH_LEVEL_DIFF + 1;
 
     // consider BHs merged if punctures are less than this value
     const double BH_MERGED_SEP_TOL      = 0.1;
@@ -199,9 +189,9 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
             // Set obnoxiously large values for minimum radii
             // (to be overwritten) so as we go through box edges
             // we find minimum distances to BHs and to grid center
-            double r_min  = 1000000;
             double r1_min = 1000000;
             double r2_min = 1000000;
+            double r_min  = 1000000; // distance to grid center
 
             // measure minimum distances between both BHs
             for (unsigned int kk = 0; kk < 2; kk++)
@@ -245,39 +235,6 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
             };
 
             ////////////////////////////////////////////////////////////
-            // wkb 2 Oct 2024:
-            // set up new logic for BHLB core refinement about BHs
-
-            if (dBH < BH_MERGED_SEP_TOL) {  // BHs have merged
-                if ((r1_min <= r_near[0]) || (r2_min <= r_near[1])) {
-                    // near to either BH
-                    setLevelFloor(refLevMin - LVL_OFF_0);
-                } else if ((r1_min <= r_far[0]) || (r2_min <= r_far[1])) {
-                    // in vicinity of either BH
-                    setLevelFloor(refLevMin - LVL_OFF_1);
-                }
-            } else {  // BHs are inspiralling
-                // // // // // // // // // // // // // // // // // // //
-                // Set baseline refinement about BH1:
-                if (r1_min <= r_near[0]) {
-                    // we're near BH1; set max refinement
-                    setLevelFloor(bssn::BSSN_BH1_MAX_LEV - LVL_OFF_0);
-                } else if (r1_min <= r_far[0]) {
-                    // we're in the vicinity of BH1; set next highest
-                    setLevelFloor(bssn::BSSN_BH1_MAX_LEV - LVL_OFF_1);
-                }  // else: coarsen.
-                // // // // // // // // // // // // // // // // // // //
-                // Set baseline refinement about BH2:
-                if (r2_min <= r_near[1]) {
-                    // we're near BH2; set max refinement
-                    setLevelFloor(bssn::BSSN_BH2_MAX_LEV - LVL_OFF_0);
-                } else if (r2_min <= r_far[1]) {
-                    // we're in the vicinity of BH2; set next highest
-                    setLevelFloor(bssn::BSSN_BH2_MAX_LEV - LVL_OFF_1);
-                }  // else: coarsen.
-            }
-
-            ////////////////////////////////////////////////////////////
             // wkb 29 Aug 2024: add refinement based on radius
             // if radius r <= r*, keep level l >= l*
             // 9/9/24: change to depend on current BH separation dist.
@@ -289,12 +246,71 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
             const double f1      = m2 / (m1 + m2);
             const double f2      = m1 / (m1 + m2);
             const double f       = std::max(f1, f2);
-            const double R_orbit = f * dBH + 5;  // M; resolve scale
+            const double R_orbit = f * dBH + 8;  // M; resolve scale
             const int l_orbit    = 9;  // desired refinement level within
             if (r_min <= R_orbit) {
+                // set up orbital radius scale
                 setLevelFloor(l_orbit);
             }
 
+            ////////////////////////////////////////////////////////////
+            // wkb 2 Dec 2024: Onion refinement about the BHs 
+            auto onionLevel = [R_orbit, l_orbit](double radius, double r_AMR, int maxLevel, double ratio = 2.0) -> int {
+                if (radius > R_orbit) {
+                    // don't enforce onion outside orbital radius
+                    return 0;
+                } else {
+                    // Start with the AMR radius and maximum level
+                    double currentRadius = r_AMR;
+                    int currentLevel = maxLevel;
+                    // Loop until we reach or go below the orbit level
+                    while (currentLevel > l_orbit) {
+                        // If input radius w/i current radius,
+                        // return current level requirement
+                        if (radius <= currentRadius) {
+                            return currentLevel;
+                        }
+                        // Otherwise increase the radius limit
+                        currentRadius *= ratio;
+                        // and decrement the refinement level
+                        currentLevel--;
+                    }
+                    // Shouldn't be here.
+                    return -1;
+                }
+            };
+
+            // Onion refinement immediately about the black holes
+            if (dBH > BH_MERGED_SEP_TOL) {
+                // if not merged yet, handle BHs separately to set up onion 
+                double ratio;
+                int shift; 
+                if (bssn::BSSN_CURRENT_RK_COORD_TIME < -10) {
+                    // boost initial refinement, bolstering onion
+                    ratio = 2.0;
+                    shift = 1;
+                } else { // relax onion later
+                    // ratio = 1.618033988749; // golden ratio
+                    ratio = bssn::BSSN_AMR_R_RATIO; // softcode
+                    shift = 0;
+                }
+                const int l_goal_0 = onionLevel(r1_min,r_near[0],bssn::BSSN_BH1_MAX_LEV - LVL_OFF + shift,ratio);
+                const int l_goal_1 = onionLevel(r2_min,r_near[1],bssn::BSSN_BH2_MAX_LEV - LVL_OFF + shift,ratio);
+                setLevelFloor(l_goal_0);
+                setLevelFloor(l_goal_1);
+            } else {
+                // if merged, handle BHs together
+                // calculate minimum distance to either BH
+                const double rBH_min = std::min(r1_min,r2_min);
+                // calculate outer radius to which we should refine
+                // ensure it captures both BHs and is >= than before
+                const double rBH_lim = std::max(std::max(r_near[0],r_near[1]),1.0 * (m1 + m2)); 
+                // calculate level floor due to onion structure
+                const int l_goal = onionLevel(rBH_min,rBH_lim,refLevMin - LVL_OFF);
+                // set level floor
+                setLevelFloor(l_goal);
+            }
+            
 #ifdef BSSN_EXTRACT_GRAVITATIONAL_WAVES
             ////////////////////////////////////////////////////////////
             // @wkb 4 Sept 2024:
@@ -1229,7 +1245,7 @@ bool addRemeshWAMR(
                 if (std::min(r_BH1,r_BH2) <= 1) {
                     // large amplification of tolerance should 
                     // effectively disable WAMR w/i the BHs.
-                    tol_ele *= 1e9; 
+                    tol_ele *= 1e12; 
                 }
                 
                 // initialize all the wavelet errors to zero initially.
