@@ -256,6 +256,14 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
             ////////////////////////////////////////////////////////////
             // wkb 2 Dec 2024: Onion refinement about the BHs 
             auto onionLevel = [R_orbit, l_orbit](double radius, double r_AMR, int maxLevel, double ratio = 2.0) -> int {
+                /*
+                // TEMPORARY: disable all but innermost level
+                if (radius < r_AMR) {
+                    return maxLevel;
+                } else {
+                    return 0;
+                }
+                */
                 if (radius > R_orbit) {
                     // don't enforce onion outside orbital radius
                     return 0;
@@ -319,7 +327,7 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
             // estimate ending GW frequency from quasi-normal modes 
             const double lam_qnm = 4 * M_PI / (.37009 + .6475 * eta);
             // clang-format off
-            #if 1
+            #if 0
             // q=1 parameters
             constexpr double A    = 18.8;
             // More nuanced fit: A tau^(3/8) * (1 + B tau^(-2/8))
