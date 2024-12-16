@@ -99,8 +99,11 @@ def bssn_puncture_gauge(
         if sslGaugeCondition:
             # enable slow-start lapse
             W = chi**0.5
-            h = 0.6
-            sig = 20
+
+            h = symbols("h_ssl")
+            sig = symbols("sig_ssl")
+            # h = 0.6
+            # sig = 20
             a_rhs = (
                 l1 * dendro.lie(b, a)
                 - 2 * a * K

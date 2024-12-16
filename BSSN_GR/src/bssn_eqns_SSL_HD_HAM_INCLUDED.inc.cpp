@@ -4,7 +4,7 @@
 // Codgen: using standard gauge
 // Codgen: using eta const damping
 // Dendro: {{{
-// Dendro: original ops: 708881
+// Dendro: original ops: 708883
 // Dendro: printing temp variables
 const double DENDRO_0 = 2 * alpha[pp];
 const double DENDRO_1 = sqrt(chi[pp]);
@@ -1279,8 +1279,8 @@ const double DENDRO_826 =
 //--
 a_rhs[pp] =
     -DENDRO_0 * K[pp] -
-    0.59999999999999998 * DENDRO_1 * (-DENDRO_1 + alpha[pp]) *
-        exp(-1.0 / 800.0 * (t * t)) +
+    DENDRO_1 * h_ssl * (-DENDRO_1 + alpha[pp]) *
+        exp(-1.0 / 2.0 * (t * t) / (sig_ssl * sig_ssl)) +
     lambda[0] * (beta0[pp] * grad_0_alpha[pp] + beta1[pp] * grad_1_alpha[pp] +
                  beta2[pp] * grad_2_alpha[pp]);
 //--
@@ -1773,5 +1773,5 @@ B_rhs2[pp] =
                  beta2[pp] * grad_2_B2[pp]) -
     lambda[3] * (beta0[pp] * grad_0_Gt2[pp] + beta1[pp] * grad_1_Gt2[pp] +
                  beta2[pp] * grad_2_Gt2[pp]);
-// Dendro: reduced ops: 4337
+// Dendro: reduced ops: 4339
 // Dendro: }}}

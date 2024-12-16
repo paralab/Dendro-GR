@@ -185,6 +185,9 @@ unsigned int BSSN_GW_EXTRACT_FREQ_TRUE          = 0;
 
 unsigned int BSSN_IO_OUTPUT_FREQ_TRUE           = 0;
 
+double BSSN_SSL_SIGMA                           = 20.0;
+double BSSN_SSL_H                               = 0.6;
+
 /***@brief: derivs workspace*/
 double* BSSN_DERIV_WORKSPACE                    = nullptr;
 
@@ -438,6 +441,14 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
     }
     bssn::BSSN_IO_OUTPUT_FREQ_TRUE  = bssn::BSSN_IO_OUTPUT_FREQ;
     bssn::BSSN_GW_EXTRACT_FREQ_TRUE = bssn::BSSN_GW_EXTRACT_FREQ;
+
+    if (parFile.contains("BSSN_SSL_SIGMA")) {
+        bssn::BSSN_SSL_SIGMA = parFile["BSSN_SSL_SIGMA"].as_floating();
+    }
+
+    if (parFile.contains("BSSN_SSL_H")) {
+        bssn::BSSN_SSL_H = parFile["BSSN_SSL_H"].as_floating();
+    }
 
     /* Parameters for TPID */
     TPID::target_M_plus  = parFile["TPID_TARGET_M_PLUS"].as_floating();

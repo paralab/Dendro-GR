@@ -769,6 +769,10 @@ void dumpParamFile(std::ostream& sout, int root, MPI_Comm comm) {
         }
         sout << YLW << "\tBSSN_NYQUIST_M: " << bssn::BSSN_NYQUIST_M << NRM
              << std::endl;
+
+        sout << YLW << "\tBSSN_SSL_H: " << bssn::BSSN_SSL_H << NRM << std::endl;
+        sout << YLW << "\tBSSN_SSL_SIGMA: " << bssn::BSSN_SSL_SIGMA << NRM
+             << std::endl;
     }
 }
 

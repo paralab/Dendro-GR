@@ -190,6 +190,11 @@ void bssnrhs(double **unzipVarsRHS, const double **uZipVars,
     //     }
     // }
     // cout << "begin loop" << endl;
+
+    // the SSL parameters
+    const double h_ssl   = bssn::BSSN_SSL_H;
+    const double sig_ssl = bssn::BSSN_SSL_SIGMA;
+
     bssn::timer::t_rhs.start();
     for (unsigned int k = PW; k < nz - PW; k++) {
         for (unsigned int j = PW; j < ny - PW; j++) {

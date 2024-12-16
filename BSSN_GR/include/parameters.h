@@ -385,6 +385,9 @@ extern unsigned int BSSN_GW_EXTRACT_FREQ_TRUE;
 
 extern unsigned int BSSN_IO_OUTPUT_FREQ_TRUE;
 
+extern double BSSN_SSL_SIGMA;
+extern double BSSN_SSL_H;
+
 // note ko derivs are not included
 #ifdef BSSN_USE_ADVECTIVE_DERIVS
 const unsigned int BSSN_NUM_DERIVS = 138 + 74;
