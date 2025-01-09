@@ -314,7 +314,9 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
                 // ensure it captures both BHs and is >= than before
                 const double rBH_lim = std::max(std::max(r_near[0],r_near[1]),1.0 * (m1 + m2)); 
                 // calculate level floor due to onion structure
-                const int l_goal = onionLevel(rBH_min,rBH_lim,refLevMin - LVL_OFF);
+                const int l_post = 14; // hardcoding innermost level 
+                const int l_goal = onionLevel(rBH_min,rBH_lim,l_post - LVL_OFF);
+                // const int l_goal = onionLevel(rBH_min,rBH_lim,refLevMin - LVL_OFF);
                 // set level floor
                 setLevelFloor(l_goal);
             }
@@ -327,7 +329,7 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
             // estimate ending GW frequency from quasi-normal modes 
             const double lam_qnm = 4 * M_PI / (.37009 + .6475 * eta);
             // clang-format off
-            #if 0
+            #if 1
             // q=1 parameters
             constexpr double A    = 18.8;
             // More nuanced fit: A tau^(3/8) * (1 + B tau^(-2/8))
@@ -335,6 +337,9 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
             constexpr double tau0 = 445.0;
             // constexpr double mn = 10.5; // old
             constexpr double mn = 14.49;
+            // constexpr double t_end = 642.0; // time (2,2) hits R=50
+            // constexpr double t_end = 608.14; // ~150 past merger
+            constexpr double t_end = 580.14; // ~122 past merger
             #else
             // q=4 parameters
             constexpr double A    = 17;
@@ -343,6 +348,8 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
             constexpr double tau0 = 490.0;
             // constexpr double mn = 22.90; // old
             constexpr double mn = 18.10;
+            // constexpr double t_end = 660.0;
+            constexpr double t_end = 670.4; // ~122 past merger
             #endif
             // decide whether to use QNM or orbital freq for ending
             const double lam_min = mn; // use orbital freq @ ds = .1
@@ -361,7 +368,8 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
 
             // calculate retarded time
             const double t_ret = bssn::BSSN_CURRENT_RK_COORD_TIME - r_min;
-            const double R_GW  = 100.;
+            // const double R_GW  = 50.0; // inner GW radius; TODO: should use outer probably
+            const double R_GW  = 100.0; // outer GW radius
             int ell_star;
 
             /*
@@ -379,7 +387,10 @@ bool isRemeshBH(ot::Mesh* pMesh, const Point* bhLoc) {
 
             // goal spherical harmonic order m to refine to
             // DFVK NOTE: put the variable is now in the global parameter
-            if (bssn::BSSN_NYQUIST_M > 0) {
+            const bool using_nyquist = bssn::BSSN_NYQUIST_M > 0;
+            const double speed = std::sqrt(2);
+            const bool past_of_end = std::abs(r_min - R_GW) < speed * (t_end - bssn::BSSN_CURRENT_RK_COORD_TIME);
+            if (using_nyquist && past_of_end) {
                 // same ell_star everywhere
                 ell_star = get_ell(t_ret, bssn::BSSN_NYQUIST_M);
                 setLevelFloor(ell_star);
