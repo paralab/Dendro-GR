@@ -496,9 +496,6 @@ bssn:
 
             if ((step % bssn::BSSN_GW_EXTRACT_FREQ) == 0) {
                 bssnCtx->write_vtu();
-                bssnCtx->evolve_bh_loc(
-                    bssnCtx->get_evolution_vars(),
-                    ets->ts_size() * bssn::BSSN_GW_EXTRACT_FREQ);
             }
 
             if ((step % bssn::BSSN_CHECKPT_FREQ) == 0) {
@@ -669,7 +666,14 @@ bssn:
                 }
             }
 
+            if ((step % bssn::BSSN_GW_EXTRACT_FREQ) == 0)
+            {   // punture locations does not need to evolve every timestep. 
+                bssnCtx->evolve_bh_loc(
+                    bssnCtx->get_evolution_vars(),
+                    ets->ts_size() * bssn::BSSN_GW_EXTRACT_FREQ);
+            }
             ets->evolve();
+            
         }
 
 #if defined __PROFILE_CTX__ && defined __PROFILE_ETS__
