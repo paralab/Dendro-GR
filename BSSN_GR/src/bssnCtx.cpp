@@ -12,6 +12,13 @@
 
 #include "bssnCtx.h"
 
+#include <mpi.h>
+#include <sys/types.h>
+
+#include <cstdint>
+
+#include "grUtils.h"
+#include "parUtils.h"
 #include "parameters.h"
 
 namespace bssn {
@@ -391,6 +398,10 @@ int BSSNCtx::initialize() {
     this->calculate_full_grid_size();
 
     do {
+        // hold on to the "old numbers" for final check
+        oldElements_g   = m_uiGlobalMeshElements;
+        oldGridPoints_g = m_uiGlobalGridPoints;
+
         this->unzip(m_evar, m_evar_unz, bssn::BSSN_ASYNC_COMM_K);
         m_evar_unz.to_2d(unzipVar);
         // isRefine=this->is_remesh();
@@ -420,7 +431,7 @@ int BSSNCtx::initialize() {
 
             par::Mpi_Allreduce(&newElements, &newElements_g, 1, MPI_SUM, gcomm);
             par::Mpi_Allreduce(&newGridPoints, &newGridPoints_g, 1, MPI_SUM,
-                               m_uiMesh->getMPIGlobalCommunicator());
+                               gcomm);
 
             if (!rank_global) {
                 std::cout << "[bssnCtx] iter : " << iterCount
@@ -481,6 +492,14 @@ int BSSNCtx::initialize() {
          ((double)(1u << (m_uiMaxDepth))));
     m_uiTinfo._m_uiTh = bssn::BSSN_RK45_TIME_STEP_SIZE;
 
+    if (bssn::BSSN_SCALE_VTU_AND_GW_EXTRACTION) {
+        // REMEMBER: the true max depth of the array is two minus m_uiMaxDepth
+        bssn::BSSN_IO_OUTPUT_FREQ_TRUE =
+            bssn::BSSN_IO_OUTPUT_FREQ >> (m_uiMaxDepth - 2 - lmax);
+        bssn::BSSN_GW_EXTRACT_FREQ_TRUE =
+            bssn::BSSN_GW_EXTRACT_FREQ >> (m_uiMaxDepth - 2 - lmax);
+    }
+
     if (!m_uiMesh->getMPIRankGlobal()) {
         const DendroScalar dx_finest =
             ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
@@ -495,6 +514,10 @@ int BSSNCtx::initialize() {
         std::cout << "lmin: " << lmin << " lmax:" << lmax << std::endl;
         std::cout << "dx: " << dx_finest << std::endl;
         std::cout << "dt: " << dt_finest << std::endl;
+        std::cout << "VTU IO Output Freq: " << bssn::BSSN_IO_OUTPUT_FREQ_TRUE
+                  << std::endl;
+        std::cout << "GW IO Output Freq: " << bssn::BSSN_GW_EXTRACT_FREQ_TRUE
+                  << std::endl;
         std::cout << "========================================================="
                      "======================================================"
                   << std::endl;
@@ -595,6 +618,8 @@ int BSSNCtx::init_grid() {
 int BSSNCtx::finalize() { return 0; }
 
 void BSSNCtx::compute_constraint_variables() {
+    if (m_bConstraintsComputed) return;
+
     DVec& m_evar     = m_var[VL::CPU_EV];
     DVec& m_evar_unz = m_var[VL::CPU_EV_UZ_IN];
     DVec& m_cvar     = m_var[VL::CPU_CV];
@@ -616,7 +641,7 @@ void BSSNCtx::compute_constraint_variables() {
 
 #if BSSN_COMPUTE_CONSTRAINTS
 
-    if (!(m_uiMesh->getMPIRank())) {
+    if (!(m_uiMesh->getMPIRankGlobal())) {
         std::cout << BLU << "[BSSN] - Now computing constraints" << NRM
                   << std::endl;
     }
@@ -665,32 +690,60 @@ void BSSNCtx::compute_constraint_variables() {
     m_uiMesh->readFromGhostBegin(m_cvar.get_vec_ptr(), m_cvar.get_dof());
     m_uiMesh->readFromGhostEnd(m_cvar.get_vec_ptr(), m_cvar.get_dof());
 
-    bssn::extractConstraints(m_uiMesh, (const DendroScalar**)consVar,
-                             evolVar[BHLOC::EXTRACTION_VAR_ID],
-                             BHLOC::EXTRACTION_TOL, m_uiTinfo._m_uiStep,
-                             m_uiTinfo._m_uiT);
-#ifndef BSSN_KERR_SCHILD_TEST
-#ifdef BSSN_EXTRACT_GRAVITATIONAL_WAVES
-    GW::extractFarFieldPsi4(m_uiMesh, (const DendroScalar**)consVar,
-                            m_uiTinfo._m_uiStep, m_uiTinfo._m_uiT);
-#endif
-#endif
-
-    if (!(m_uiMesh->getMPIRank())) {
+    if (!(m_uiMesh->getMPIRankGlobal())) {
         std::cout << BLU << "[BSSN] - Finished computing constraints!" << NRM
                   << std::endl;
     }
 
 #endif
+
+    m_bConstraintsComputed = true;
+}
+
+int BSSNCtx::extract_constraints() {
+    // make sure constraints are computed
+    this->compute_constraint_variables();
+
+    // variables should be ghost-exchanged and unzipped thanks to
+    // compute_constraint_variables
+
+    DVec& m_evar     = m_var[VL::CPU_EV];
+    DVec& m_evar_unz = m_var[VL::CPU_EV_UZ_IN];
+    DVec& m_cvar     = m_var[VL::CPU_CV];
+    DVec& m_cvar_unz = m_var[VL::CPU_CV_UZ_IN];
+
+    DendroScalar* evolVar[bssn::BSSN_NUM_VARS];
+    DendroScalar* consVar[bssn::BSSN_CONSTRAINT_NUM_VARS];
+
+    m_evar.to_2d(evolVar);
+    m_cvar.to_2d(consVar);
+
+    bssn::extractConstraints(m_uiMesh, (const DendroScalar**)consVar,
+                             evolVar[BHLOC::EXTRACTION_VAR_ID],
+                             BHLOC::EXTRACTION_TOL, m_uiTinfo._m_uiStep,
+                             m_uiTinfo._m_uiT);
+    return 0;
+}
+
+int BSSNCtx::extract_gravitational_waves() {
+#ifndef BSSN_KERR_SCHILD_TEST
+#ifdef BSSN_EXTRACT_GRAVITATIONAL_WAVES
+    // make sure constraints are compuated
+    this->compute_constraint_variables();
+
+    DVec& m_cvar = m_var[VL::CPU_CV];
+    DendroScalar* consVar[bssn::BSSN_CONSTRAINT_NUM_VARS];
+    m_cvar.to_2d(consVar);
+
+    GW::extractFarFieldPsi4(m_uiMesh, (const DendroScalar**)consVar,
+                            m_uiTinfo._m_uiStep, m_uiTinfo._m_uiT);
+#endif
+#endif
+    return 0;
 }
 
 int BSSNCtx::write_vtu() {
     if (!m_uiMesh->isActive()) return 0;
-
-    if (!(m_uiMesh->getMPIRank())) {
-        std::cout << GRN << "=== Now Writing VTU Output Files! ===" << NRM
-                  << std::endl;
-    }
 
     DVec& m_evar     = m_var[VL::CPU_EV];
     DVec& m_evar_unz = m_var[VL::CPU_EV_UZ_IN];
@@ -711,82 +764,89 @@ int BSSNCtx::write_vtu() {
     m_evar.to_2d(evolVar);
     m_cvar.to_2d(consVar);
 
-    // make sure the constraint variables are computed
+    // make sure the constraint variables are computed, they should be, but at
+    // least it'll early exit if they are this time step
     this->compute_constraint_variables();
 
 #ifdef BSSN_ENABLE_VTU_OUTPUT
-
-    if ((m_uiTinfo._m_uiStep % bssn::BSSN_IO_OUTPUT_FREQ) == 0) {
-        std::vector<std::string> pDataNames;
-        const unsigned int numConstVars = bssn::BSSN_NUM_CONST_VARS_VTU_OUTPUT;
-        const unsigned int numEvolVars  = bssn::BSSN_NUM_EVOL_VARS_VTU_OUTPUT;
-
-        double* pData[(numConstVars + numEvolVars)];
-
-        for (unsigned int i = 0; i < numEvolVars; i++) {
-            pDataNames.push_back(std::string(
-                bssn::BSSN_VAR_NAMES[BSSN_VTU_OUTPUT_EVOL_INDICES[i]]));
-            pData[i] = evolVar[BSSN_VTU_OUTPUT_EVOL_INDICES[i]];
-        }
-
-        for (unsigned int i = 0; i < numConstVars; i++) {
-            pDataNames.push_back(
-                std::string(bssn::BSSN_CONSTRAINT_VAR_NAMES
-                                [BSSN_VTU_OUTPUT_CONST_INDICES[i]]));
-            pData[numEvolVars + i] = consVar[BSSN_VTU_OUTPUT_CONST_INDICES[i]];
-        }
-
-        std::vector<char*> pDataNames_char;
-        pDataNames_char.reserve(pDataNames.size());
-
-        for (unsigned int i = 0; i < pDataNames.size(); i++)
-            pDataNames_char.push_back(const_cast<char*>(pDataNames[i].c_str()));
-
-        const char* fDataNames[] = {"Time", "Cycle"};
-        const double fData[] = {m_uiTinfo._m_uiT, (double)m_uiTinfo._m_uiStep};
-
-        char fPrefix[256];
-        sprintf(fPrefix, "%s_%d", bssn::BSSN_VTU_FILE_PREFIX.c_str(),
-                m_uiTinfo._m_uiStep);
-
-        if (bssn::BSSN_VTU_Z_SLICE_ONLY) {
-            unsigned int s_val[3]  = {1u << (m_uiMaxDepth - 1),
-                                      1u << (m_uiMaxDepth - 1),
-                                      1u << (m_uiMaxDepth - 1)};
-            unsigned int s_norm[3] = {0, 0, 1};
-            io::vtk::mesh2vtu_slice(
-                m_uiMesh, s_val, s_norm, fPrefix, 2, fDataNames, fData,
-                (numEvolVars + numConstVars), (const char**)&pDataNames_char[0],
-                (const double**)pData);
-        } else
-            io::vtk::mesh2vtuFine(m_uiMesh, fPrefix, 2, fDataNames, fData,
-                                  (numEvolVars + numConstVars),
-                                  (const char**)&pDataNames_char[0],
-                                  (const double**)pData);
+    if (!(m_uiMesh->getMPIRankGlobal())) {
+        std::cout << GRN << "=== Now Writing VTU Output Files! ===" << NRM
+                  << std::endl;
     }
 
-#endif
+    std::vector<std::string> pDataNames;
+    const unsigned int numConstVars = bssn::BSSN_NUM_CONST_VARS_VTU_OUTPUT;
+    const unsigned int numEvolVars  = bssn::BSSN_NUM_EVOL_VARS_VTU_OUTPUT;
 
-#ifdef BSSN_EXTRACT_BH_LOCATIONS
-    bssn::writeBHCoordinates((const ot::Mesh*)m_uiMesh, (const Point*)m_uiBHLoc,
-                             2, m_uiTinfo._m_uiStep, m_uiTinfo._m_uiT);
-#endif
+    double* pData[(numConstVars + numEvolVars)];
 
-    if (!(m_uiMesh->getMPIRank())) {
+    for (unsigned int i = 0; i < numEvolVars; i++) {
+        pDataNames.push_back(
+            std::string(bssn::BSSN_VAR_NAMES[BSSN_VTU_OUTPUT_EVOL_INDICES[i]]));
+        pData[i] = evolVar[BSSN_VTU_OUTPUT_EVOL_INDICES[i]];
+    }
+
+    for (unsigned int i = 0; i < numConstVars; i++) {
+        pDataNames.push_back(std::string(
+            bssn::BSSN_CONSTRAINT_VAR_NAMES[BSSN_VTU_OUTPUT_CONST_INDICES[i]]));
+        pData[numEvolVars + i] = consVar[BSSN_VTU_OUTPUT_CONST_INDICES[i]];
+    }
+
+    std::vector<char*> pDataNames_char;
+    pDataNames_char.reserve(pDataNames.size());
+
+    for (unsigned int i = 0; i < pDataNames.size(); i++)
+        pDataNames_char.push_back(const_cast<char*>(pDataNames[i].c_str()));
+
+    const char* fDataNames[] = {"Time", "Cycle"};
+    const double fData[]     = {m_uiTinfo._m_uiT, (double)m_uiTinfo._m_uiStep};
+
+    char fPrefix[256];
+    sprintf(fPrefix, "%s_%d", bssn::BSSN_VTU_FILE_PREFIX.c_str(),
+            m_uiTinfo._m_uiStep);
+
+    if (bssn::BSSN_VTU_Z_SLICE_ONLY) {
+        unsigned int s_val[3]  = {1u << (m_uiMaxDepth - 1),
+                                  1u << (m_uiMaxDepth - 1),
+                                  1u << (m_uiMaxDepth - 1)};
+        unsigned int s_norm[3] = {0, 0, 1};
+        io::vtk::mesh2vtu_slice(m_uiMesh, s_val, s_norm, fPrefix, 2, fDataNames,
+                                fData, (numEvolVars + numConstVars),
+                                (const char**)&pDataNames_char[0],
+                                (const double**)pData);
+    } else
+        io::vtk::mesh2vtuFine(m_uiMesh, fPrefix, 2, fDataNames, fData,
+                              (numEvolVars + numConstVars),
+                              (const char**)&pDataNames_char[0],
+                              (const double**)pData);
+
+    if (!(m_uiMesh->getMPIRankGlobal())) {
         std::cout << GRN << "=== Finished Writing the VTU Files! ===" << NRM
                   << std::endl;
     }
 
+#endif
+
+    return 0;
+}
+
+int BSSNCtx::write_bh_coords() {
+#ifdef BSSN_EXTRACT_BH_LOCATIONS
+    // ensure that the black hole locations have been updated, it does early
+    // exit if it's happened
+    this->evolve_bh_loc();
+    bssn::writeBHCoordinates((const ot::Mesh*)m_uiMesh, (const Point*)m_uiBHLoc,
+                             2, m_uiTinfo._m_uiStep, m_uiTinfo._m_uiT);
+#endif
     return 0;
 }
 
 int BSSNCtx::write_checkpt() {
     if (!m_uiMesh->isActive()) return 0;
 
-    unsigned int cpIndex;
-    (m_uiTinfo._m_uiStep % (2 * bssn::BSSN_CHECKPT_FREQ) == 0)
-        ? cpIndex = 0
-        : cpIndex = 1;  // to support alternate file writing.
+    // every other checkpoint index should be 0 or 1, this allows "alternate"
+    // file writing
+    unsigned int cpIndex = (m_uiTinfo._m_uiStep / bssn::BSSN_CHECKPT_FREQ) % 2;
 
     const bool is_merged =
         ((bssn::BSSN_BH_LOC[0] - bssn::BSSN_BH_LOC[1]).abs() < 0.1);
@@ -805,7 +865,7 @@ int BSSNCtx::write_checkpt() {
     char fName[256];
     const ot::TreeNode* pNodes = &(*(m_uiMesh->getAllElements().begin() +
                                      m_uiMesh->getElementLocalBegin()));
-    sprintf(fName, "%s_octree_%d_%d.oct", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
+    sprintf(fName, "%s_%d_octree_%d.oct", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
             cpIndex, rank);
     io::checkpoint::writeOctToFile(fName, pNodes,
                                    m_uiMesh->getNumLocalMeshElements());
@@ -818,8 +878,12 @@ int BSSNCtx::write_checkpt() {
     io::checkpoint::writeVecToFile(fName, m_uiMesh, (const double**)eVar,
                                    bssn::BSSN_NUM_VARS);
 
+    if (!rank)
+        std::cout << "   ...Finished writing the octree checkpoints!"
+                  << std::endl;
+
     if (!rank) {
-        sprintf(fName, "%s_step_%d.cp", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
+        sprintf(fName, "%s_%d_step.cp", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
                 cpIndex);
         std::cout << "[BSSNCtx] \t writing checkpoint file : " << fName
                   << std::endl;
@@ -846,16 +910,36 @@ int BSSNCtx::write_checkpt() {
         checkPoint["DENDRO_TS_ACTIVE_COMM_SZ"] =
             m_uiMesh->getMPICommSize();  // (note that rank 0 is always active).
 
-        checkPoint["DENDRO_BH1_X"] = m_uiBHLoc[0].x();
-        checkPoint["DENDRO_BH1_Y"] = m_uiBHLoc[0].y();
-        checkPoint["DENDRO_BH1_Z"] = m_uiBHLoc[0].z();
+        checkPoint["DENDRO_BH1_X"]              = m_uiBHLoc[0].x();
+        checkPoint["DENDRO_BH1_Y"]              = m_uiBHLoc[0].y();
+        checkPoint["DENDRO_BH1_Z"]              = m_uiBHLoc[0].z();
 
-        checkPoint["DENDRO_BH2_X"] = m_uiBHLoc[1].x();
-        checkPoint["DENDRO_BH2_Y"] = m_uiBHLoc[1].y();
-        checkPoint["DENDRO_BH2_Z"] = m_uiBHLoc[1].z();
+        checkPoint["DENDRO_BH2_X"]              = m_uiBHLoc[1].x();
+        checkPoint["DENDRO_BH2_Y"]              = m_uiBHLoc[1].y();
+        checkPoint["DENDRO_BH2_Z"]              = m_uiBHLoc[1].z();
+
+        checkPoint["DENDRO_BSSN_BH_MERGE"]      = m_bIsBHMerged;
+        checkPoint["DENDRO_BSSN_BH_MERGE_TIME"] = m_dMergeTime;
+        checkPoint["DENDRO_BSSN_BH_MERGE_STEP"] = m_uiMergeStep;
+
+        // then also the BH time history
+        checkPoint["DENDRO_BSSN_BH_LOC_TIMES"]  = m_uiBHTimeHistory;
+        // then the X, Y, Z points for the BSSN BH locations
+
+        std::tuple<std::string, std::string, std::string> temp =
+            encode_bh_locs(m_uiBHLocHistory, m_uiBHTimeHistory);
+        auto [bh1_str, bh2_str, time_str]   = temp;
+
+        checkPoint["DENDRO_BSSN_BH_LOC_T"]  = time_str;
+        checkPoint["DENDRO_BSSN_BH_LOC_B1"] = bh1_str;
+        checkPoint["DENDRO_BSSN_BH_LOC_B2"] = bh2_str;
 
         outfile << std::setw(4) << checkPoint << std::endl;
         outfile.close();
+
+        std::cout << "   ...Finished writing the plain-text checkpoint!"
+                  << std::endl;
+        std::cout << "[BSSNCtx] \t finished writing checkpoint! " << std::endl;
     }
 
     return 0;
@@ -894,7 +978,7 @@ int BSSNCtx::restore_checkpt() {
         restoreStatus = 0;
 
         if (!rank) {
-            sprintf(fName, "%s_step_%d.cp",
+            sprintf(fName, "%s_%d_step.cp",
                     bssn::BSSN_CHKPT_FILE_PREFIX.c_str(), cpIndex);
 
             std::cout << "    Checking to see if " << fName
@@ -927,15 +1011,65 @@ int BSSNCtx::restore_checkpt() {
                 bssn::BSSN_LOAD_IMB_TOL =
                     checkPoint["DENDRO_TS_LOAD_IMB_TOLERANCE"];
 
-                numVars              = checkPoint["DENDRO_TS_NUM_VARS"];
-                activeCommSz         = checkPoint["DENDRO_TS_ACTIVE_COMM_SZ"];
+                numVars      = checkPoint["DENDRO_TS_NUM_VARS"];
+                activeCommSz = checkPoint["DENDRO_TS_ACTIVE_COMM_SZ"];
 
-                m_uiBHLoc[0]         = Point((double)checkPoint["DENDRO_BH1_X"],
-                                             (double)checkPoint["DENDRO_BH1_Y"],
-                                             (double)checkPoint["DENDRO_BH1_Z"]);
-                m_uiBHLoc[1]         = Point((double)checkPoint["DENDRO_BH2_X"],
-                                             (double)checkPoint["DENDRO_BH2_Y"],
-                                             (double)checkPoint["DENDRO_BH2_Z"]);
+                m_uiBHLoc[0] = Point((double)checkPoint["DENDRO_BH1_X"],
+                                     (double)checkPoint["DENDRO_BH1_Y"],
+                                     (double)checkPoint["DENDRO_BH1_Z"]);
+                m_uiBHLoc[1] = Point((double)checkPoint["DENDRO_BH2_X"],
+                                     (double)checkPoint["DENDRO_BH2_Y"],
+                                     (double)checkPoint["DENDRO_BH2_Z"]);
+
+                // if this key is in, then all three keys should be
+                if (checkPoint.find("DENDRO_BSSN_BH_MERGE") !=
+                    checkPoint.end()) {
+                    // restore bh merge and merge time information
+                    m_bIsBHMerged = checkPoint["DENDRO_BSSN_BH_MERGE"];
+                    m_dMergeTime  = checkPoint["DENDRO_BSSN_BH_MERGE_TIME"];
+                    m_uiMergeStep = checkPoint["DENDRO_BSSN_BH_MERGE_STEP"];
+                }
+
+                // OLD: DEPRECIATED
+                if (checkPoint.find("DENDRO_BSSN_BH_LOC_TIMES") !=
+                    checkPoint.end()) {
+                    // restore bh location data
+
+                    // clear bhLocHistory vector to start fresh
+                    m_uiBHLocHistory.clear();
+
+                    for (const auto& pair_json :
+                         checkPoint["DENDRO_BSSN_BH_LOC_HISTORY"]) {
+                        Point bh1pt =
+                            Point(pair_json["bh1"]["x"].get<double>(),
+                                  pair_json["bh1"]["y"].get<double>(),
+                                  pair_json["bh1"]["z"].get<double>());
+                        Point bh2pt =
+                            Point(pair_json["bh2"]["x"].get<double>(),
+                                  pair_json["bh2"]["y"].get<double>(),
+                                  pair_json["bh2"]["z"].get<double>());
+
+                        m_uiBHLocHistory.emplace_back(bh1pt, bh2pt);
+                    }
+
+                    // then restore the times the bh's were output
+                    m_uiBHTimeHistory = checkPoint["DENDRO_BSSN_BH_LOC_TIMES"]
+                                            .get<std::vector<double>>();
+                }
+
+                if (checkPoint.find("DENDRO_BSSN_BH_LOC_T") !=
+                    checkPoint.end()) {
+                    auto bh_decoded = decode_bh_locs(
+                        checkPoint["DENDRO_BSSN_BH_LOC_B1"].get<std::string>(),
+                        checkPoint["DENDRO_BSSN_BH_LOC_B2"].get<std::string>(),
+                        checkPoint["DENDRO_BSSN_BH_LOC_T"].get<std::string>());
+
+                    m_uiBHLocHistory.clear();
+
+                    m_uiBHLocHistory  = std::get<0>(bh_decoded);
+                    m_uiBHTimeHistory = std::get<1>(bh_decoded);
+                }
+
                 restoreStep[cpIndex] = m_uiTinfo._m_uiStep;
             }
         }
@@ -956,49 +1090,93 @@ int BSSNCtx::restore_checkpt() {
         std::cout << "[BSSNCtx] :  Trying to restore from checkpoint index : "
                   << restoreFileIndex << std::endl;
 
-    if (!rank) {
-        sprintf(fName, "%s_step_%d.cp", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
-                restoreFileIndex);
+    // now we do the "true" restore, where every process knows which one is the
+    // right one
+    sprintf(fName, "%s_%d_step.cp", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
+            restoreFileIndex);
 
-        // first check to see if the file even exists
-        if (!std::filesystem::exists(fName)) {
-            std::cout << YLW << "WARNING: " << NRM << "Checkpoint filename "
-                      << fName << " does not exist!" << std::endl;
-            restoreStatus = 2;
+    // first check to see if the file even exists
+    if (!std::filesystem::exists(fName)) {
+        std::cout << YLW << "WARNING: " << NRM << "Checkpoint filename "
+                  << fName << " does not exist!" << std::endl;
+        restoreStatus = 2;
+    }
+
+    if (restoreStatus == 0) {
+        std::ifstream infile(fName);
+        if (!infile) {
+            std::cout << fName << " file open failed " << std::endl;
+            restoreStatus = 1;
         }
 
         if (restoreStatus == 0) {
-            std::ifstream infile(fName);
-            if (!infile) {
-                std::cout << fName << " file open failed " << std::endl;
-                restoreStatus = 1;
+            infile >> checkPoint;
+            m_uiTinfo._m_uiTb      = checkPoint["DENDRO_TS_TIME_BEGIN"];
+            m_uiTinfo._m_uiTe      = checkPoint["DENDRO_TS_TIME_END"];
+            m_uiTinfo._m_uiT       = checkPoint["DENDRO_TS_TIME_CURRENT"];
+            m_uiTinfo._m_uiStep    = checkPoint["DENDRO_TS_STEP_CURRENT"];
+            m_uiTinfo._m_uiTh      = checkPoint["DENDRO_TS_TIME_STEP_SIZE"];
+            m_uiElementOrder       = checkPoint["DENDRO_TS_ELEMENT_ORDER"];
+
+            bssn::BSSN_WAVELET_TOL = checkPoint["DENDRO_TS_WAVELET_TOLERANCE"];
+            bssn::BSSN_LOAD_IMB_TOL =
+                checkPoint["DENDRO_TS_LOAD_IMB_TOLERANCE"];
+
+            numVars      = checkPoint["DENDRO_TS_NUM_VARS"];
+            activeCommSz = checkPoint["DENDRO_TS_ACTIVE_COMM_SZ"];
+
+            m_uiBHLoc[0] = Point((double)checkPoint["DENDRO_BH1_X"],
+                                 (double)checkPoint["DENDRO_BH1_Y"],
+                                 (double)checkPoint["DENDRO_BH1_Z"]);
+            m_uiBHLoc[1] = Point((double)checkPoint["DENDRO_BH2_X"],
+                                 (double)checkPoint["DENDRO_BH2_Y"],
+                                 (double)checkPoint["DENDRO_BH2_Z"]);
+
+            // if this key is in, then all three keys should be
+            if (checkPoint.find("DENDRO_BSSN_BH_MERGE") != checkPoint.end()) {
+                // restore bh merge and merge time information
+                m_bIsBHMerged = checkPoint["DENDRO_BSSN_BH_MERGE"];
+                m_dMergeTime  = checkPoint["DENDRO_BSSN_BH_MERGE_TIME"];
+                m_uiMergeStep = checkPoint["DENDRO_BSSN_BH_MERGE_STEP"];
             }
 
-            if (restoreStatus == 0) {
-                infile >> checkPoint;
-                m_uiTinfo._m_uiTb   = checkPoint["DENDRO_TS_TIME_BEGIN"];
-                m_uiTinfo._m_uiTe   = checkPoint["DENDRO_TS_TIME_END"];
-                m_uiTinfo._m_uiT    = checkPoint["DENDRO_TS_TIME_CURRENT"];
-                m_uiTinfo._m_uiStep = checkPoint["DENDRO_TS_STEP_CURRENT"];
-                m_uiTinfo._m_uiTh   = checkPoint["DENDRO_TS_TIME_STEP_SIZE"];
-                m_uiElementOrder    = checkPoint["DENDRO_TS_ELEMENT_ORDER"];
+            if (checkPoint.find("DENDRO_BSSN_BH_LOC_TIMES") !=
+                checkPoint.end()) {
+                // restore bh location data
 
-                bssn::BSSN_WAVELET_TOL =
-                    checkPoint["DENDRO_TS_WAVELET_TOLERANCE"];
-                bssn::BSSN_LOAD_IMB_TOL =
-                    checkPoint["DENDRO_TS_LOAD_IMB_TOLERANCE"];
+                // make sure BHLocHistory is completely empty upon reading!
+                m_uiBHLocHistory.clear();
 
-                numVars      = checkPoint["DENDRO_TS_NUM_VARS"];
-                activeCommSz = checkPoint["DENDRO_TS_ACTIVE_COMM_SZ"];
+                for (const auto& pair_json :
+                     checkPoint["DENDRO_BSSN_BH_LOC_HISTORY"]) {
+                    Point bh1pt = Point(pair_json["bh1"]["x"].get<double>(),
+                                        pair_json["bh1"]["y"].get<double>(),
+                                        pair_json["bh1"]["z"].get<double>());
+                    Point bh2pt = Point(pair_json["bh2"]["x"].get<double>(),
+                                        pair_json["bh2"]["y"].get<double>(),
+                                        pair_json["bh2"]["z"].get<double>());
 
-                m_uiBHLoc[0] = Point((double)checkPoint["DENDRO_BH1_X"],
-                                     (double)checkPoint["DENDRO_BH1_Y"],
-                                     (double)checkPoint["DENDRO_BH1_Z"]);
-                m_uiBHLoc[1] = Point((double)checkPoint["DENDRO_BH2_X"],
-                                     (double)checkPoint["DENDRO_BH2_Y"],
-                                     (double)checkPoint["DENDRO_BH2_Z"]);
-                restoreStep[restoreFileIndex] = m_uiTinfo._m_uiStep;
+                    m_uiBHLocHistory.emplace_back(bh1pt, bh2pt);
+                }
+
+                // then restore the times the bh's were output
+                m_uiBHTimeHistory = checkPoint["DENDRO_BSSN_BH_LOC_TIMES"]
+                                        .get<std::vector<double>>();
             }
+
+            if (checkPoint.find("DENDRO_BSSN_BH_LOC_T") != checkPoint.end()) {
+                auto bh_decoded = decode_bh_locs(
+                    checkPoint["DENDRO_BSSN_BH_LOC_B1"].get<std::string>(),
+                    checkPoint["DENDRO_BSSN_BH_LOC_B2"].get<std::string>(),
+                    checkPoint["DENDRO_BSSN_BH_LOC_T"].get<std::string>());
+
+                m_uiBHLocHistory.clear();
+
+                m_uiBHLocHistory  = std::get<0>(bh_decoded);
+                m_uiBHTimeHistory = std::get<1>(bh_decoded);
+            }
+
+            restoreStep[restoreFileIndex] = m_uiTinfo._m_uiStep;
         }
     }
 
@@ -1019,15 +1197,6 @@ int BSSNCtx::restore_checkpt() {
         return 2;
     }
 
-    MPI_Bcast(&m_uiTinfo, sizeof(ts::TSInfo), MPI_BYTE, 0, comm);
-    par::Mpi_Bcast(&bssn::BSSN_WAVELET_TOL, 1, 0, comm);
-    par::Mpi_Bcast(&bssn::BSSN_LOAD_IMB_TOL, 1, 0, comm);
-
-    par::Mpi_Bcast(&numVars, 1, 0, comm);
-    par::Mpi_Bcast(&m_uiElementOrder, 1, 0, comm);
-    par::Mpi_Bcast(&activeCommSz, 1, 0, comm);
-
-    par::Mpi_Bcast(m_uiBHLoc, 2, 0, comm);
     bssn::BSSN_BH_LOC[0] = m_uiBHLoc[0];
     bssn::BSSN_BH_LOC[1] = m_uiBHLoc[1];
 
@@ -1055,7 +1224,7 @@ int BSSNCtx::restore_checkpt() {
         MPI_Comm_size(newComm, &activeNpes);
         assert(activeNpes == activeCommSz);
 
-        sprintf(fName, "%s_octree_%d_%d.oct",
+        sprintf(fName, "%s_%d_octree_%d.oct",
                 bssn::BSSN_CHKPT_FILE_PREFIX.c_str(), restoreFileIndex,
                 activeRank);
         restoreStatus = io::checkpoint::readOctFromFile(fName, octree);
@@ -1151,17 +1320,16 @@ int BSSNCtx::restore_checkpt() {
          ((double)(1u << (m_uiMaxDepth))));
 
     if (!rank) {
-        std::cout << GRN
-                  << "=======================================" << std::endl;
+        std::cout << GRN << "---------------------------------------"
+                  << std::endl;
         std::cout << "CHECKPOINT RESTORE SUCCESSFUL: " << NRM << std::endl;
         std::cout << "   checkpoint at step : " << m_uiTinfo._m_uiStep
-                  << "active Comm. sz: " << activeCommSz
-                  << " restore successful: "
-                  << " restored mesh size: " << totalElems << std::endl
+                  << " | active Comm. sz: " << activeCommSz
+                  << " | restored mesh size: " << totalElems << std::endl
                   << std::endl;
         std::cout << " restored mesh min dx: " << bssn::BSSN_CURRENT_MIN_DX
                   << std::endl;
-        std::cout << GRN << "=======================================" << NRM
+        std::cout << GRN << "---------------------------------------" << NRM
                   << std::endl;
     }
 
@@ -1228,6 +1396,16 @@ bool BSSNCtx::is_remesh() {
         isRefine = (isR1 || isR2);
     } else if (bssn::BSSN_REFINEMENT_MODE == bssn::RefinementMode::BH_LOC) {
         isRefine = bssn::isRemeshBH(m_uiMesh, m_uiBHLoc);
+    } else if (bssn::BSSN_REFINEMENT_MODE == bssn::RefinementMode::BH_WAMR) {
+        // BHLB refinement for baseline
+        const bool isR1 = bssn::isRemeshBH(m_uiMesh, m_uiBHLoc);
+        // WAMR for additional refinement
+        const bool isR2 =
+            bssn::addRemeshWAMR(m_uiMesh, (const double**)unzipVar,
+                                refineVarIds, bssn::BSSN_NUM_REFINE_VARS,
+                                waveletTolFunc, bssn::BSSN_DENDRO_AMR_FAC);
+
+        isRefine = (isR1 || isR2);
     }
 
     return isRefine;
@@ -1246,7 +1424,7 @@ int BSSNCtx::terminal_output() {
         max = vecMax(m_uiMesh, m_evar.get_vec_ptr(), ot::VEC_TYPE::CG_NODAL,
                      true);
 
-        if (!(m_uiMesh->getMPIRank())) {
+        if (!(m_uiMesh->getMPIRankGlobal())) {
             std::cout << "[BSSNCtx]:  "
                       << bssn::BSSN_VAR_NAMES[bssn::VAR::U_ALPHA]
                       << " (min,max) : \t ( " << min << ", " << max << " ) "
@@ -1308,11 +1486,11 @@ void BSSNCtx::calculate_full_grid_size() {
         DendroIntL grid_points   = m_uiMesh->getNumLocalMeshNodes();
 
         // perform an all reduce on the mesh
-        par::Mpi_Reduce(&mesh_elements, &m_uiGlobalMeshElements, 1, MPI_SUM, 0,
-                        m_uiMesh->getMPICommunicator());
+        par::Mpi_Allreduce(&mesh_elements, &m_uiGlobalMeshElements, 1, MPI_SUM,
+                           m_uiMesh->getMPICommunicator());
 
-        par::Mpi_Reduce(&grid_points, &m_uiGlobalGridPoints, 1, MPI_SUM, 0,
-                        m_uiMesh->getMPICommunicator());
+        par::Mpi_Allreduce(&grid_points, &m_uiGlobalGridPoints, 1, MPI_SUM,
+                           m_uiMesh->getMPICommunicator());
     }
 }
 
@@ -1421,7 +1599,7 @@ unsigned int BSSNCtx::compute_lts_ts_offset() {
                        m_uiMesh->getMPIGlobalCommunicator());
     BSSN_LTS_TS_OFFSET = lts_offset_max;
 
-    if (m_uiMesh->isActive() && (!(m_uiMesh->getMPIRank())))
+    if (m_uiMesh->isActive() && (!(m_uiMesh->getMPIRankGlobal())))
         std::cout << "LTS offset : " << BSSN_LTS_TS_OFFSET << std::endl;
 
     return BSSN_LTS_TS_OFFSET;
@@ -1437,8 +1615,26 @@ unsigned int BSSNCtx::getBlkTimestepFac(unsigned int blev, unsigned int lmin,
     }
 }
 
-void BSSNCtx::evolve_bh_loc(DVec sIn, double dt) {
+void BSSNCtx::evolve_bh_loc() {
 #ifdef BSSN_EXTRACT_BH_LOCATIONS
+    // early exit if we're at time step zero!
+    if (m_bBHEvolved) return;
+
+    // if time step is zero, don't evolve, just store and return.
+    if (this->m_uiTinfo._m_uiStep == 0) {
+        // make sure initial locations are stored, we need the "last" time
+        // history for dt calculation
+        this->store_bh_loc_history();
+        m_bBHEvolved = true;
+        return;
+    }
+
+    this->compute_constraint_variables();
+
+    // compute how long it's been since the last time we calculatd it, thanks to
+    // storing history!
+    const double dt = m_uiTinfo._m_uiT - m_uiBHTimeHistory.back();
+    DVec sIn        = this->get_evolution_vars();
 
     // m_uiMesh->readFromGhostBegin(sIn.GetVecArray()+ VAR::U_BETA0 *
     // m_uiMesh->getDegOfFreedom(),3);
@@ -1461,6 +1657,9 @@ void BSSNCtx::evolve_bh_loc(DVec sIn, double dt) {
     bssn::BSSN_BH_LOC[0] = m_uiBHLoc[0];
     bssn::BSSN_BH_LOC[1] = m_uiBHLoc[1];
 
+    // append the bssn location points to our history
+    this->store_bh_loc_history();
+
 // old bh location extractor.
 #if 0
     DendroScalar *evar[bssn::BSSN_NUM_VARS];
@@ -1473,7 +1672,18 @@ void BSSNCtx::evolve_bh_loc(DVec sIn, double dt) {
 #endif
 #endif
 
+    // make sure we know that it's been evolved this time step if we're wanting
+    // to evolve it
+    m_bBHEvolved = true;
+
     return;
+}
+
+void BSSNCtx::store_bh_loc_history() {
+    // simple call that stores bh loc history based on bssn::BSSN_BH_LOC
+    m_uiBHLocHistory.push_back(
+        std::make_pair(bssn::BSSN_BH_LOC[0], bssn::BSSN_BH_LOC[1]));
+    m_uiBHTimeHistory.push_back(m_uiTinfo._m_uiT);
 }
 
 int BSSNCtx::aeh_expansion(const Point& origin, aeh::AEH_VARS* m_aeh_vars,

@@ -1,4 +1,4 @@
-# ##############################################################################
+# ----------
 # BASE CMAKE CONFIGURATION
 #
 # This file in particular contains all of the options that apply to all aspects
@@ -7,14 +7,13 @@
 #
 # Note that all options and compiler flags set here will propagate to other
 # directories such as src/ and dendro/
-# ##############################################################################
 
 cmake_minimum_required(VERSION 3.6)
 project(Dendro-5.0 C CXX Fortran)
 
 # the standard we're using is c++11 -- NOTE: this might change to C++17 or newer
 # in the future
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -g")
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address,undefined -fno-sanitize-recover")
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address,undefined -fno-sanitize-recover")
@@ -43,6 +42,9 @@ endif()
 if(MPI_LINK_FLAGS)
   set(LINK_FLAGS "${LINK_FLAGS} ${MPI_LINK_FLAGS}")
 endif()
+
+# settable option for the user on where dendrolib is available
+set(DENDRO_dendrolib_DIR "dendrolib" CACHE PATH "Where the dendrolib library is on the system, (default is submodule), requires absolute path")
 
 # options for dendro -- not sure if these need to be declared here, but they
 # might be due to header definitions...
@@ -227,8 +229,8 @@ checkgitsetup()
 
 # === BEGIN SUBDIRECTORY INCLUSION FOR BUILDING ===
 
-# dendro folder *MUST* be included to build the library first
-add_subdirectory(dendrolib)
+# now include the dendro repository for compiling the library
+add_subdirectory(${DENDRO_dendrolib_DIR} dendrolib)
 
 # additional subdirectories that are their own "solvers"
 add_subdirectory(BSSN_GR)

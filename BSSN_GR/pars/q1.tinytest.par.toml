@@ -28,26 +28,51 @@ BSSN_CHECKPT_FREQ = 5_000
 BSSN_IO_OUTPUT_GAP = 1
 
 # VTU File Prefix, can be absolute or relative paths
-BSSN_VTU_FILE_PREFIX = "bssn_gr_slightly_different"
+BSSN_VTU_FILE_PREFIX = "bssn_"
 
 # Checkpoint File Prefix, can be absolute or relative paths
 BSSN_CHKPT_FILE_PREFIX = "bssn_cp"
 
 # Profiling File Prefix, can be absolute or relative paths
-BSSN_PROFILE_FILE_PREFIX = "dgr"
+BSSN_PROFILE_FILE_PREFIX = "bssn_profile"
 
 # Two-Puncture Initial Data (TPID) File Prefix
 TPID_FILEPREFIX = "rit_q1"
 
 # The number of variables considered for VTU Output, goes with BSSN_VTU_OUTPUT_EVOL_INDICES
-BSSN_NUM_EVOL_VARS_VTU_OUTPUT = 14
+BSSN_NUM_EVOL_VARS_VTU_OUTPUT = 24
 # The VTU Output Variables. See grDef.h for which variable corresponds to which index
-BSSN_VTU_OUTPUT_EVOL_INDICES = [ 0, 1, 2, 3, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23 ]
+BSSN_VTU_OUTPUT_EVOL_INDICES = [
+  0,
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14,
+  15,
+  16,
+  17,
+  18,
+  19,
+  20,
+  21,
+  22,
+  23,
+]
 
 # The number of constraint variables considered for VTU Output, goes with BSSN_VTU_OUTPUT_CONST_INDICES
 BSSN_NUM_CONST_VARS_VTU_OUTPUT = 6
 # The VTU Output Constraint Variables. See grDef.h for which variable corresponds to which index
-BSSN_VTU_OUTPUT_CONST_INDICES = [ 0, 1, 2, 3, 4, 5 ]
+BSSN_VTU_OUTPUT_CONST_INDICES = [0, 1, 2, 3, 4, 5]
 
 # Whether or not to save as a Z-Slice only (useful for large problems!)
 BSSN_VTU_Z_SLICE_ONLY = true
@@ -95,7 +120,32 @@ BSSN_WAVELET_TOL_FUNCTION_R1 = 220.0
 # Number of variables to use for refinement, goes with BSSN_REFINE_VARIABLE_INDICES
 BSSN_NUM_REFINE_VARS = 24
 # The indices of the variables for refinement, see grDef.h for which variable corresponds to which index
-BSSN_REFINE_VARIABLE_INDICES = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]
+BSSN_REFINE_VARIABLE_INDICES = [
+  0,
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14,
+  15,
+  16,
+  17,
+  18,
+  19,
+  20,
+  21,
+  22,
+  23,
+]
 
 # FD Intergrid transfer mode
 BSSN_USE_FD_GRID_TRANSFER = false
@@ -146,10 +196,10 @@ ETA_CONST = 2.0
 ETA_R0 = 30.0
 ETA_DAMPING = 1.0
 ETA_DAMPING_EXP = 1.0
-BSSN_LAMBDA = [ 1, 1, 1, 1 ]
-BSSN_LAMBDA_F = [ 1.0, 0.0 ]
-BSSN_XI = [ 0, 0, 0 ]
-BSSN_ETA_POWER = [ 2.0, 2.0 ]
+BSSN_LAMBDA = [1, 1, 1, 1]
+BSSN_LAMBDA_F = [1.0, 0.0]
+BSSN_XI = [0, 0, 0]
+BSSN_ETA_POWER = [2.0, 2.0]
 
 ANG_PAR = 0.01
 CHI_FLOOR = 0.0001
@@ -176,7 +226,7 @@ BSSN_BH2_AMR_R = 1.0
 BSSN_BH2_CONSTRAINT_R = 5.0
 BSSN_BH2_MAX_LEV = 15
 
-BSSN_BH2 = {MASS = 0.4824, X = -4.0, Y = 0.0, Z = 0.0, V_X = 0.0, V_Y = -0.114, V_Z = 0.0, SPIN = 0.0,SPIN_THETA = 0.0,SPIN_PHI = 0.0 }
+BSSN_BH2 = { MASS = 0.4824, X = -4.0, Y = 0.0, Z = 0.0, V_X = 0.0, V_Y = -0.114, V_Z = 0.0, SPIN = 0.0, SPIN_THETA = 0.0, SPIN_PHI = 0.0 }
 
 ## ==============
 ## TPID SPECIFIC PARAMETERS
@@ -205,8 +255,8 @@ EXTRACTION_TOL = 0.3
 ## GRAVITATIONAL WAVE EXTRACTION PARAMETERS
 BSSN_GW_NUM_RADAII = 6
 BSSN_GW_NUM_LMODES = 3
-BSSN_GW_RADAII = [ 50.0, 60.0, 70.0, 80.0, 90.0, 100.0 ]
-BSSN_GW_L_MODES = [ 2, 3, 4 ]
+BSSN_GW_RADAII = [50.0, 60.0, 70.0, 80.0, 90.0, 100.0]
+BSSN_GW_L_MODES = [2, 3, 4]
 
 ## ====================
 ## APPARANT EVENT HORIZON PARAMETERS

@@ -273,6 +273,14 @@ void allocate_bssn_deriv_workspace(const ot::Mesh* pMesh, unsigned int s_fac);
 /**@brief deallocates the bssn derivs var space*/
 void deallocate_bssn_deriv_workspace();
 
+std::tuple<std::string, std::string, std::string> encode_bh_locs(
+    const std::vector<std::pair<Point, Point>>& bh_history,
+    const std::vector<double>& bh_times);
+
+std::tuple<std::vector<std::pair<Point, Point>>, std::vector<double>>
+decode_bh_locs(const std::string& bh1_str, const std::string& bh2_str,
+               const std::string& time_str);
+
 }  // end of namespace bssn
 
 namespace bssn {
