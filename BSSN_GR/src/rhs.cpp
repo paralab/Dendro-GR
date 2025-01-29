@@ -219,9 +219,37 @@ void bssnrhs(double **unzipVarsRHS, const double **uZipVars,
                     (bssn::RIT_ETA_CENTRAL - bssn::RIT_ETA_OUTER) * exp(arg) +
                     bssn::RIT_ETA_OUTER;
 
-#pragma message("BSSN: enabling both SSL and CAHD")
+#ifdef BSSN_ENABLE_SSL_HD
+#pragma message( \
+    "BSSN: enabling both SSL and CAHD, note that Rochester Gauge and ETA Function are not available currently!")
 // #include "bssn_eqns_SSL_HD.cpp"
 #include "bssn_eqns_SSL_HD_HAM_INCLUDED.inc.cpp"
+#else
+
+#pragma message( \
+    "BSSN: SSL and HD is **NOT** enabled! Using original formalism!")
+#ifdef USE_ROCHESTER_GAUGE
+#pragma message("BSSN: using rochester gauge")
+#ifdef USE_ETA_FUNC
+#pragma message("BSSN: using function eta damping")
+#include "bssneqs_eta_func_rochester_gauge.cpp"
+#else
+#pragma message("BSSN: using const eta damping")
+#include "bssneqs_eta_const_rochester_gauge.cpp"
+#endif
+// else for USE_ROCHESTER_GAUGE
+#else
+#pragma message("BSSN: using standard gauge")
+#ifdef USE_ETA_FUNC
+#pragma message("BSSN: using function eta damping")
+#include "bssneqs_eta_func_standard_gauge.cpp"
+#else
+#pragma message("BSSN: using const eta damping")
+#include "bssneqs_eta_const_standard_gauge.cpp"
+#endif
+#endif
+
+#endif
             }
         }
     }
