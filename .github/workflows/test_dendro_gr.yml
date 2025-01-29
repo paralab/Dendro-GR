@@ -23,7 +23,7 @@ jobs:
       - name: Setup MPI
         uses: mpi4py/setup-mpi@v1
       - name: Install GSL
-        run: apt-get install libgsl-dev
+        run: sudo apt-get install -y libgsl-dev
       - name: CMake Configuration
         run: cmake -S . -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBSSN_ENABLE_VTU_CONSTRAINT_OUT=OFF -DBSSN_ENABLE_VTU_OUTPUT=OFF -DBSSN_EXTRACT_GRAVITATIONAL_WAVES=OFF
       - name: Build Test Targets
