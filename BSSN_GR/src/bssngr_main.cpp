@@ -10,6 +10,7 @@
 
 #include "TreeNode.h"
 #include "aeh.h"
+#include "bssnAEH.h"
 #include "bssnCtx.h"
 #include "gr.h"
 #include "grUtils.h"
@@ -178,13 +179,9 @@ bssn:
         MPI_Abort(comm, 0);
     }
 
-    if (bssn::BSSN_GW_EXTRACT_FREQ > bssn::BSSN_IO_OUTPUT_FREQ) {
-        if (!rank)
-            std::cout
-                << " BSSN_GW_EXTRACT_FREQ  should be less BSSN_IO_OUTPUT_FREQ "
-                << std::endl;
-        MPI_Abort(comm, 0);
-    }
+    // NOTE: this is where we originally had the check that Extract freq needed
+    // to be greater than IO freq, but decoupling the parameters means that this
+    // isn't "required", even though it's probably recommended.
 
     // 2. generate the initial grid.
     std::vector<ot::TreeNode> tmpNodes;
@@ -349,33 +346,10 @@ bssn:
         bool is_merge_executed = false;
         double t1              = MPI_Wtime();
 
-        std::vector<DendroScalar> hh[4];
-        const unsigned int ah_num_sh =
-            (AEH::AEH_LMAX + 1) * (AEH::AEH_LMAX + 1);
+        bssnaeh::initialize_aeh();
 
-        hh[0].resize(ah_num_sh, 0);
-        hh[1].resize(ah_num_sh, 0);
-        hh[2].resize(ah_num_sh, 0);
-        hh[3].resize(ah_num_sh, 0);
-
-        double r_plus  = 0.5 * sqrt(std::pow(TPID::par_m_plus, 2) -
-                                    1 * (std::pow(TPID::par_S_plus[0], 2) +
-                                        std::pow(TPID::par_S_plus[1], 2) +
-                                        std::pow(TPID::par_S_plus[2], 2)));
-        double r_minus = 0.5 * sqrt(std::pow(TPID::par_m_minus, 2) -
-                                    1 * (std::pow(TPID::par_S_minus[0], 2) +
-                                         std::pow(TPID::par_S_minus[1], 2) +
-                                         std::pow(TPID::par_S_minus[2], 2)));
-
-        for (unsigned int i = 0; i < hh[0].size(); i++) {
-            hh[0][i] = 0.0;
-            hh[1][i] = 0.0;
-            hh[2][i] = 0.0;
-            hh[3][i] = 0.0;
-        }
-
-        hh[0][0] = r_plus * sqrt(4 * M_PI);
-        hh[2][0] = r_minus * sqrt(4 * M_PI);
+        // capture the curr step
+        const DendroIntL start_step = ets->curr_step();
 
         while (ets->curr_time() < bssn::BSSN_RK_TIME_END) {
             const DendroIntL step            = ets->curr_step();
@@ -387,14 +361,59 @@ bssn:
             const bool isActive              = ets->is_active();
             const unsigned int rank_global   = ets->get_global_rank();
 
-            const bool is_merged             = bssnCtx->is_bh_merged(0.1);
+            // things that should happen **only** on time step 0
+            if (step == 0) {
+                if (!rank_global) {
+                    std::cout << BLU
+                              << "[ETS] : Timestep 0 - ensuring a few things "
+                                 "are taken care of..."
+                              << NRM << std::endl;
+                }
+                // for our scaling operation, we want to make sure that the
+                // constraints are computed and handled
+                bssnCtx->compute_constraint_variables();
+
+                // make sure we write about the grid size at time 0
+                bssnCtx->write_grid_summary_data();
+
+                if (!rank_global) {
+                    std::cout << BLU
+                              << "[ETS] : Timestep 0 - Finished with things "
+                                 "that should always be done at time 0!"
+                              << NRM << std::endl;
+                }
+            }
+
+            // on restore, but only on restore and not at the beginning
+            if (step != 0 && step == start_step) {
+                if (!rank_global)
+                    std::cout << BLD << GRN
+                              << "[ETS] : CHECKPOINT RESTORED. Doing "
+                                 "additional cleanup.\n"
+                              << NRM << std::endl;
+                // there's no guarantee that the constraints will be computed
+                // right on restore, due to the timing. we still need them
+                // populated with "good" data
+                bssnCtx->compute_constraint_variables();
+            }
+
+            const bool is_merged = bssnCtx->is_bh_merged(0.1);
             if (is_merged) {
+                // make sure we set that bh is merged!
+                // NOTE: don't worry, this won't update the bssn ctx object
+                // after the first time, unless something modifies another
+                // internal variable
+                bssnCtx->set_is_merged(time, step);
+
                 // bssn::BSSN_REMESH_TEST_FREQ=3 *
                 // bssn::BSSN_REMESH_TEST_FREQ_AFTER_MERGER;
                 // bssn::BSSN_MINDEPTH=5;
                 // TODO: make BSSN refinement mode POST MERGER an option!
-                bssn::BSSN_REFINEMENT_MODE = bssn::RefinementMode::WAMR;
-                bssn::BSSN_USE_WAVELET_TOL_FUNCTION = 1;
+
+                // wkb 5 Sept 2024: disable these two lines
+                // so I can test other refinement modes
+                // bssn::BSSN_REFINEMENT_MODE = bssn::RefinementMode::WAMR;
+                // bssn::BSSN_USE_WAVELET_TOL_FUNCTION = 1;
                 bssn::BSSN_REMESH_TEST_FREQ =
                     bssn::BSSN_REMESH_TEST_FREQ_AFTER_MERGER;
                 bssn::BSSN_GW_EXTRACT_FREQ =
@@ -445,6 +464,25 @@ bssn:
                     ts_in._m_uiTh    = bssn::BSSN_RK45_TIME_STEP_SIZE;
                     bssnCtx->set_ts_info(ts_in);
 
+                    // REMEMBER: the true max depth of the array is two minus
+                    // m_uiMaxDepth
+                    if (bssn::BSSN_SCALE_VTU_AND_GW_EXTRACTION) {
+                        // REMEMBER: the true max depth of the array is two
+                        // minus m_uiMaxDepth
+                        bssn::BSSN_IO_OUTPUT_FREQ_TRUE =
+                            bssn::BSSN_IO_OUTPUT_FREQ >>
+                            (m_uiMaxDepth - 2 - lmax);
+                        bssn::BSSN_GW_EXTRACT_FREQ_TRUE =
+                            bssn::BSSN_GW_EXTRACT_FREQ >>
+                            (m_uiMaxDepth - 2 - lmax);
+                        if (!rank_global)
+                            std::cout << "    IO Output Freq updated to: "
+                                      << bssn::BSSN_IO_OUTPUT_FREQ_TRUE
+                                      << " | GW Output Freq updated to: "
+                                      << bssn::BSSN_GW_EXTRACT_FREQ_TRUE
+                                      << std::endl;
+                    }
+
                     if (!rank_global) {
                         std::cout << GRN << "[ETS] : Remesh sequence finished"
                                   << NRM << std::endl;
@@ -460,29 +498,6 @@ bssn:
                 bssnCtx->write_grid_summary_data();
             }
 
-            // things that should happen **only** on time step 0
-            if (step == 0) {
-                if (!rank_global) {
-                    std::cout << BLU
-                              << "[ETS] : Timestep 0 - ensuring a few things "
-                                 "are taken care of..."
-                              << NRM << std::endl;
-                }
-                // for our scaling operation, we want to make sure that the
-                // constraints are computed and handled
-                bssnCtx->compute_constraint_variables();
-
-                // make sure we write about the grid size at time 0
-                bssnCtx->write_grid_summary_data();
-
-                if (!rank_global) {
-                    std::cout << BLU
-                              << "[ETS] : Timestep 0 - Finished with things "
-                                 "that should always be done at time 0!"
-                              << NRM << std::endl;
-                }
-            }
-
             if ((step % bssn::BSSN_TIME_STEP_OUTPUT_FREQ) == 0) {
                 if (!rank_global)
                     std::cout << BLD << GRN << "[ETS - BSSN] : SOLVER UPDATE\n"
@@ -494,186 +509,40 @@ bssn:
                 bssnCtx->terminal_output();
             }
 
-            if ((step % bssn::BSSN_GW_EXTRACT_FREQ) == 0) {
-                bssnCtx->write_vtu();
+            if ((step % bssn::BSSN_GW_EXTRACT_FREQ_TRUE) == 0) {
+                if (!rank_global)
+                    std::cout << "    Now extracting constraints and GW."
+                              << std::endl;
+
+                // evolving the black holes always stores the updated
+                // information
+                bssnCtx->evolve_bh_loc();
+                bssnCtx->extract_constraints();
+                bssnCtx->extract_gravitational_waves();
             }
+
+            if ((step % bssn::BSSN_IO_OUTPUT_FREQ_TRUE) == 0) {
+                // this is all IO output, except for extracting the GW waves,
+                // which are "independent"
+
+                // write to vtu, which includes writing the BH location data
+                bssnCtx->write_vtu();
+                bssnCtx->write_bh_coords();
+            }
+
+            if ((AEH::AEH_SOLVER_FREQ > 0) &&
+                (step % AEH::AEH_SOLVER_FREQ) == 0) {
+                bssnaeh::perform_aeh_step(bssnCtx, rank);
+            }
+
+            ets->evolve();
 
             if ((step % bssn::BSSN_CHECKPT_FREQ) == 0) {
                 bssnCtx->write_checkpt();
                 bssnCtx->get_mesh()->waitAll();
             }
 
-            if ((AEH::AEH_SOLVER_FREQ > 0) &&
-                (step % AEH::AEH_SOLVER_FREQ) == 0) {
-                const int lmax              = AEH::AEH_LMAX;
-                const int ntheta            = AEH::AEH_Q_THETA;
-                const int nphi              = AEH::AEH_Q_PHI;
-                const unsigned int max_iter = AEH::AEH_MAXITER;
-
-                const double rel_tol        = AEH::AEH_ATOL;
-                const double abs_tol        = AEH::AEH_RTOL;
-                const bool single_ah        = bssnCtx->is_bh_merged(0.1);
-                const ot::Mesh* pmesh       = bssnCtx->get_mesh();
-
-                try {
-                    double rlim[2] = {1e-6, 4};
-                    if (single_ah) {
-                        const double alpha = AEH::AEH_ALPHA;
-                        const double beta  = AEH::AEH_BETA;
-
-                        {
-                            // puncture-0
-                            const Point& bh0 = bssnCtx->get_bh0_loc();
-                            const Point& bh1 = bssnCtx->get_bh1_loc();
-
-                            Point bh_m_loc(0.5 * (bh0.x() + bh1.x()),
-                                           0.5 * (bh0.y() + bh1.y()),
-                                           0.5 * (bh0.z() + bh1.z()));
-                            aeh::SpectralAEHSolver<bssn::BSSNCtx, DendroScalar>
-                                aeh_solver(bh_m_loc, bssnCtx, lmax, ntheta,
-                                           nphi, rlim, false, false);
-                            for (unsigned int ll = 0; ll < lmax; ll += 2) {
-                                aeh_solver.set_lmodes(ll);
-                                aeh_solver.solve(
-                                    bssnCtx, hh[2].data(), hh[3].data(),
-                                    max_iter, rel_tol, abs_tol, alpha, beta, 1);
-                                std::swap(hh[2], hh[3]);
-                            }
-
-                            char fname[256];
-                            sprintf(fname, "%s_%d_%d_%d_bh_merged_aeh.dat",
-                                    bssn::BSSN_PROFILE_FILE_PREFIX.c_str(),
-                                    lmax, ntheta, nphi);
-                            aeh_solver.set_lmodes(lmax);
-                            aeh_solver.solve(bssnCtx, hh[2].data(),
-                                             hh[3].data(), max_iter, rel_tol,
-                                             abs_tol, alpha, beta, 1);
-                            aeh_solver.aeh_to_json(bssnCtx, hh[3].data(), fname,
-                                                   std::ios_base::app);
-                            std::swap(hh[2], hh[3]);
-                        }
-
-                    } else {
-                        {
-                            const double alpha =
-                                AEH::AEH_ALPHA * bssn::BH1.getBHMass();
-                            const double beta = AEH::AEH_BETA;
-                            // puncture-0
-                            if (!rank) {
-                                printf(
-                                    "=========================================="
-                                    "==================\n");
-                                printf(
-                                    "======================== BH 1  "
-                                    "=============================\n");
-                                printf(
-                                    "=========================================="
-                                    "==================\n");
-                            }
-
-                            aeh::SpectralAEHSolver<bssn::BSSNCtx, DendroScalar>
-                                aeh_solver(bssnCtx->get_bh0_loc(), bssnCtx,
-                                           lmax, ntheta, nphi, rlim, false,
-                                           false);
-                            for (unsigned int ll = 0; ll < lmax; ll += 2) {
-                                aeh_solver.set_lmodes(ll);
-                                aeh_solver.solve(
-                                    bssnCtx, hh[0].data(), hh[1].data(),
-                                    max_iter, rel_tol, abs_tol, alpha, beta, 1);
-                                std::swap(hh[0], hh[1]);
-                            }
-
-                            char fname[256];
-                            sprintf(fname, "%s_%d_%d_%d_bh0_aeh.dat",
-                                    bssn::BSSN_PROFILE_FILE_PREFIX.c_str(),
-                                    lmax, ntheta, nphi);
-                            aeh_solver.set_lmodes(lmax);
-                            aeh_solver.solve(bssnCtx, hh[0].data(),
-                                             hh[1].data(), max_iter, rel_tol,
-                                             abs_tol, alpha, beta, 1);
-                            aeh_solver.aeh_to_json(bssnCtx, hh[1].data(), fname,
-                                                   std::ios_base::app);
-                            std::swap(hh[0], hh[1]);
-                        }
-
-                        {
-                            const double alpha =
-                                AEH::AEH_ALPHA * bssn::BH2.getBHMass();
-                            const double beta = AEH::AEH_BETA;
-                            // puncture-1
-                            if (!rank) {
-                                printf(
-                                    "=========================================="
-                                    "==================\n");
-                                printf(
-                                    "======================== BH 2  "
-                                    "=============================\n");
-                                printf(
-                                    "=========================================="
-                                    "==================\n");
-                            }
-                            aeh::SpectralAEHSolver<bssn::BSSNCtx, DendroScalar>
-                                aeh_solver(bssnCtx->get_bh1_loc(), bssnCtx,
-                                           lmax, ntheta, nphi, rlim, false,
-                                           false);
-                            for (unsigned int ll = 0; ll < lmax; ll += 2) {
-                                aeh_solver.set_lmodes(ll);
-                                aeh_solver.solve(
-                                    bssnCtx, hh[2].data(), hh[3].data(),
-                                    max_iter, rel_tol, abs_tol, alpha, beta, 1);
-                                std::swap(hh[2], hh[3]);
-                            }
-
-                            char fname[256];
-                            sprintf(fname, "%s_%d_%d_%d_bh1_aeh.dat",
-                                    bssn::BSSN_PROFILE_FILE_PREFIX.c_str(),
-                                    lmax, ntheta, nphi);
-                            aeh_solver.set_lmodes(lmax);
-                            aeh_solver.solve(bssnCtx, hh[2].data(),
-                                             hh[3].data(), max_iter, rel_tol,
-                                             abs_tol, alpha, beta, 1);
-                            aeh_solver.aeh_to_json(bssnCtx, hh[3].data(), fname,
-                                                   std::ios_base::app);
-                            std::swap(hh[2], hh[3]);
-                        }
-                    }
-
-                    bssnCtx->get_mesh()->waitAll();
-                    // needed for comm growth
-                    par::Mpi_Bcast(hh[0].data(), hh[0].size(), 0,
-                                   pmesh->getMPIGlobalCommunicator());
-                    par::Mpi_Bcast(hh[2].data(), hh[2].size(), 0,
-                                   pmesh->getMPIGlobalCommunicator());
-                    for (unsigned int i = 0; i < hh[0].size(); i++) {
-                        hh[1][i] = hh[0][i];
-                        hh[3][i] = hh[2][i];
-                    }
-
-                } catch (...) {
-                    bssnCtx->get_mesh()->waitAll();
-                    // needed for comm growth
-                    par::Mpi_Bcast(hh[0].data(), hh[0].size(), 0,
-                                   pmesh->getMPIGlobalCommunicator());
-                    par::Mpi_Bcast(hh[2].data(), hh[2].size(), 0,
-                                   pmesh->getMPIGlobalCommunicator());
-                    for (unsigned int i = 0; i < hh[0].size(); i++) {
-                        hh[1][i] = hh[0][i];
-                        hh[3][i] = hh[2][i];
-                    }
-                    std::cout << "Exception occurred during apparent event "
-                                 "horizon solver "
-                              << std::endl;
-                }
-            }
-
-            if ((step % bssn::BSSN_GW_EXTRACT_FREQ) == 0)
-            {   // punture locations does not need to evolve every timestep. 
-                bssnCtx->evolve_bh_loc(
-                    bssnCtx->get_evolution_vars(),
-                    ets->ts_size() * bssn::BSSN_GW_EXTRACT_FREQ);
-            }
-            ets->evolve();
-            
+            bssnCtx->prepare_for_next_iter();
         }
 
 #if defined __PROFILE_CTX__ && defined __PROFILE_ETS__

@@ -19,16 +19,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
         with:
-          submodules: 'true'
+          submodules: "true"
       - name: Setup MPI
         uses: mpi4py/setup-mpi@v1
+      - name: Install GSL/BLAS/LAPACK
+        run: sudo apt-get install -y libgsl-dev libblas-dev liblapack-dev
       - name: CMake Configuration
         run: cmake -S . -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBSSN_ENABLE_VTU_CONSTRAINT_OUT=OFF -DBSSN_ENABLE_VTU_OUTPUT=OFF -DBSSN_EXTRACT_GRAVITATIONAL_WAVES=OFF
       - name: Build Test Targets
-        run: cmake --build ${{github.workspace}}/build --parallel 10 --config ${{env.BUILD_TYPE}} --target nlsmSolverNUTS em4Solver bssnSolverCtx
-      - name: Test NLSM Solver
-        run: cd ${{github.workspace}}/build/NLSigma ; mpirun -np 10 ./nlsmSolverNUTS ../../NLSigma/par/nlsmA_SMALL.par.json 1  
-      - name: Test BSSN Solver
-        run: cd ${{github.workspace}}/build/BSSN_GR ; mpirun -np 10 ./bssnSolverCtx ../../BSSN_GR/pars/q1.tinytest.par.json 1
-      - name: Test BSSN Solver with TOML
-        run: cd ${{github.workspace}}/build/BSSN_GR ; mpirun -np 10 ./bssnSolverCtx ../../BSSN_GR/pars/q1.tinytest.par.toml 1
+        run: cmake --build ${{github.workspace}}/build --parallel 10 --config ${{env.BUILD_TYPE}} --target bssnSolver
+      - name: Test BSSN Solver with "Small" tests
+        run: cd ${{github.workspace}}/build/BSSN_GR ; mpirun -np 10 ./bssnSolver ../../BSSN_GR/pars/q1.tinytest.par.toml

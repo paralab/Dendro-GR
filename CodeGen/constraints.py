@@ -288,5 +288,5 @@ mom = [item for sublist in mom.tolist() for item in sublist]
 ###################################################################
 # uncomment to terminal code gen
 outs = [psi4_real, psi4_img, ham, mom]
-vnames = ['psi4_real', 'psi4_img', 'ham', 'mom']
-dendro.generate_cpu(outs, vnames, '[pp]')
+vnames = ["psi4_real", "psi4_img", "ham", "mom"]
+dendro.generate_cpu(outs, vnames, "[pp]")

@@ -1,0 +1,333 @@
+### =================================================
+### ============== BSSN PARAMETER FILE ==============
+### =================================================
+
+# Evolution variable indices = U_ALPHA=0, U_CHI=1, U_K=2, U_GT0=3, 
+#  U_GT1=4, U_GT2=5, U_BETA0=6, U_BETA1=7, U_BETA2=8, U_B0=9, U_B1=10, U_B2=11, 
+#  U_SYMGT0=12, U_SYMGT1=13, U_SYMGT2=14, U_SYMGT3=15, U_SYMGT4=16, U_SYMGT5=17, 
+#  U_SYMAT0=18, U_SYMAT1=19, U_SYMAT2=20, U_SYMAT3=21, U_SYMAT4=22, U_SYMAT5=23
+
+# Constraint variable indices = C_HAM=0, C_MOM0=1, C_MOM1=2, C_MOM2=3, 
+#                               C_PSI4_REAL=4, C_PSI4_IMG=5
+
+
+DENDRO_VERSION = 5.0
+
+
+########################################################################
+# IO
+
+# 1: restore the BSSN solver from most recent checkpoint
+BSSN_RESTORE_SOLVER = 1
+
+# Frequency for the VTU Output
+BSSN_IO_OUTPUT_FREQ = 3200
+BSSN_SCALE_VTU_AND_GW_EXTRACTION = true
+
+# Frequency to use for triggering the remeshing
+BSSN_REMESH_TEST_FREQ = 100
+
+# Extraction frequency for gravitational waves
+BSSN_GW_EXTRACT_FREQ = 200
+
+# Event horizon refinement value
+BSSN_EH_REFINE_VAL = 0.4
+
+# Event Horizon coarsening value
+BSSN_EH_COARSEN_VAL = 0.6
+
+# Frequency for outputting a full checkpoint (recommended a few thousand, it takes time and saves a lot)
+BSSN_CHECKPT_FREQ = 100
+
+# VTU File Output gap, (NOT CURRENTLY IN USE, useful for adaptive timestepping)
+BSSN_IO_OUTPUT_GAP = 1
+
+# VTU File Prefix, can be absolute or relative paths
+BSSN_VTU_FILE_PREFIX = "vtu/bssn_gr"
+
+# Checkpoint File Prefix, can be absolute or relative paths
+BSSN_CHKPT_FILE_PREFIX = "cp/bssn_cp"
+
+# Profiling File Prefix, can be absolute or relative paths
+BSSN_PROFILE_FILE_PREFIX = "dat/dgr"
+
+# Two-Puncture Initial Data (TPID) File Prefix
+TPID_FILEPREFIX = "rit_q16"
+
+# VTU output evolution variables; see `include/grDef.h` for variable definitions
+BSSN_VTU_OUTPUT_EVOL_INDICES = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]
+# Number of evolution variables considered for VTU output; equals length of BSSN_VTU_OUTPUT_EVOL_INDICES
+BSSN_NUM_EVOL_VARS_VTU_OUTPUT = 24
+
+# VTU output constraint variables; see `include/grDef.h` for variable definitions
+BSSN_VTU_OUTPUT_CONST_INDICES = [ 0, 1, 2, 3, 4, 5 ]
+# Number of constraint variables considered for VTU output; equals lenth BSSN_VTU_OUTPUT_CONST_INDICES
+BSSN_NUM_CONST_VARS_VTU_OUTPUT = 6
+
+# Whether or not to save as a Z-Slice only (useful for large problems!)
+BSSN_VTU_Z_SLICE_ONLY = true
+
+########################################################################
+# LOAD BALANCING & MESH
+
+# grain size N/p = (total number of octants) / (number of active cores). Helps with partitioning
+BSSN_DENDRO_GRAIN_SZ = 50
+
+# Asynchronous Communication constant. This is the variable group size for the unzipping (communication) operation
+BSSN_ASYNC_COMM_K = 4
+
+# The Coarsening factor, it will coarsen if wavelet tol < BSSN_DENDRO_AMR_FAC*BSSN_WAVELET_TOL
+BSSN_DENDRO_AMR_FAC = 0.1
+
+# Load imbalance tolerance for partitioning. 0.1 is a good value.
+BSSN_LOAD_IMB_TOL = 0.1
+
+# Dimensionality of the octree, this should never be changed!
+BSSN_DIM = 3
+
+# Element Order, each block gets ELE_ORDER + 1 points it is in charge of, 
+# and padding width is ELE_ORDER / 2, should always be **even**
+BSSN_ELE_ORDER = 6
+
+# Minimum Depth of the Mesh/Octree
+BSSN_MINDEPTH = 4
+# Maximum Depth of the Mesh/Octree
+BSSN_MAXDEPTH = 18
+
+
+########################################################################
+# REFINEMENT STRATEGY
+
+# Which refinement mode to use
+# 0 - WAMR
+# 1 - EH
+# 2 - EH_WAMR
+# 3 - BH_LOC
+# 4 - BH_WAMR
+BSSN_REFINEMENT_MODE = 4
+
+# BH_LOC: ratio between inner and secondary radius about BHs
+BSSN_AMR_R_RATIO = 1.618033988749895
+
+# Wavelet Tolerence Function to use (see grUtils.cpp for adding more)
+# 1,2 - deprecated
+# 3 - center highly refined; low refinement elsewhere eases over time
+# 4 - start w/ refinement centered at BHs, then widen to r=0 focused
+# 5 - focus refinement in self-similar ways about each BH
+# 6 - refine well in r<=t and coarsely in r>t
+BSSN_USE_WAVELET_TOL_FUNCTION = 6
+
+# Wavelet tolerence for Wavelet Refinement (minimum)
+BSSN_WAVELET_TOL = 0.00001
+
+# Gravitational Wave Refinement tolerence
+BSSN_GW_REFINE_WTOL = 0.00001
+
+# Maximum Wavelet Tolerence
+BSSN_WAVELET_TOL_MAX = 0.00001
+
+# Nyquist-based refinement: goal spherical harmonic order m to resolve
+# (=0 to disable)
+BSSN_NYQUIST_M = 0
+
+# Wavelet Tolerence Radii (for setting "shell" based tolerance)
+BSSN_WAVELET_TOL_FUNCTION_R0 = 3.0
+BSSN_WAVELET_TOL_FUNCTION_R1 = 12.0
+
+# The indices of the variables for refinement, see grDef.h for which variable corresponds to which index
+BSSN_REFINE_VARIABLE_INDICES = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]
+# Number of variables to use for refinement; equals length of BSSN_REFINE_VARIABLE_INDICES
+BSSN_NUM_REFINE_VARS = 24
+
+# FD Intergrid transfer mode
+BSSN_USE_FD_GRID_TRANSFER = false
+
+# The number of iterations that should be done for grid initialization
+BSSN_INIT_GRID_ITER = 10
+
+# If we want to use the set reference mode for initial convergence
+BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE = true
+
+
+########################################################################
+# RK SOLVER
+
+# CFL (Courant-Friedrichs-Lewy) Factor (the Courant factor)
+# use to adjust time-step size compared to grid spacing
+BSSN_CFL_FACTOR = 0.25
+
+# The starting time of the simulation
+BSSN_RK_TIME_BEGIN = 0.0
+# The ending time of the simulation
+BSSN_RK_TIME_END = 1600.0
+
+# RK Method to use (0 -> RK3, 1 -> RK4, 2 -> RK45)
+BSSN_RK_TYPE = 1
+
+# Preferred time step size (this is overwritten by the CFL factor! It's not used!)
+BSSN_RK45_TIME_STEP_SIZE = 0.01
+
+# Desired tolerence for RK45, currently not used!
+BSSN_RK45_DESIRED_TOL = 0.001
+
+
+########################################################################
+# BLOCK ADAPTIVITY (can create a "uniform" grid within specified domain)
+# NOT RECOMMENDED - But set this to 1 to disable AMR and use Block Adaptivity
+
+BSSN_ENABLE_BLOCK_ADAPTIVITY = 0
+BSSN_BLK_MIN_X = -6.0
+BSSN_BLK_MIN_Y = -6.0
+BSSN_BLK_MIN_Z = -1.0
+BSSN_BLK_MAX_X = 6.0
+BSSN_BLK_MAX_Y = 6.0
+BSSN_BLK_MAX_Z = 1.0
+
+
+########################################################################
+# BSSN PHYSICS PARAMETERS
+
+ETA_CONST = 2.0
+ETA_R0 = 30.0
+ETA_DAMPING = 1.0
+ETA_DAMPING_EXP = 1.0
+BSSN_LAMBDA = [ 1, 1, 1, 1 ]
+BSSN_LAMBDA_F = [ 1.0, 0.0 ]
+BSSN_XI = [ 0, 0, 0 ]
+ANG_PAR = 0.01
+CHI_FLOOR = 0.0001
+BSSN_TRK0 = 0.0
+KO_DISS_SIGMA = 0.4
+
+# ETA as a function parameters
+BSSN_ETA_R0 = 1.31
+BSSN_ETA_POWER = [ 2.0, 2.0 ]
+
+########################################################################
+# Select initial data type
+# 0 - TwoPuncture Elliptic solution
+# 1 - HAD approximate solution
+# 2 - Kerr-Schild
+
+BSSN_ID_TYPE = 0
+
+
+########################################################################
+# Set up BSSN grid points
+
+BSSN_GRID_MIN_X = -400.0
+BSSN_GRID_MAX_X = 400.0
+BSSN_GRID_MIN_Y = -400.0
+BSSN_GRID_MAX_Y = 400.0
+BSSN_GRID_MIN_Z = -400.0
+BSSN_GRID_MAX_Z = 400.0
+
+
+########################################################################
+# BLACK HOLE Parameters
+
+BSSN_BH1_AMR_R = 0.1176
+BSSN_BH1_CONSTRAINT_R = 0.2353
+BSSN_BH1_MAX_LEV = 18
+BSSN_BH1 = { MASS = 5.4585491003580837e-02, X = 7.5225944587315743, Y = 0.0, Z = 0.0, V_X = -1.9532054224276479e-04, V_Y = 2.5319416208197863e-02, V_Z = 0.0, SPIN = 0.0, SPIN_THETA = 0.0, SPIN_PHI = 0.0 }
+
+BSSN_BH2_AMR_R = 1.8824
+BSSN_BH2_CONSTRAINT_R = 3.7647
+BSSN_BH2_MAX_LEV = 14
+BSSN_BH2 = { MASS = 0.93761114387644062, X = -0.47740554126842571, Y = 0.0, Z = 0.0, V_X = 1.9532054224276479e-04, V_Y = -2.5319416208197863e-02, V_Z = 0.0, SPIN = 0.0, SPIN_THETA = 0.0, SPIN_PHI = 0.0 }
+
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+# TPID SPECIFIC PARAMETERS
+
+# 0 - Use ADM mass and iteratively solve for bare mass
+# 1 - Use bare mass
+TPID_GIVE_BARE_MASS = 1
+
+TPID_TARGET_M_PLUS = 5.4585491003580837e-02
+TPID_TARGET_M_MINUS = 9.3761114387644062e-01
+
+# 1/2 coordinate separation between black holes.
+TPID_PAR_B = 4.0
+
+# Select lapse: 
+# 0 - antisymmetric
+# 1 - averaged
+# 2 - psi^n
+# 3 - Brownsville
+INITIAL_LAPSE = 2
+# Exponent n for INITIAL_LAPSE=2, where alpha=psi^n
+TPID_INITIAL_LAPSE_PSI_EXPONENT = -2.0
+
+TPID_CENTER_OFFSET = { X = 3.522594458731574295, Y = 0.0, Z = 0.0 }
+
+# Grid Setup Method: 
+# 0 - Taylor expansion
+# 1 - Evaluation
+TPID_GRID_SETUP_METHOD = 1
+
+# Grid points for spectral grid
+TPID_NPOINTS_A = 100
+TPID_NPOINTS_B = 100
+TPID_NPOINTS_PHI = 100
+
+# Deprecated
+TPID_SOLVE_MOMENTUM_CONSTRAINT = 0
+TPID_VERBOSE = 1
+TPID_ADM_TOL = 1e-10
+TPID_NEWTON_TOL = 2e-10
+
+
+########################################################################
+# BLACK HOLE LOCATION EXTRACTION PARAMETERS
+
+EXTRACTION_VAR_ID = 0
+EXTRACTION_TOL = 0.3
+
+
+########################################################################
+# GRAVITATIONAL WAVE EXTRACTION PARAMETERS
+
+BSSN_GW_NUM_RADAII = 6
+BSSN_GW_RADAII = [ 50.0, 60.0, 70.0, 80.0, 90.0, 100.0 ]
+BSSN_GW_NUM_LMODES = 7
+BSSN_GW_L_MODES = [ 2, 3, 4, 5, 6, 7, 8 ]
+
+
+########################################################################
+# APPARANT EVENT HORIZON PARAMETERS
+
+# time step frequency with which to run AEH solver
+AEH_SOLVER_FREQ = 8000
+
+# number of lm modes used in the AH surface parameterization (AEH_LMAX+1)^2
+AEH_LMAX = 4
+
+# quadrature points in polar angle
+AEH_Q_THETA = 32
+
+# quadrature points in azimuthal angle
+AEH_Q_PHI = 32
+
+# maximum number of iterations for convergence
+AEH_MAXITER = 10
+
+# absolute tolerance for convergence
+AEH_ATOL = 1e-7
+
+# relative tolerance for convergence
+AEH_RTOL = 1e-7
+
+
+########################################################################
+# Etienne '24 improvements 
+
+# SSL: use necessary initial lapse of alpha = W
+TPID_REPLACE_LAPSE_WITH_SQRT_CHI = true
+
+# CAKO: scale KO-diss by conformal factor
+BSSN_KO_SIGMA_SCALE_BY_CONFORMAL = false
+
+# CAHD: Hamiltonian damping strength
+BSSN_CAHD_C = 0.077
+

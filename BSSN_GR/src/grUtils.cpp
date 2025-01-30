@@ -9,6 +9,9 @@
 
 #include "grUtils.h"
 
+#include <tuple>
+
+#include "base.h"
 #include "git_version_and_date.h"
 #include "parameters.h"
 
@@ -764,6 +767,12 @@ void dumpParamFile(std::ostream& sout, int root, MPI_Comm comm) {
             sout << YLW << "\t\tBSSN_PSILON_CAKO_OTHER: "
                  << bssn::BSSN_EPSILON_CAKO_OTHER << NRM << std::endl;
         }
+        sout << YLW << "\tBSSN_NYQUIST_M: " << bssn::BSSN_NYQUIST_M << NRM
+             << std::endl;
+
+        sout << YLW << "\tBSSN_SSL_H: " << bssn::BSSN_SSL_H << NRM << std::endl;
+        sout << YLW << "\tBSSN_SSL_SIGMA: " << bssn::BSSN_SSL_SIGMA << NRM
+             << std::endl;
     }
 }
 
@@ -1727,7 +1736,21 @@ double computeWTol(double x, double y, double z, double tolMin) {
 }
 
 double computeWTolDCoords(double x, double y, double z, double* hx) {
+    // set up a few useful values for computing the wavelet tolerances
+    // element order: how many points we have in each grid
     const unsigned int eleOrder = bssn::BSSN_ELE_ORDER;
+    // current simulation time
+    const double T_CURRENT      = bssn::BSSN_CURRENT_RK_COORD_TIME;
+    // radius (from the center of the grid)
+    const double r              = sqrt(x * x + y * y + z * z);
+    // distance between the BHs
+    const double dbh = (bssn::BSSN_BH_LOC[0] - bssn::BSSN_BH_LOC[1]).abs();
+    // set up grid point for relative distances to each BH
+    Point grid_p(x, y, z);
+    // distance from BH0
+    const double dbh0 = (grid_p - bssn::BSSN_BH_LOC[0]).abs();
+    // distance from BH1
+    const double dbh1 = (grid_p - bssn::BSSN_BH_LOC[1]).abs();
 
     if (bssn::BSSN_USE_WAVELET_TOL_FUNCTION == 1) {
         const double tolMax = bssn::BSSN_WAVELET_TOL_MAX;
@@ -1735,21 +1758,15 @@ double computeWTolDCoords(double x, double y, double z, double* hx) {
 
         const double R0     = bssn::BSSN_BH1_AMR_R;
         const double R1     = bssn::BSSN_BH2_AMR_R;
-        const double dbh = (bssn::BSSN_BH_LOC[0] - bssn::BSSN_BH_LOC[1]).abs();
 
         // R_Max is defined based on the initial separation.
         const double R_MAX =
             (bssn::BH1.getBHCoord() - bssn::BH2.getBHCoord()).abs() + R0 + R1;
 
-        Point grid_p(x, y, z);
-        const double dbh0 = (grid_p - bssn::BSSN_BH_LOC[0]).abs();
-        const double dbh1 = (grid_p - bssn::BSSN_BH_LOC[1]).abs();
-
 #ifdef BSSN_EXTRACT_GRAVITATIONAL_WAVES
         if (dbh < 0.1) {
             if ((dbh0 > R_MAX) && (dbh1 > R_MAX)) {
-                const double dr = sqrt(x * x + y * y + z * z);
-                if (dr < (GW::BSSN_GW_RADAII[GW::BSSN_GW_NUM_RADAII - 1] + 10))
+                if (r < (GW::BSSN_GW_RADAII[GW::BSSN_GW_NUM_RADAII - 1] + 10))
                     return BSSN_GW_REFINE_WTOL;
                 else
                     return tolMax;
@@ -1780,8 +1797,7 @@ double computeWTolDCoords(double x, double y, double z, double* hx) {
                             }
                         }
 
-                const double dr = sqrt(x * x + y * y + z * z);
-                if (dr < (GW::BSSN_GW_RADAII[GW::BSSN_GW_NUM_RADAII - 1] + 10))
+                if (r < (GW::BSSN_GW_RADAII[GW::BSSN_GW_NUM_RADAII - 1] + 10))
                     return BSSN_GW_REFINE_WTOL;
                 else
                     return tolMax;
@@ -1881,14 +1897,6 @@ double computeWTolDCoords(double x, double y, double z, double* hx) {
 #endif
 
     } else if (bssn::BSSN_USE_WAVELET_TOL_FUNCTION == 2) {
-        const double r   = sqrt(x * x + y * y + z * z);
-        const double dbh = (bssn::BSSN_BH_LOC[0] - bssn::BSSN_BH_LOC[1]).abs();
-
-        Point grid_p(x, y, z);
-        const double dbh0 = (grid_p - bssn::BSSN_BH_LOC[0]).abs();
-        const double dbh1 = (grid_p - bssn::BSSN_BH_LOC[1]).abs();
-        const double dr   = sqrt(x * x + y * y + z * z);
-
 #ifdef BSSN_EXTRACT_GRAVITATIONAL_WAVES
         if (dbh < 0.1) {
             const double R0 =
@@ -1926,14 +1934,7 @@ double computeWTolDCoords(double x, double y, double z, double* hx) {
 #endif
 
     } else if (bssn::BSSN_USE_WAVELET_TOL_FUNCTION == 3) {
-        const double r   = sqrt(x * x + y * y + z * z);
-        const double dbh = (bssn::BSSN_BH_LOC[0] - bssn::BSSN_BH_LOC[1]).abs();
-        Point grid_p(x, y, z);
-        const double dbh0            = (grid_p - bssn::BSSN_BH_LOC[0]).abs();
-        const double dbh1            = (grid_p - bssn::BSSN_BH_LOC[1]).abs();
-
         const double GW_R_SAFETY_FAC = 10.0;
-        const double T_CURRENT       = bssn::BSSN_CURRENT_RK_COORD_TIME;
         const double TIME_OFFSET_FAC = 5.0;
 
         if (T_CURRENT > bssn::BSSN_WAVELET_TOL_FUNCTION_R1 + TIME_OFFSET_FAC) {
@@ -1972,14 +1973,7 @@ double computeWTolDCoords(double x, double y, double z, double* hx) {
         }
 
     } else if (bssn::BSSN_USE_WAVELET_TOL_FUNCTION == 4) {
-        const double r   = sqrt(x * x + y * y + z * z);
-        const double dbh = (bssn::BSSN_BH_LOC[0] - bssn::BSSN_BH_LOC[1]).abs();
-        Point grid_p(x, y, z);
-        const double dbh0            = (grid_p - bssn::BSSN_BH_LOC[0]).abs();
-        const double dbh1            = (grid_p - bssn::BSSN_BH_LOC[1]).abs();
-
         const double GW_R_SAFETY_FAC = 10.0;
-        const double T_CURRENT       = bssn::BSSN_CURRENT_RK_COORD_TIME;
         const double TIME_OFFSET_FAC = 20.0;
 
         if (T_CURRENT > bssn::BSSN_WAVELET_TOL_FUNCTION_R1 + TIME_OFFSET_FAC) {
@@ -2031,7 +2025,6 @@ double computeWTolDCoords(double x, double y, double z, double* hx) {
         const double d2      = (grid_p - bssn::BSSN_BH_LOC[1]).abs();
         const double m1      = bssn::BSSN_BH1_MASS;
         const double m2      = bssn::BSSN_BH2_MASS;
-        const double t0      = bssn::BSSN_CURRENT_RK_COORD_TIME;
         const double toffset = 16.0;
 
         const double eps[3]  = {bssn::BSSN_WAVELET_TOL,
@@ -2042,16 +2035,78 @@ double computeWTolDCoords(double x, double y, double z, double* hx) {
         rad[1]    = 4.0 * rad[0];
         rad[3]    = GW::BSSN_GW_RADAII[GW::BSSN_GW_NUM_RADAII - 1];
 
-        double e1 = CalTolHelper(t0, d1, rad, eps, toffset);
+        double e1 = CalTolHelper(T_CURRENT, d1, rad, eps, toffset);
 
         rad[0]    = 3.0 * m2;
         rad[1]    = 4.0 * rad[0];
         rad[3]    = GW::BSSN_GW_RADAII[GW::BSSN_GW_NUM_RADAII - 1];
-        double e2 = CalTolHelper(t0, d2, rad, eps, toffset);
+        double e2 = CalTolHelper(T_CURRENT, d2, rad, eps, toffset);
 
         return std::min(e1, e2);
 
+    } else if (bssn::BSSN_USE_WAVELET_TOL_FUNCTION == 6) {
+        // WKB Aug 2024
+        // use different sensitivities for regions of spacetime which
+        // are causally connected to the BHs as cf regions which are
+        // spacelike, causally disconnected from the BHs.
+
+        ////////////////////////////////////////////////////////////////
+        // set up constants used in this function
+
+        // (max) orbital radius; use strictest refinement here
+        const double R_orbit     = 8;
+        // outer radius of simulation
+        const double R_max       = 400;
+
+        // expected lapse wave tail length (M) + backreflections
+        const double L           = 120;
+        // calculate the time after which a given radius's relationship
+        // with the grid center is both time-like & clean of lapse noise
+        const double t_lim       = std::max(r, (r + L) / std::sqrt(2));
+
+        // wavelet tolerance in acausal (or dirty) regions.
+        const double eps_disable = .001;
+        // time to fade from eps_disable to eps_goal
+        const double t_fade      = 100;
+
+        ////////////////////////////////////////////////////////////////
+        // set up goal resolution to hit in causal clean regions
+        // linearly interpolate log tolerances vs log radii
+
+        double eps_goal;
+        if (r <= R_orbit) {
+            eps_goal = bssn::BSSN_WAVELET_TOL;
+        } else {  // log falloff
+            // power we're raising the next expression to, scaling out radius
+            const double pwr =
+                std::log(r / R_orbit) / std::log(R_max / R_orbit);
+            // goal wavelet tolerance at end times
+            eps_goal =
+                bssn::BSSN_WAVELET_TOL *
+                std::pow(bssn::BSSN_WAVELET_TOL_MAX / bssn::BSSN_WAVELET_TOL,
+                         pwr);
+        }
+
+        ////////////////////////////////////////////////////////////////
+        // return time-delayed & smoothed wavelet tolerance
+
+        if (T_CURRENT < t_lim) {  // in spacelike or dirty region
+            // return max permissible wavelet tolerance
+            // effectively disabling / kneecapping WAMR
+            return eps_disable;
+        } else if (T_CURRENT > t_lim + t_fade) {  // in clean timelike region
+            // return standard wavelet tolerance
+            return eps_goal;
+        } else {  // in transition region
+            // return linear transition between log tolerance values
+            // slope of transition region
+            const double slope = std::log10(eps_goal / eps_disable) / t_fade;
+            const double lg_eps =
+                std::log10(eps_disable) + slope * (T_CURRENT - t_lim);
+            return std::pow(10.0, lg_eps);
+        }
     } else {
+        // return global wavelet tolerance, irrespective of position
         return bssn::BSSN_WAVELET_TOL;
     }
 }
@@ -2400,6 +2455,76 @@ void deallocate_bssn_deriv_workspace() {
         delete[] bssn::BSSN_DERIV_WORKSPACE;
         bssn::BSSN_DERIV_WORKSPACE = nullptr;
     }
+}
+
+std::tuple<std::string, std::string, std::string> encode_bh_locs(
+    const std::vector<std::pair<Point, Point>>& bh_history,
+    const std::vector<double>& bh_times) {
+    std::vector<unsigned char> bh1_bytes;
+    std::vector<unsigned char> bh2_bytes;
+
+    for (const auto& pair : bh_history) {
+        double coords1[3] = {pair.first.x(), pair.first.y(), pair.first.z()};
+        double coords2[3] = {pair.second.x(), pair.second.y(), pair.second.z()};
+
+        bh1_bytes.insert(
+            bh1_bytes.end(), reinterpret_cast<unsigned char*>(coords1),
+            reinterpret_cast<unsigned char*>(coords1) + sizeof(coords1));
+
+        bh2_bytes.insert(
+            bh2_bytes.end(), reinterpret_cast<unsigned char*>(coords2),
+            reinterpret_cast<unsigned char*>(coords2) + sizeof(coords2));
+    }
+
+    // with bytes available, now we can encode with base91_encoding
+    std::string bh1_str  = base<91>::encode(std::string(
+        reinterpret_cast<const char*>(bh1_bytes.data()), bh1_bytes.size()));
+
+    std::string bh2_str  = base<91>::encode(std::string(
+        reinterpret_cast<const char*>(bh2_bytes.data()), bh2_bytes.size()));
+
+    std::string time_str = base<91>::encode(
+        std::string(reinterpret_cast<const char*>(bh_times.data()),
+                    bh_times.size() * sizeof(double)));
+
+    return std::make_tuple(bh1_str, bh2_str, time_str);
+}
+
+std::tuple<std::vector<std::pair<Point, Point>>, std::vector<double>>
+decode_bh_locs(const std::string& bh1_str, const std::string& bh2_str,
+               const std::string& time_str) {
+    const size_t double_size = sizeof(double);
+    // decode the strings
+    std::string bh1_bytes    = base<91>::decode(bh1_str);
+    std::string bh2_bytes    = base<91>::decode(bh2_str);
+    std::string time_bytes   = base<91>::decode(time_str);
+
+    const size_t num_entries = time_bytes.size() / double_size;
+
+    // with the bytes back in place, we need to do a reinterpret cast for time
+    std::vector<double> time_vector;
+    std::vector<std::pair<Point, Point>> bh_locs;
+    for (size_t i = 0; i < num_entries; ++i) {
+        double value;
+        std::memcpy(&value, time_bytes.data() + i * double_size, double_size);
+        time_vector.push_back(value);
+
+        double bh_temp[3];
+
+        // create the point for b1
+        std::memcpy(&bh_temp, bh1_bytes.data() + i * double_size * 3,
+                    double_size * 3);
+        Point bh1Pt = Point(bh_temp[0], bh_temp[1], bh_temp[2]);
+
+        // then do it for bh2
+        std::memcpy(&bh_temp, bh2_bytes.data() + i * double_size * 3,
+                    double_size * 3);
+        Point bh2Pt = Point(bh_temp[0], bh_temp[1], bh_temp[2]);
+
+        bh_locs.push_back(std::make_pair(bh1Pt, bh2Pt));
+    }
+
+    return std::make_tuple(bh_locs, time_vector);
 }
 
 }  // end of namespace bssn

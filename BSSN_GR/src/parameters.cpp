@@ -177,6 +177,17 @@ bool BSSN_MERGED_CHKPT_WRITTEN                  = false;
 double BSSN_CURRENT_RK_COORD_TIME               = 0;
 unsigned int BSSN_CURRENT_RK_STEP               = 0;
 
+unsigned int BSSN_NYQUIST_M                     = 0;
+
+bool BSSN_SCALE_VTU_AND_GW_EXTRACTION           = false;
+
+unsigned int BSSN_GW_EXTRACT_FREQ_TRUE          = 0;
+
+unsigned int BSSN_IO_OUTPUT_FREQ_TRUE           = 0;
+
+double BSSN_SSL_SIGMA                           = 20.0;
+double BSSN_SSL_H                               = 0.6;
+
 /***@brief: derivs workspace*/
 double* BSSN_DERIV_WORKSPACE                    = nullptr;
 
@@ -419,6 +430,25 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
     if (parFile.contains("BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE"))
         bssn::BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE =
             parFile["BSSN_USE_SET_REF_MODE_FOR_INITIAL_CONVERGE"].as_boolean();
+
+    if (parFile.contains("BSSN_NYQUIST_M")) {
+        bssn::BSSN_NYQUIST_M = parFile["BSSN_NYQUIST_M"].as_integer();
+    }
+
+    if (parFile.contains("BSSN_SCALE_VTU_AND_GW_EXTRACTION")) {
+        bssn::BSSN_SCALE_VTU_AND_GW_EXTRACTION =
+            parFile["BSSN_SCALE_VTU_AND_GW_EXTRACTION"].as_boolean();
+    }
+    bssn::BSSN_IO_OUTPUT_FREQ_TRUE  = bssn::BSSN_IO_OUTPUT_FREQ;
+    bssn::BSSN_GW_EXTRACT_FREQ_TRUE = bssn::BSSN_GW_EXTRACT_FREQ;
+
+    if (parFile.contains("BSSN_SSL_SIGMA")) {
+        bssn::BSSN_SSL_SIGMA = parFile["BSSN_SSL_SIGMA"].as_floating();
+    }
+
+    if (parFile.contains("BSSN_SSL_H")) {
+        bssn::BSSN_SSL_H = parFile["BSSN_SSL_H"].as_floating();
+    }
 
     /* Parameters for TPID */
     TPID::target_M_plus  = parFile["TPID_TARGET_M_PLUS"].as_floating();
