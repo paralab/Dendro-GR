@@ -305,7 +305,8 @@ int main(int argc, char** argv) {
 
         ts::TSInfo ts_gw_output;
         ts::TSInfo ts_curr;
-        bool is_gw_written     = false;
+        // 0 disables GW extraction; start "written" so the block stays inert
+        bool is_gw_written     = (bssn::BSSN_GW_EXTRACT_FREQ == 0);
 
         bool is_merge_executed = false;
         double t1              = MPI_Wtime();
@@ -338,7 +339,8 @@ int main(int argc, char** argv) {
              }*/
 
 #ifndef BSSN_PROFILE_SCALING_RUN
-            if ((step % bssn::BSSN_GW_EXTRACT_FREQ) == 0) {
+            if (bssn::BSSN_GW_EXTRACT_FREQ > 0 &&
+                (step % bssn::BSSN_GW_EXTRACT_FREQ) == 0) {
                 if (!rank_global)
                     std::cout
                         << "[ETS] : Executing step :  " << ets->curr_step()
@@ -395,8 +397,9 @@ int main(int argc, char** argv) {
                 }
             }
 
-            if ((step % bssn::BSSN_GW_EXTRACT_FREQ) ==
-                (bssn::BSSN_GW_EXTRACT_FREQ - 1))
+            if (bssn::BSSN_GW_EXTRACT_FREQ > 0 &&
+                (step % bssn::BSSN_GW_EXTRACT_FREQ) ==
+                    (bssn::BSSN_GW_EXTRACT_FREQ - 1))
                 cudaStreamSynchronize(s_gw);
 
             if ((!is_gw_written) && (cudaStreamQuery(s_gw) == cudaSuccess)) {
