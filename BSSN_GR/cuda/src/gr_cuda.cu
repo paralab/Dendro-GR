@@ -327,16 +327,17 @@ int main(int argc, char** argv) {
 
             const bool is_merged             = bssnCtx->is_bh_merged(0.1);
             if (is_merged && !is_merge_executed) {
+                // mirrors the CPU driver (bssngr_main.cpp)
                 bssn::BSSN_REMESH_TEST_FREQ =
-                    3 * bssn::BSSN_REMESH_TEST_FREQ_AFTER_MERGER;
-                bssn::BSSN_MINDEPTH = 5;
+                    bssn::BSSN_REMESH_TEST_FREQ_AFTER_MERGER;
                 bssn::BSSN_GW_EXTRACT_FREQ =
                     bssn::BSSN_GW_EXTRACT_FREQ_AFTER_MERGER;
-                bssn::BSSN_REFINEMENT_MODE = RefinementMode::WAMR;
-            } /*else
-             {
-               //bssn::BSSN_REFINEMENT_MODE = RefinementMode::BH_LOC;
-             }*/
+
+                // only enable CAKO during merger
+                if (bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL_POST_MERGER_ONLY) {
+                    bssn::BSSN_CAKO_ENABLED = true;
+                }
+            }
 
 #ifndef BSSN_PROFILE_SCALING_RUN
             if (bssn::BSSN_GW_EXTRACT_FREQ > 0 &&
