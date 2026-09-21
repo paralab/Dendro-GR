@@ -114,15 +114,13 @@ void set_appropriate_derivs(const unsigned pw) {
         ko_deriv_z = ko_deriv42_z;
 
     } else if (pw == 4) {
-        // std::cout << "6th Order Derivatives set, detected padding width of 3"
-        //           << std::endl;
         deriv_x    = deriv644_x_pw4;
         deriv_y    = deriv644_y_pw4;
         deriv_z    = deriv644_z_pw4;
 
-        deriv_xx   = deriv42_xx_pw4;
-        deriv_yy   = deriv42_yy_pw4;
-        deriv_zz   = deriv42_zz_pw4;
+        deriv_xx   = deriv644_xx_pw4;
+        deriv_yy   = deriv644_yy_pw4;
+        deriv_zz   = deriv644_zz_pw4;
 
         ko_deriv_x = ko_pw4_deriv42_x;
         ko_deriv_y = ko_pw4_deriv42_y;
@@ -5289,6 +5287,356 @@ void deriv644_zz(double *const DzDzu, const double *const u, const double dz,
                     (-u[IDX(i, j, 3)] + 16.0 * u[IDX(i, j, 4)] -
                      30.0 * u[IDX(i, j, 5)] + 16.0 * u[IDX(i, j, 6)] -
                      u[IDX(i, j, 7)]) *
+                    idz_sqrd_by_12;
+            }
+        }
+    }
+
+    if (bflag & (1u << OCT_DIR_FRONT)) {
+        for (int j = jb; j < je; j++) {
+#ifdef DERIV_ENABLE_AVX
+#ifdef __INTEL_COMPILER
+#pragma vector vectorlength(__DERIV_AVX_SIMD_LEN__) vecremainder
+#pragma ivdep
+#endif
+#endif
+            for (int i = ib; i < ie; i++) {
+                DzDzu[IDX(i, j, ke - 3)] =
+                    (-u[IDX(i, j, ke - 5)] + 16.0 * u[IDX(i, j, ke - 4)] -
+                     30.0 * u[IDX(i, j, ke - 3)] + 16.0 * u[IDX(i, j, ke - 2)] -
+                     u[IDX(i, j, ke - 1)]) *
+                    idz_sqrd_by_12;
+                // The above two should be replaced by 4th order approximations:
+                DzDzu[IDX(i, j, ke - 2)] =
+                    (u[IDX(i, j, ke - 6)] - 6.0 * u[IDX(i, j, ke - 5)] +
+                     14.0 * u[IDX(i, j, ke - 4)] - 4.0 * u[IDX(i, j, ke - 3)] -
+                     15.0 * u[IDX(i, j, ke - 2)] +
+                     10.0 * u[IDX(i, j, ke - 1)]) *
+                    idz_sqrd_by_12;
+
+                DzDzu[IDX(i, j, ke - 1)] = (-10.0 * u[IDX(i, j, ke - 6)] +
+                                            61.0 * u[IDX(i, j, ke - 5)] -
+                                            156.0 * u[IDX(i, j, ke - 4)] +
+                                            214.0 * u[IDX(i, j, ke - 3)] -
+                                            154.0 * u[IDX(i, j, ke - 2)] +
+                                            45.0 * u[IDX(i, j, ke - 1)]) *
+                                           idz_sqrd_by_12;
+            }
+        }
+    }
+
+#ifdef DEBUG_DERIVS_COMP
+#pragma message("DEBUG_DERIVS_COMP: ON")
+    for (int k = kb; k < ke; k++) {
+        for (int j = jb; j < je; j++) {
+            for (int i = ib; i < ie; i++) {
+                const int pp = IDX(i, j, k);
+                if (std::isnan(DzDzu[pp]))
+                    std::cout << "NAN detected function " << __func__
+                              << " file: " << __FILE__ << " line: " << __LINE__
+                              << std::endl;
+            }
+        }
+    }
+#endif
+}
+
+void deriv644_xx_pw4(double *const DxDxu, const double *const u, const double dx,
+                 const unsigned int *sz, unsigned bflag) {
+    const double idx_sqrd        = 1.0 / (dx * dx);
+    const double idx_sqrd_by_180 = idx_sqrd / 180.0;
+    const double idx_sqrd_by_12  = idx_sqrd / 12.0;
+
+    const int nx                 = sz[0];
+    const int ny                 = sz[1];
+    const int nz                 = sz[2];
+    const int ib                 = 4;
+    const int jb                 = 4;
+    const int kb                 = 4;
+    const int ie                 = sz[0] - 4;
+    const int je                 = sz[1] - 4;
+    const int ke                 = sz[2] - 4;
+
+    for (int k = kb; k < ke; k++) {
+        for (int j = jb; j < je; j++) {
+#ifdef DERIV_ENABLE_AVX
+#ifdef __INTEL_COMPILER
+#pragma vector vectorlength(__DERIV_AVX_SIMD_LEN__) vecremainder
+#pragma ivdep
+#endif
+#endif
+            for (int i = ib; i < ie; i++) {
+                const int pp = IDX(i, j, k);
+
+                DxDxu[pp] =
+                    (2.0 * u[pp - 3] - 27.0 * u[pp - 2] + 270.0 * u[pp - 1] -
+                     490.0 * u[pp] + 270.0 * u[pp + 1] - 27.0 * u[pp + 2] +
+                     2.0 * u[pp + 3]) *
+                    idx_sqrd_by_180;
+            }
+        }
+    }
+
+    if (bflag & (1u << OCT_DIR_LEFT)) {
+        for (int k = kb; k < ke; k++) {
+#ifdef DERIV_ENABLE_AVX
+#ifdef __INTEL_COMPILER
+#pragma vector vectorlength(__DERIV_AVX_SIMD_LEN__) vecremainder
+#pragma ivdep
+#endif
+#endif
+            for (int j = jb; j < je; j++) {
+                // The above two should be replaced by 4th order approximations:
+                DxDxu[IDX(4, j, k)] =
+                    (45.0 * u[IDX(4, j, k)] - 154.0 * u[IDX(5, j, k)] +
+                     214.0 * u[IDX(6, j, k)] - 156.0 * u[IDX(7, j, k)] +
+                     61.0 * u[IDX(8, j, k)] - 10.0 * u[IDX(9, j, k)]) *
+                    idx_sqrd_by_12;
+
+                DxDxu[IDX(5, j, k)] =
+                    (10.0 * u[IDX(4, j, k)] - 15.0 * u[IDX(5, j, k)] -
+                     4.0 * u[IDX(6, j, k)] + 14.0 * u[IDX(7, j, k)] -
+                     6.0 * u[IDX(8, j, k)] + u[IDX(9, j, k)]) *
+                    idx_sqrd_by_12;
+
+                DxDxu[IDX(6, j, k)] =
+                    (-u[IDX(4, j, k)] + 16.0 * u[IDX(5, j, k)] -
+                     30.0 * u[IDX(6, j, k)] + 16.0 * u[IDX(7, j, k)] -
+                     u[IDX(8, j, k)]) *
+                    idx_sqrd_by_12;
+            }
+        }
+    }
+
+    if (bflag & (1u << OCT_DIR_RIGHT)) {
+        for (int k = kb; k < ke; k++) {
+#ifdef DERIV_ENABLE_AVX
+#ifdef __INTEL_COMPILER
+#pragma vector vectorlength(__DERIV_AVX_SIMD_LEN__) vecremainder
+#pragma ivdep
+#endif
+#endif
+            for (int j = jb; j < je; j++) {
+                DxDxu[IDX(ie - 3, j, k)] =
+                    (-u[IDX(ie - 5, j, k)] + 16.0 * u[IDX(ie - 4, j, k)] -
+                     30.0 * u[IDX(ie - 3, j, k)] + 16.0 * u[IDX(ie - 2, j, k)] -
+                     u[IDX(ie - 1, j, k)]) *
+                    idx_sqrd_by_12;
+
+                // The above two should be replaced by 4th order approximations:
+                DxDxu[IDX(ie - 2, j, k)] =
+                    (u[IDX(ie - 6, j, k)] - 6.0 * u[IDX(ie - 5, j, k)] +
+                     14.0 * u[IDX(ie - 4, j, k)] - 4.0 * u[IDX(ie - 3, j, k)] -
+                     15.0 * u[IDX(ie - 2, j, k)] +
+                     10.0 * u[IDX(ie - 1, j, k)]) *
+                    idx_sqrd_by_12;
+
+                DxDxu[IDX(ie - 1, j, k)] = (-10.0 * u[IDX(ie - 6, j, k)] +
+                                            61.0 * u[IDX(ie - 5, j, k)] -
+                                            156.0 * u[IDX(ie - 4, j, k)] +
+                                            214.0 * u[IDX(ie - 3, j, k)] -
+                                            154.0 * u[IDX(ie - 2, j, k)] +
+                                            45.0 * u[IDX(ie - 1, j, k)]) *
+                                           idx_sqrd_by_12;
+            }
+        }
+    }
+
+#ifdef DEBUG_DERIVS_COMP
+#pragma message("DEBUG_DERIVS_COMP: ON")
+    for (int k = kb; k < ke; k++) {
+        for (int j = jb; j < je; j++) {
+            for (int i = ib; i < ie; i++) {
+                const int pp = IDX(i, j, k);
+                if (std::isnan(DxDxu[pp]))
+                    std::cout << "NAN detected function " << __func__
+                              << " file: " << __FILE__ << " line: " << __LINE__
+                              << std::endl;
+            }
+        }
+    }
+#endif
+}
+
+void deriv644_yy_pw4(double *const DyDyu, const double *const u, const double dy,
+                 const unsigned int *sz, unsigned bflag) {
+    const double idy_sqrd        = 1.0 / (dy * dy);
+    const double idy_sqrd_by_180 = idy_sqrd / 180.0;
+    const double idy_sqrd_by_12  = idy_sqrd / 12.0;
+
+    const int nx                 = sz[0];
+    const int ny                 = sz[1];
+    const int nz                 = sz[2];
+    const int ib                 = 4;
+    const int jb                 = 4;
+    const int kb                 = 4;
+    const int ie                 = sz[0] - 4;
+    const int je                 = sz[1] - 4;
+    const int ke                 = sz[2] - 4;
+
+    for (int k = kb; k < ke; k++) {
+        for (int i = ib; i < ie; i++) {
+#ifdef DERIV_ENABLE_AVX
+#ifdef __INTEL_COMPILER
+#pragma vector vectorlength(__DERIV_AVX_SIMD_LEN__) vecremainder
+#pragma ivdep
+#endif
+#endif
+            for (int j = jb; j < je; j++) {
+                const int pp = IDX(i, j, k);
+                DyDyu[pp] =
+                    (2.0 * u[pp - 3 * nx] - 27.0 * u[pp - 2 * nx] +
+                     270.0 * u[pp - nx] - 490.0 * u[pp] + 270.0 * u[pp + nx] -
+                     27.0 * u[pp + 2 * nx] + 2.0 * u[pp + 3 * nx]) *
+                    idy_sqrd_by_180;
+            }
+        }
+    }
+
+    if (bflag & (1u << OCT_DIR_DOWN)) {
+        for (int k = kb; k < ke; k++) {
+#ifdef DERIV_ENABLE_AVX
+#ifdef __INTEL_COMPILER
+#pragma vector vectorlength(__DERIV_AVX_SIMD_LEN__) vecremainder
+#pragma ivdep
+#endif
+#endif
+            for (int i = ib; i < ie; i++) {
+                // The above two should be replaced by 4th order approximations:
+                DyDyu[IDX(i, 4, k)] =
+                    (45.0 * u[IDX(i, 4, k)] - 154.0 * u[IDX(i, 5, k)] +
+                     214.0 * u[IDX(i, 6, k)] - 156.0 * u[IDX(i, 7, k)] +
+                     61.0 * u[IDX(i, 8, k)] - 10.0 * u[IDX(i, 9, k)]) *
+                    idy_sqrd_by_12;
+
+                DyDyu[IDX(i, 5, k)] =
+                    (10.0 * u[IDX(i, 4, k)] - 15.0 * u[IDX(i, 5, k)] -
+                     4.0 * u[IDX(i, 6, k)] + 14.0 * u[IDX(i, 7, k)] -
+                     6.0 * u[IDX(i, 8, k)] + u[IDX(i, 9, k)]) *
+                    idy_sqrd_by_12;
+
+                DyDyu[IDX(i, 6, k)] =
+                    (-u[IDX(i, 4, k)] + 16.0 * u[IDX(i, 5, k)] -
+                     30.0 * u[IDX(i, 6, k)] + 16.0 * u[IDX(i, 7, k)] -
+                     u[IDX(i, 8, k)]) *
+                    idy_sqrd_by_12;
+            }
+        }
+    }
+
+    if (bflag & (1u << OCT_DIR_UP)) {
+        for (int k = kb; k < ke; k++) {
+#ifdef DERIV_ENABLE_AVX
+#ifdef __INTEL_COMPILER
+#pragma vector vectorlength(__DERIV_AVX_SIMD_LEN__) vecremainder
+#pragma ivdep
+#endif
+#endif
+            for (int i = ib; i < ie; i++) {
+                DyDyu[IDX(i, je - 3, k)] =
+                    (-u[IDX(i, je - 5, k)] + 16.0 * u[IDX(i, je - 4, k)] -
+                     30.0 * u[IDX(i, je - 3, k)] + 16.0 * u[IDX(i, je - 2, k)] -
+                     u[IDX(i, je - 1, k)]) *
+                    idy_sqrd_by_12;
+
+                // The above two should be replaced by 4th order approximations:
+                DyDyu[IDX(i, je - 2, k)] =
+                    (u[IDX(i, je - 6, k)] - 6.0 * u[IDX(i, je - 5, k)] +
+                     14.0 * u[IDX(i, je - 4, k)] - 4.0 * u[IDX(i, je - 3, k)] -
+                     15.0 * u[IDX(i, je - 2, k)] +
+                     10.0 * u[IDX(i, je - 1, k)]) *
+                    idy_sqrd_by_12;
+
+                DyDyu[IDX(i, je - 1, k)] = (-10.0 * u[IDX(i, je - 6, k)] +
+                                            61.0 * u[IDX(i, je - 5, k)] -
+                                            156.0 * u[IDX(i, je - 4, k)] +
+                                            214.0 * u[IDX(i, je - 3, k)] -
+                                            154.0 * u[IDX(i, je - 2, k)] +
+                                            45.0 * u[IDX(i, je - 1, k)]) *
+                                           idy_sqrd_by_12;
+            }
+        }
+    }
+
+#ifdef DEBUG_DERIVS_COMP
+#pragma message("DEBUG_DERIVS_COMP: ON")
+    for (int k = kb; k < ke; k++) {
+        for (int j = jb; j < je; j++) {
+            for (int i = ib; i < ie; i++) {
+                const int pp = IDX(i, j, k);
+                if (std::isnan(DyDyu[pp]))
+                    std::cout << "NAN detected function " << __func__
+                              << " file: " << __FILE__ << " line: " << __LINE__
+                              << std::endl;
+            }
+        }
+    }
+#endif
+}
+
+void deriv644_zz_pw4(double *const DzDzu, const double *const u, const double dz,
+                 const unsigned int *sz, unsigned bflag) {
+    const double idz_sqrd        = 1.0 / (dz * dz);
+    const double idz_sqrd_by_180 = idz_sqrd / 180.0;
+    const double idz_sqrd_by_12  = idz_sqrd / 12.0;
+
+    const int nx                 = sz[0];
+    const int ny                 = sz[1];
+    const int nz                 = sz[2];
+    const int ib                 = 4;
+    const int jb                 = 4;
+    const int kb                 = 4;
+    const int ie                 = sz[0] - 4;
+    const int je                 = sz[1] - 4;
+    const int ke                 = sz[2] - 4;
+
+    const int n                  = nx * ny;
+
+    for (int j = jb; j < je; j++) {
+        for (int i = ib; i < ie; i++) {
+#ifdef DERIV_ENABLE_AVX
+#ifdef __INTEL_COMPILER
+#pragma vector vectorlength(__DERIV_AVX_SIMD_LEN__) vecremainder
+#pragma ivdep
+#endif
+#endif
+            for (int k = kb; k < ke; k++) {
+                const int pp = IDX(i, j, k);
+                DzDzu[pp] =
+                    (2.0 * u[pp - 3 * n] - 27.0 * u[pp - 2 * n] +
+                     270.0 * u[pp - n] - 490.0 * u[pp] + 270.0 * u[pp + n] -
+                     27.0 * u[pp + 2 * n] + 2.0 * u[pp + 3 * n]) *
+                    idz_sqrd_by_180;
+            }
+        }
+    }
+
+    if (bflag & (1u << OCT_DIR_BACK)) {
+        for (int j = jb; j < je; j++) {
+#ifdef DERIV_ENABLE_AVX
+#ifdef __INTEL_COMPILER
+#pragma vector vectorlength(__DERIV_AVX_SIMD_LEN__) vecremainder
+#pragma ivdep
+#endif
+#endif
+            for (int i = ib; i < ie; i++) {
+                // The above two should be replaced by 4th order approximations:
+                DzDzu[IDX(i, j, 4)] =
+                    (45.0 * u[IDX(i, j, 4)] - 154.0 * u[IDX(i, j, 5)] +
+                     214.0 * u[IDX(i, j, 6)] - 156.0 * u[IDX(i, j, 7)] +
+                     61.0 * u[IDX(i, j, 8)] - 10.0 * u[IDX(i, j, 9)]) *
+                    idz_sqrd_by_12;
+
+                DzDzu[IDX(i, j, 5)] =
+                    (10.0 * u[IDX(i, j, 4)] - 15.0 * u[IDX(i, j, 5)] -
+                     4.0 * u[IDX(i, j, 6)] + 14.0 * u[IDX(i, j, 7)] -
+                     6.0 * u[IDX(i, j, 8)] + u[IDX(i, j, 9)]) *
+                    idz_sqrd_by_12;
+
+                DzDzu[IDX(i, j, 6)] =
+                    (-u[IDX(i, j, 4)] + 16.0 * u[IDX(i, j, 5)] -
+                     30.0 * u[IDX(i, j, 6)] + 16.0 * u[IDX(i, j, 7)] -
+                     u[IDX(i, j, 8)]) *
                     idz_sqrd_by_12;
             }
         }
