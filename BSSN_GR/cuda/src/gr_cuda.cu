@@ -150,13 +150,6 @@ int main(int argc, char** argv) {
         MPI_Abort(comm, 0);
     }
 
-    if (bssn::BSSN_GW_EXTRACT_FREQ > bssn::BSSN_IO_OUTPUT_FREQ) {
-        if (!rank)
-            std::cout
-                << " BSSN_GW_EXTRACT_FREQ  should be less BSSN_IO_OUTPUT_FREQ "
-                << std::endl;
-        MPI_Abort(comm, 0);
-    }
 
     // 2. generate the initial grid.
     std::vector<ot::TreeNode> tmpNodes;
@@ -340,6 +333,57 @@ int main(int argc, char** argv) {
             }
 
 #ifndef BSSN_PROFILE_SCALING_RUN
+            bool did_d2h_sync = false;
+
+            // own cadence, like the CPU driver
+            if (bssn::BSSN_REMESH_TEST_FREQ > 0 &&
+                (step % bssn::BSSN_REMESH_TEST_FREQ) == 0 && step != 0) {
+                // is_remesh() reads the host evolution vars
+                if (!did_d2h_sync) {
+                    bssnCtx->device_to_host_sync();
+                    did_d2h_sync = true;
+                }
+                bool isRemesh = bssnCtx->is_remesh();
+                if (isRemesh) {
+                    if (!rank_global)
+                        std::cout << "[ETS] : Remesh is triggered.  \n";
+
+                    bssnCtx->remesh_and_gridtransfer(
+                        bssn::BSSN_DENDRO_GRAIN_SZ, bssn::BSSN_LOAD_IMB_TOL,
+                        bssn::BSSN_SPLIT_FIX);
+                    bssn::deallocate_bssn_deriv_workspace();
+                    bssn::allocate_bssn_deriv_workspace(bssnCtx->get_mesh(),
+                                                        1);
+                    ets->sync_with_mesh();
+                    // correct timestep size
+                    ot::Mesh* pmesh = bssnCtx->get_mesh();
+                    unsigned int lmin, lmax;
+                    pmesh->computeMinMaxLevel(lmin, lmax);
+                    if (!pmesh->getMPIRank())
+                        printf("post merger grid level = (%d, %d)\n", lmin,
+                               lmax);
+
+                    // calculate the minimum dx
+                    bssn::BSSN_CURRENT_MIN_DX =
+                        ((bssn::BSSN_COMPD_MAX[0] -
+                          bssn::BSSN_COMPD_MIN[0]) *
+                         ((1u << (m_uiMaxDepth - lmax)) /
+                          ((double)bssn::BSSN_ELE_ORDER)) /
+                         ((double)(1u << (m_uiMaxDepth))));
+
+                    bssn::BSSN_RK45_TIME_STEP_SIZE =
+                        bssn::BSSN_CFL_FACTOR *
+                        ((bssn::BSSN_COMPD_MAX[0] -
+                          bssn::BSSN_COMPD_MIN[0]) *
+                         ((1u << (m_uiMaxDepth - lmax)) /
+                          ((double)bssn::BSSN_ELE_ORDER)) /
+                         ((double)(1u << (m_uiMaxDepth))));
+                    ts::TSInfo ts_in = bssnCtx->get_ts_info();
+                    ts_in._m_uiTh    = bssn::BSSN_RK45_TIME_STEP_SIZE;
+                    bssnCtx->set_ts_info(ts_in);
+                }
+            }
+
             if (bssn::BSSN_GW_EXTRACT_FREQ > 0 &&
                 (step % bssn::BSSN_GW_EXTRACT_FREQ) == 0) {
                 if (!rank_global)
@@ -353,49 +397,6 @@ int main(int argc, char** argv) {
                 bssnCtx->device_to_host_async(s_gw);
                 ts_gw_output  = bssnCtx->get_ts_info();
                 is_gw_written = false;
-
-                if ((step % bssn::BSSN_REMESH_TEST_FREQ) == 0) {
-                    cudaStreamSynchronize(s_gw);
-                    bool isRemesh = bssnCtx->is_remesh();
-                    if (isRemesh) {
-                        if (!rank_global)
-                            std::cout << "[ETS] : Remesh is triggered.  \n";
-
-                        bssnCtx->remesh_and_gridtransfer(
-                            bssn::BSSN_DENDRO_GRAIN_SZ, bssn::BSSN_LOAD_IMB_TOL,
-                            bssn::BSSN_SPLIT_FIX);
-                        bssn::deallocate_bssn_deriv_workspace();
-                        bssn::allocate_bssn_deriv_workspace(bssnCtx->get_mesh(),
-                                                            1);
-                        ets->sync_with_mesh();
-                        // correct timestep size
-                        ot::Mesh* pmesh = bssnCtx->get_mesh();
-                        unsigned int lmin, lmax;
-                        pmesh->computeMinMaxLevel(lmin, lmax);
-                        if (!pmesh->getMPIRank())
-                            printf("post merger grid level = (%d, %d)\n", lmin,
-                                   lmax);
-
-                        // calculate the minimum dx
-                        bssn::BSSN_CURRENT_MIN_DX =
-                            ((bssn::BSSN_COMPD_MAX[0] -
-                              bssn::BSSN_COMPD_MIN[0]) *
-                             ((1u << (m_uiMaxDepth - lmax)) /
-                              ((double)bssn::BSSN_ELE_ORDER)) /
-                             ((double)(1u << (m_uiMaxDepth))));
-
-                        bssn::BSSN_RK45_TIME_STEP_SIZE =
-                            bssn::BSSN_CFL_FACTOR *
-                            ((bssn::BSSN_COMPD_MAX[0] -
-                              bssn::BSSN_COMPD_MIN[0]) *
-                             ((1u << (m_uiMaxDepth - lmax)) /
-                              ((double)bssn::BSSN_ELE_ORDER)) /
-                             ((double)(1u << (m_uiMaxDepth))));
-                        ts::TSInfo ts_in = bssnCtx->get_ts_info();
-                        ts_in._m_uiTh    = bssn::BSSN_RK45_TIME_STEP_SIZE;
-                        bssnCtx->set_ts_info(ts_in);
-                    }
-                }
             }
 
             if (bssn::BSSN_GW_EXTRACT_FREQ > 0 &&
@@ -407,14 +408,29 @@ int main(int argc, char** argv) {
                 ts_curr = bssnCtx->get_ts_info();
                 bssnCtx->set_ts_info(ts_gw_output);
                 bssnCtx->terminal_output();
-                bssnCtx->write_vtu();
                 bssnCtx->evolve_bh_loc();
-
-                if ((step % bssn::BSSN_CHECKPT_FREQ) == 0)
-                    bssnCtx->write_checkpt();
-
                 bssnCtx->set_ts_info(ts_curr);
                 is_gw_written = true;
+                did_d2h_sync  = true;
+            }
+
+            // own frequencies, like the CPU driver; D2H once per step
+            if (bssn::BSSN_IO_OUTPUT_FREQ > 0 &&
+                (step % bssn::BSSN_IO_OUTPUT_FREQ) == 0) {
+                if (!did_d2h_sync) {
+                    bssnCtx->device_to_host_sync();
+                    did_d2h_sync = true;
+                }
+                bssnCtx->write_vtu();
+            }
+
+            if (bssn::BSSN_CHECKPT_FREQ > 0 &&
+                (step % bssn::BSSN_CHECKPT_FREQ) == 0) {
+                if (!did_d2h_sync) {
+                    bssnCtx->device_to_host_sync();
+                    did_d2h_sync = true;
+                }
+                bssnCtx->write_checkpt();
             }
 #endif
 
