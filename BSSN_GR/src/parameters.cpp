@@ -470,6 +470,8 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
     std::vector<ParameterInformation> optionalParsList = {
         {"BSSN_REMESH_TEST_FREQ_AFTER_MERGER",
          bssn::BSSN_REMESH_TEST_FREQ_AFTER_MERGER, UseInitialValue},
+        {"BSSN_GW_EXTRACT_FREQ_AFTER_MERGER",
+         bssn::BSSN_GW_EXTRACT_FREQ_AFTER_MERGER, UseInitialValue},
         {"RIT_ETA_FUNCTION", bssn::RIT_ETA_FUNCTION, UseInitialValue},
         {"RIT_ETA_OUTER", bssn::RIT_ETA_OUTER, UseInitialValue},
         {"RIT_ETA_CENTRAL", bssn::RIT_ETA_CENTRAL, UseInitialValue},
@@ -1051,6 +1053,8 @@ void writeParamTOMLFile(const char* fName, MPI_Comm comm) {
             // Optionals That should be Saved for Sanity Sake
             {"BSSN_REMESH_TEST_FREQ_AFTER_MERGER",
              bssn::BSSN_REMESH_TEST_FREQ_AFTER_MERGER},
+            {"BSSN_GW_EXTRACT_FREQ_AFTER_MERGER",
+             bssn::BSSN_GW_EXTRACT_FREQ_AFTER_MERGER},
             {"RIT_ETA_FUNCTION", bssn::RIT_ETA_FUNCTION},
             {"RIT_ETA_OUTER", bssn::RIT_ETA_OUTER},
             {"RIT_ETA_CENTRAL", bssn::RIT_ETA_CENTRAL},
