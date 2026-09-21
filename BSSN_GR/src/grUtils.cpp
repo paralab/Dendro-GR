@@ -2081,13 +2081,13 @@ double computeWTolDCoords(double x, double y, double z, double* hx) {
         double rad[3];
         rad[0]    = 3.0 * m1;
         rad[1]    = 4.0 * rad[0];
-        rad[3]    = GW::BSSN_GW_RADAII[GW::BSSN_GW_NUM_RADAII - 1];
+        rad[2]    = GW::BSSN_GW_RADAII[GW::BSSN_GW_NUM_RADAII - 1];
 
         double e1 = CalTolHelper(T_CURRENT, d1, rad, eps, toffset);
 
         rad[0]    = 3.0 * m2;
         rad[1]    = 4.0 * rad[0];
-        rad[3]    = GW::BSSN_GW_RADAII[GW::BSSN_GW_NUM_RADAII - 1];
+        rad[2]    = GW::BSSN_GW_RADAII[GW::BSSN_GW_NUM_RADAII - 1];
         double e2 = CalTolHelper(T_CURRENT, d2, rad, eps, toffset);
 
         return std::min(e1, e2);
