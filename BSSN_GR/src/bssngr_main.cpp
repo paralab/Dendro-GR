@@ -618,9 +618,10 @@ int main(int argc, char** argv) {
         if (!(ets->get_global_rank()))
             std::cout << " ETS time (max) : " << t2_g << std::endl;
 
-        delete bssnCtx->get_mesh();
-        delete bssnCtx;
+        ot::Mesh* mesh = bssnCtx->get_mesh();
         delete ets;
+        delete bssnCtx;
+        delete mesh;
 
     } else {
         std::cout << RED << "Not starting solver, ts_mode needs to be set to 1!"
