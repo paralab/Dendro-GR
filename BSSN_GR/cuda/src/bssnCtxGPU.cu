@@ -243,18 +243,11 @@ int BSSNCtxGPU::initialize() {
                           << std::endl;
             }
 
+            // grid_transfer now rebuilds the device mesh itself
             this->grid_transfer(newMesh);
 
             std::swap(m_uiMesh, newMesh);
             delete newMesh;
-
-#ifdef __CUDACC__
-            device::MeshGPU*& dptr_mesh = this->get_meshgpu_device_ptr();
-            device::MeshGPU* mesh_gpu   = this->get_meshgpu_host_handle();
-
-            mesh_gpu->dealloc_mesh_on_device(dptr_mesh);
-            dptr_mesh = mesh_gpu->alloc_mesh_on_device(m_uiMesh);
-#endif
         }
 
         iterCount += 1;
@@ -1102,6 +1095,17 @@ int BSSNCtxGPU::grid_transfer(const ot::Mesh* m_new) {
     m_var[VL::GPU_EV_UZ_OUT].create_vector(
         m_new, ot::DVEC_TYPE::OCT_LOCAL_WITH_PADDING, ot::DVEC_LOC::DEVICE,
         BSSN_NUM_VARS, true);
+
+#ifdef __CUDACC__
+    // the device keeps its own mesh copy; rebuild it for m_new before pushing
+    {
+        device::MeshGPU*& dptr_mesh = this->get_meshgpu_device_ptr();
+        device::MeshGPU* mesh_gpu   = this->get_meshgpu_host_handle();
+
+        mesh_gpu->dealloc_mesh_on_device(dptr_mesh);
+        dptr_mesh = mesh_gpu->alloc_mesh_on_device(m_new);
+    }
+#endif
 
     this->host_to_device_sync();
     m_uiIsETSSynced = false;
