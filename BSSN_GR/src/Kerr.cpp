@@ -143,7 +143,7 @@ var[VAR::U_SYMAT2] =
 
 var[VAR::U_SYMAT3] = -var[VAR::U_SYMAT0];
 
-var[VAR::U_SYMAT3] =
+var[VAR::U_SYMAT4] =
     -a_spin * xbar * zbar * rbar / rho_bar_sqr /
     pow(Sigma_bar * rho_bar_sqr, 5.0 / 6.0) *
     (mass * rho_bar_sqr * (pow(f_0, 2) + pow(a_spin * rbar, 2)) -
