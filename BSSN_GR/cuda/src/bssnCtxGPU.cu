@@ -1136,7 +1136,7 @@ void BSSNCtxGPU::evolve_bh_loc() {
     // compute how long it's been since the last time we calculatd it, thanks to
     // storing history!
     const double dt = m_uiTinfo._m_uiT - m_uiBHTimeHistory.back();
-    DVec sIn        = this->get_evolution_vars();
+    DVec sIn        = this->get_evolution_vars_cpu();
 
     // m_uiMesh->readFromGhostBegin(sIn.GetVecArray()+ VAR::U_BETA0 *
     // m_uiMesh->getDegOfFreedom(),3);
