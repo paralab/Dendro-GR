@@ -434,6 +434,8 @@ int main(int argc, char** argv) {
             }
 #endif
 
+            bssnCtx->prepare_for_next_iter();
+
             ets->evolve();
         }
 

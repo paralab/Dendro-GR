@@ -87,7 +87,8 @@ class BSSNCtxGPU : public ts::Ctx<BSSNCtxGPU, DendroScalar, unsigned int> {
     /**@brief: default deconstructor*/
     ~BSSNCtxGPU();
 
-    // TODO: prep for next iter
+    void prepare_for_next_iter() { m_bBHEvolved = false; }
+
     const std::vector<std::pair<Point, Point>>& get_bh_loc_history() const {
         return m_uiBHLocHistory;
     }
