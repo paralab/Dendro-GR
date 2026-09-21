@@ -11,6 +11,7 @@
 
 #include <mpi.h>
 
+#include <filesystem>
 #include <tuple>
 
 #include "base.h"
@@ -49,6 +50,95 @@ void printGitInformation(int rank, std::vector<std::string> arg_s) {
     }
 }
 
+namespace {
+
+// Create the directory a prefixed output path writes into, so a missing one
+// fails at startup instead of mid-run. `path` is a prefix like "vtu/run" whose
+// parent is the directory; a `dir_itself` path (the AEH save dir) is the dir.
+bool ensure_output_dir(const std::string& path, bool dir_itself,
+                       const char* what, int rank, std::string& why) {
+    namespace fs = std::filesystem;
+    fs::path p(path);
+    fs::path dir = dir_itself ? p : p.parent_path();
+    if (dir.empty()) return true;  // writes into the working directory
+
+    std::error_code ec;
+    if (fs::exists(dir, ec)) {
+        if (fs::is_directory(dir, ec)) return true;
+        why = std::string(what) + ": '" + dir.string() +
+              "' exists and is not a directory";
+        return false;
+    }
+    fs::create_directories(dir, ec);
+    if (ec) {
+        why = std::string(what) + ": cannot create '" + dir.string() + "' -- " +
+              ec.message();
+        return false;
+    }
+    if (rank == 0)
+        std::cout << "[bssn] created output directory '" << dir.string()
+                  << "' (" << what << ")" << std::endl;
+    return true;
+}
+
+// Rank 0 creates, everyone verifies (catches a node that cannot see the dir).
+void ensure_output_dirs(MPI_Comm comm) {
+    int rank = 0, npes = 1;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &npes);
+
+    const std::vector<std::tuple<std::string, bool, const char*> > targets = {
+        {bssn::BSSN_VTU_FILE_PREFIX, false, "vtu_file_prefix"},
+        {bssn::BSSN_CHKPT_FILE_PREFIX, false, "chkpt_file_prefix"},
+        {bssn::BSSN_PROFILE_FILE_PREFIX, false, "profile_file_prefix"},
+        {bssn::DENDRO_LOG_FILE, false, "log_file"},
+        {AEH::AEH_SAVE_DIR, true, "apparent_horizon save_dir"},
+    };
+
+    std::string why;
+    int ok = 1;
+    if (rank == 0) {
+        for (const auto& t : targets) {
+            if (!ensure_output_dir(std::get<0>(t), std::get<1>(t),
+                                   std::get<2>(t), rank, why)) {
+                ok = 0;
+                break;
+            }
+        }
+    }
+    MPI_Bcast(&ok, 1, MPI_INT, 0, comm);
+    if (!ok) {
+        if (rank == 0)
+            std::cerr << RED << "OUTPUT DIRECTORY ERROR: " << why << NRM
+                      << std::endl;
+        MPI_Abort(comm, 1);
+    }
+
+    // every rank writes checkpoints and vtu
+    MPI_Barrier(comm);
+    if (npes > 1) {
+        namespace fs = std::filesystem;
+        std::error_code ec;
+        int visible = 1;
+        for (const auto& t : targets) {
+            fs::path p(std::get<0>(t));
+            fs::path dir = std::get<1>(t) ? p : p.parent_path();
+            if (dir.empty()) continue;
+            if (!fs::is_directory(dir, ec)) {
+                std::cerr << RED << "OUTPUT DIRECTORY ERROR: rank " << rank
+                          << " cannot see '" << dir.string() << "' ("
+                          << std::get<2>(t) << ")" << NRM << std::endl;
+                visible = 0;
+            }
+        }
+        int all_visible = 1;
+        MPI_Allreduce(&visible, &all_visible, 1, MPI_INT, MPI_MIN, comm);
+        if (!all_visible) MPI_Abort(comm, 1);
+    }
+}
+
+}  // namespace
+
 void readParamFile(const char* fName, MPI_Comm comm) {
     std::string fNameStr(fName);
     std::string tomlSuffix = ".toml";
@@ -63,6 +153,9 @@ void readParamFile(const char* fName, MPI_Comm comm) {
         // fall back to JSON file reading
         readParamJSONFile(fName, comm);
     }
+
+    // do this last: it needs every prefix the par may have overridden
+    ensure_output_dirs(comm);
 }
 
 void readParamJSONFile(const char* fName, MPI_Comm comm) {
