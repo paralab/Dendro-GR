@@ -1393,6 +1393,14 @@ int BSSNCtx::restore_checkpt() {
 
     bssn::BSSN_RK45_TIME_STEP_SIZE = m_uiTinfo._m_uiTh;
 
+    if (bssn::BSSN_SCALE_VTU_AND_GW_EXTRACTION) {
+        // REMEMBER: the true max depth of the array is two minus m_uiMaxDepth
+        bssn::BSSN_IO_OUTPUT_FREQ_TRUE =
+            bssn::BSSN_IO_OUTPUT_FREQ >> (m_uiMaxDepth - 2 - lmax);
+        bssn::BSSN_GW_EXTRACT_FREQ_TRUE =
+            bssn::BSSN_GW_EXTRACT_FREQ >> (m_uiMaxDepth - 2 - lmax);
+    }
+
     // finally restore the aeh_chkpt_file
     if (!rank) {
         std::cout << "Now restoring AEH solver from checkpoint..." << std::endl;
