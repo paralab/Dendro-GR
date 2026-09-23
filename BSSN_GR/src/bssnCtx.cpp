@@ -1380,16 +1380,26 @@ int BSSNCtx::restore_checkpt() {
     unsigned int totalElems = 0;
     par::Mpi_Allreduce(&localSz, &totalElems, 1, MPI_SUM, comm);
 
-    // NOTE: this chunk is only needed to restore the minimum dx size that's
+    // NOTE: this chunk is only needed to restore the grid-derived values
     // needed in some computations. Since the initialization ends as soon as the
-    // restore is complete, it's important to recalculate this since it won't be
-    // called again until a remesh
+    // restore is complete, it's important to recalculate these since they won't
+    // be set again until a remesh
     unsigned int lmin, lmax;
     m_uiMesh->computeMinMaxLevel(lmin, lmax);
     bssn::BSSN_CURRENT_MIN_DX =
         ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
          ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
          ((double)(1u << (m_uiMaxDepth))));
+
+    bssn::BSSN_RK45_TIME_STEP_SIZE = m_uiTinfo._m_uiTh;
+
+    if (bssn::BSSN_SCALE_VTU_AND_GW_EXTRACTION) {
+        // REMEMBER: the true max depth of the array is two minus m_uiMaxDepth
+        bssn::BSSN_IO_OUTPUT_FREQ_TRUE =
+            bssn::BSSN_IO_OUTPUT_FREQ >> (m_uiMaxDepth - 2 - lmax);
+        bssn::BSSN_GW_EXTRACT_FREQ_TRUE =
+            bssn::BSSN_GW_EXTRACT_FREQ >> (m_uiMaxDepth - 2 - lmax);
+    }
 
     // finally restore the aeh_chkpt_file
     if (!rank) {
@@ -1414,7 +1424,7 @@ int BSSNCtx::restore_checkpt() {
                   << " | restored mesh size: " << totalElems << std::endl
                   << std::endl;
         std::cout << " restored mesh min dx: " << bssn::BSSN_CURRENT_MIN_DX
-                  << std::endl;
+                  << " | dt: " << bssn::BSSN_RK45_TIME_STEP_SIZE << std::endl;
         std::cout << GRN << "---------------------------------------" << NRM
                   << std::endl;
     }
