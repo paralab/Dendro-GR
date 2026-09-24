@@ -1752,13 +1752,16 @@ void BSSNCtx::evolve_bh_loc() {
     const double dt = m_uiTinfo._m_uiT - m_uiBHTimeHistory.back();
     DVec sIn        = this->get_evolution_vars();
 
-    // m_uiMesh->readFromGhostBegin(sIn.GetVecArray()+ VAR::U_BETA0 *
-    // m_uiMesh->getDegOfFreedom(),3);
-    // m_uiMesh->readFromGhostEnd(sIn.GetVecArray()  + VAR::U_BETA0 *
-    // m_uiMesh->getDegOfFreedom(),3);
     Point bhLoc[2];
     DendroScalar* evar[bssn::BSSN_NUM_VARS];
     sIn.to_2d(evar);
+
+    // interpolateToCoords reads ghosts, which the RK update never writes.
+    if (m_uiMesh->isActive()) {
+        m_uiMesh->readFromGhostBegin(evar[VAR::U_BETA0], 3);
+        m_uiMesh->readFromGhostEnd(evar[VAR::U_BETA0], 3);
+    }
+
     bssn::computeBHLocations((const ot::Mesh*)m_uiMesh, m_uiBHLoc, bhLoc, evar,
                              dt);
     // if(!m_uiMesh->getMPIRankGlobal())
