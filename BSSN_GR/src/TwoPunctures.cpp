@@ -597,8 +597,13 @@ void TPRestore(CCTK_REAL *&F, derivs &u, derivs &v, derivs &cf_v,
 
     read_ptr     = fopen(fName, "rb");  // w for write, b for binary
     if (read_ptr == NULL) {
-        printf("tpid solver data read failed\n");
-        return;
+        // The caller uses F, u, v and cf_v unconditionally after this returns.
+        if (!rank)
+            printf(
+                "ERROR: could not open TPID solver data '%s'. Point "
+                "TPID_FILEPREFIX at a solved file.\n",
+                fName);
+        MPI_Abort(TP_MPI_COMM, 1);
     }
 
     MPI_Barrier(TP_MPI_COMM);
