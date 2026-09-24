@@ -523,13 +523,12 @@ int main(int argc, char** argv) {
 
                     // REMEMBER: true max depth of array = 2 - m_uiMaxDepth
                     if (bssn::BSSN_SCALE_VTU_AND_GW_EXTRACTION) {
-                        // bar null output frequencies
-                        bssn::BSSN_IO_OUTPUT_FREQ_TRUE =
-                            std::max(1u, bssn::BSSN_IO_OUTPUT_FREQ >>
-                                             (m_uiMaxDepth - 2 - lmax));
-                        bssn::BSSN_GW_EXTRACT_FREQ_TRUE =
-                            std::max(1u, bssn::BSSN_GW_EXTRACT_FREQ >>
-                                             (m_uiMaxDepth - 2 - lmax));
+                        const unsigned int levelShift =
+                            m_uiMaxDepth - 2 - lmax;
+                        bssn::BSSN_IO_OUTPUT_FREQ_TRUE = bssn::scaleOutputFreq(
+                            bssn::BSSN_IO_OUTPUT_FREQ, levelShift);
+                        bssn::BSSN_GW_EXTRACT_FREQ_TRUE = bssn::scaleOutputFreq(
+                            bssn::BSSN_GW_EXTRACT_FREQ, levelShift);
                         if (!rank_global)
                             std::cout << "    IO Output Freq updated to: "
                                       << bssn::BSSN_IO_OUTPUT_FREQ_TRUE
