@@ -506,10 +506,11 @@ int BSSNCtx::initialize() {
 
     if (bssn::BSSN_SCALE_VTU_AND_GW_EXTRACTION) {
         // REMEMBER: the true max depth of the array is two minus m_uiMaxDepth
+        const unsigned int levelShift = m_uiMaxDepth - 2 - lmax;
         bssn::BSSN_IO_OUTPUT_FREQ_TRUE =
-            bssn::BSSN_IO_OUTPUT_FREQ >> (m_uiMaxDepth - 2 - lmax);
+            bssn::scaleOutputFreq(bssn::BSSN_IO_OUTPUT_FREQ, levelShift);
         bssn::BSSN_GW_EXTRACT_FREQ_TRUE =
-            bssn::BSSN_GW_EXTRACT_FREQ >> (m_uiMaxDepth - 2 - lmax);
+            bssn::scaleOutputFreq(bssn::BSSN_GW_EXTRACT_FREQ, levelShift);
     }
 
     if (!m_uiMesh->getMPIRankGlobal()) {
@@ -1395,10 +1396,11 @@ int BSSNCtx::restore_checkpt() {
 
     if (bssn::BSSN_SCALE_VTU_AND_GW_EXTRACTION) {
         // REMEMBER: the true max depth of the array is two minus m_uiMaxDepth
+        const unsigned int levelShift = m_uiMaxDepth - 2 - lmax;
         bssn::BSSN_IO_OUTPUT_FREQ_TRUE =
-            bssn::BSSN_IO_OUTPUT_FREQ >> (m_uiMaxDepth - 2 - lmax);
+            bssn::scaleOutputFreq(bssn::BSSN_IO_OUTPUT_FREQ, levelShift);
         bssn::BSSN_GW_EXTRACT_FREQ_TRUE =
-            bssn::BSSN_GW_EXTRACT_FREQ >> (m_uiMaxDepth - 2 - lmax);
+            bssn::scaleOutputFreq(bssn::BSSN_GW_EXTRACT_FREQ, levelShift);
     }
 
     // finally restore the aeh_chkpt_file

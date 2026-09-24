@@ -10,6 +10,8 @@
 #pragma once
 #include <string.h>
 
+#include <algorithm>
+
 #include <iostream>
 #include <toml.hpp>
 
@@ -387,6 +389,12 @@ extern bool BSSN_SCALE_VTU_AND_GW_EXTRACTION;
 extern unsigned int BSSN_GW_EXTRACT_FREQ_TRUE;
 
 extern unsigned int BSSN_IO_OUTPUT_FREQ_TRUE;
+
+/**@brief level-scale an output cadence. 0 in, 0 out: a disabled frequency must
+ * survive the shift, and a live one must not be shifted away to look disabled. */
+inline unsigned int scaleOutputFreq(unsigned int freq, unsigned int levelShift) {
+    return (freq == 0) ? 0u : std::max(1u, freq >> levelShift);
+}
 
 extern double BSSN_SSL_SIGMA;
 extern double BSSN_SSL_H;
