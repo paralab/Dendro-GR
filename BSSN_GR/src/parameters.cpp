@@ -530,15 +530,22 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
 
         // calculated defaults (requires non-optional):
         {"BSSN_GW_EXTRACT_FREQ", bssn::BSSN_GW_EXTRACT_FREQ,
-         std::max(1u, bssn::BSSN_IO_OUTPUT_FREQ >> 1u)},
-        {"BSSN_TIME_STEP_OUTPUT_FREQ", bssn::BSSN_TIME_STEP_OUTPUT_FREQ,
-         bssn::BSSN_GW_EXTRACT_FREQ},
+         bssn::scaleOutputFreq(bssn::BSSN_IO_OUTPUT_FREQ, 1u)},
         {"BSSN_BH1_MAX_LEV", bssn::BSSN_BH1_MAX_LEV, bssn::BSSN_MAXDEPTH},
         {"BSSN_BH2_MAX_LEV", bssn::BSSN_BH2_MAX_LEV, bssn::BSSN_MAXDEPTH},
     };
 
     // then load the OPTIONAL parameters
     for (const auto& param : optionalParsList) {
+        set_param(parFile, param);
+    }
+
+    std::vector<ParameterInformation> chainedParsList = {
+        {"BSSN_TIME_STEP_OUTPUT_FREQ", bssn::BSSN_TIME_STEP_OUTPUT_FREQ,
+         bssn::BSSN_GW_EXTRACT_FREQ},
+    };
+
+    for (const auto& param : chainedParsList) {
         set_param(parFile, param);
     }
 
@@ -718,16 +725,6 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
     bssn::BSSN_BH1_MASS = BH1.getBHMass();
     bssn::BSSN_BH2_MASS = BH2.getBHMass();
 
-    // quick check to see if we're divsible
-    if (AEH::AEH_SOLVER_FREQ > 0) {
-        if ((bssn::BSSN_IO_OUTPUT_FREQ % AEH::AEH_SOLVER_FREQ != 0)) {
-            std::cerr << "Error[parameter file]: BSSN_IO_OUTPUT_FREQ ("
-                      << bssn::BSSN_IO_OUTPUT_FREQ << ") must be a multiple of "
-                      << "AEH_SOLVER_FREQ (" << AEH::AEH_SOLVER_FREQ << ")\n";
-            exit(EXIT_FAILURE);
-        }
-    }
-
     // if the parFile has the AEH "dictionary"
     if (parFile.contains("AEH_PARAMS")) {
         auto aeh_pars                                 = parFile["AEH_PARAMS"];
@@ -869,7 +866,7 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
         AEH::ETA_DAMP_M, AEH::KO_STRENGTH, AEH::MAX_SEARCH_RADIUS,
         AEH::NR_INTERP_MAX, AEH::NTHETA_MAX, AEH::NPHI_MAX, AEH::AEH_SAVE_DIR,
         simpleBHData, AEH::AEH_INDICES, transform, grid_limits, domain_limits,
-        bssn::BSSN_IO_OUTPUT_FREQ, AEH::NUM_RESOLUTIONS_AFTER_FIND,
+        AEH::AEH_SOLVER_FREQ, AEH::NUM_RESOLUTIONS_AFTER_FIND,
         AEH::NTHETA_ARRAY, AEH::NPHI_ARRAY, AEH::ENABLE_ETA_VARYING_ALG,
         AEH::VERBOSITY_LEVEL);
 
