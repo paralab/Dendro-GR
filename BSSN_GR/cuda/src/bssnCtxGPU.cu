@@ -478,7 +478,8 @@ int BSSNCtxGPU::write_vtu() {
 
 #ifdef BSSN_ENABLE_VTU_OUTPUT
 
-    if ((m_uiTinfo._m_uiStep % bssn::BSSN_IO_OUTPUT_FREQ) == 0) {
+    if (bssn::BSSN_IO_OUTPUT_FREQ > 0 &&
+        (m_uiTinfo._m_uiStep % bssn::BSSN_IO_OUTPUT_FREQ) == 0) {
         std::vector<std::string> pDataNames;
         const unsigned int numConstVars = bssn::BSSN_NUM_CONST_VARS_VTU_OUTPUT;
         const unsigned int numEvolVars  = bssn::BSSN_NUM_EVOL_VARS_VTU_OUTPUT;
