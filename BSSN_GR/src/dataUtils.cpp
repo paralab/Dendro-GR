@@ -178,8 +178,7 @@ std::vector<Point> calculate_relative_position_history(
         double y2 = bh_points.second.y();
         double z2 = bh_points.second.z();
 
-        // compute the relative angle for x and y
-        rp_history.push_back(Point(x1 - x2, y1 - y2, x1 - x2));
+        rp_history.push_back(Point(x1 - x2, y1 - y2, z1 - z2));
     }
 
     return rp_history;
