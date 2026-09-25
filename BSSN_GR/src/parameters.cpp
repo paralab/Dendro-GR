@@ -530,7 +530,7 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
 
         // calculated defaults (requires non-optional):
         {"BSSN_GW_EXTRACT_FREQ", bssn::BSSN_GW_EXTRACT_FREQ,
-         std::max(1u, bssn::BSSN_IO_OUTPUT_FREQ >> 1u)},
+         bssn::scaleOutputFreq(bssn::BSSN_IO_OUTPUT_FREQ, 1u)},
         {"BSSN_TIME_STEP_OUTPUT_FREQ", bssn::BSSN_TIME_STEP_OUTPUT_FREQ,
          bssn::BSSN_GW_EXTRACT_FREQ},
         {"BSSN_BH1_MAX_LEV", bssn::BSSN_BH1_MAX_LEV, bssn::BSSN_MAXDEPTH},

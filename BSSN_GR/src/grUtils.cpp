@@ -350,7 +350,7 @@ void readParamJSONFile(const char* fName, MPI_Comm comm) {
         bssn::BSSN_GW_EXTRACT_FREQ = parFile["BSSN_GW_EXTRACT_FREQ"];
     } else {
         bssn::BSSN_GW_EXTRACT_FREQ =
-            std::max(1u, bssn::BSSN_IO_OUTPUT_FREQ >> 1u);
+            bssn::scaleOutputFreq(bssn::BSSN_IO_OUTPUT_FREQ, 1u);
     }
 
     if (parFile.find("BSSN_TIME_STEP_OUTPUT_FREQ") != parFile.end()) {
