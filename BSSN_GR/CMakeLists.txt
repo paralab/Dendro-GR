@@ -56,16 +56,27 @@ if(BSSN_ENABLE_AVX)
 
 endif(BSSN_ENABLE_AVX)
 
-if(BSSN_USE_4TH_ORDER_DERIVS)
-  set(BSSN_USE_6TH_ORDER_DERIVS OFF)
-  set(BSSN_USE_8TH_ORDER_DERIVS OFF)
-elseif(BSSN_USE_6TH_ORDER_DERIVS)
-  set(BSSN_USE_4TH_ORDER_DERIVS OFF)
-  set(BSSN_USE_8TH_ORDER_DERIVS OFF)
-elseif(BSSN_USE_8TH_ORDER_DERIVS)
-  set(BSSN_USE_4TH_ORDER_DERIVS OFF)
+# 6th order is the default; an explicit 4th/8th turns it off.
+if(BSSN_USE_4TH_ORDER_DERIVS AND BSSN_USE_8TH_ORDER_DERIVS)
+  message(FATAL_ERROR "Enable exactly one BSSN derivative order.")
+endif()
+
+if(BSSN_USE_4TH_ORDER_DERIVS OR BSSN_USE_8TH_ORDER_DERIVS)
   set(BSSN_USE_6TH_ORDER_DERIVS OFF)
 endif()
+
+if(BSSN_USE_4TH_ORDER_DERIVS)
+  set(BSSN_DERIV_ORDER 4)
+elseif(BSSN_USE_6TH_ORDER_DERIVS)
+  set(BSSN_DERIV_ORDER 6)
+elseif(BSSN_USE_8TH_ORDER_DERIVS)
+  set(BSSN_DERIV_ORDER 8)
+else()
+  message(FATAL_ERROR "Enable exactly one BSSN derivative order.")
+endif()
+
+# element order is a runtime param (BSSN_ELE_ORDER), not checked here
+message(STATUS "BSSN derivative order: ${BSSN_DERIV_ORDER}")
 
 set(BSSN_SRC_FILES
   src/parameters.cpp
