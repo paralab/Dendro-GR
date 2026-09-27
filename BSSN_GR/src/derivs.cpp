@@ -114,6 +114,10 @@ void set_appropriate_derivs(const unsigned pw) {
         ko_deriv_z = ko_deriv42_z;
 
     } else if (pw == 4) {
+        std::cout << "NOTE: 6th order derivs at padding width 4 "
+                     "(BSSN_ELE_ORDER=8). Rebuild with "
+                     "-DBSSN_USE_8TH_ORDER_DERIVS=ON for 8th order stencils."
+                  << std::endl;
         deriv_x    = deriv644_x_pw4;
         deriv_y    = deriv644_y_pw4;
         deriv_z    = deriv644_z_pw4;
