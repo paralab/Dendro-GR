@@ -25,6 +25,18 @@ void (*ko_deriv_y)(double *const, const double *const, const double,
 void (*ko_deriv_z)(double *const, const double *const, const double,
                    const unsigned int *, unsigned);
 
+unsigned bssn_compiled_deriv_order() {
+#ifdef BSSN_USE_4TH_ORDER_DERIVS
+    return 4;
+#elif defined(BSSN_USE_6TH_ORDER_DERIVS)
+    return 6;
+#elif defined(BSSN_USE_8TH_ORDER_DERIVS)
+    return 8;
+#else
+    return 0;
+#endif
+}
+
 void set_appropriate_derivs(const unsigned pw) {
 #ifdef BSSN_USE_4TH_ORDER_DERIVS
 #pragma message("4th Order Derivatives are enabled!")

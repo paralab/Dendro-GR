@@ -38,6 +38,9 @@ extern void (*ko_deriv_z)(double *const, const double *const, const double,
 
 void set_appropriate_derivs(const unsigned pw);
 
+// derivative order this binary was compiled for, 0 if none was selected
+unsigned bssn_compiled_deriv_order();
+
 void deriv42_x_wrapper(double *const Dxu, const double *const u,
                        const double dx, const unsigned int *sz, unsigned bflag,
                        const unsigned pw);
