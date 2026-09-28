@@ -538,6 +538,12 @@ int BSSNCtx::initialize() {
 
     set_appropriate_derivs(bssn::BSSN_PADDING_WIDTH);
 
+    if (!rank_global)
+        std::cout << "Derivatives: compiled order "
+                  << bssn_compiled_deriv_order() << ", element order "
+                  << bssn::BSSN_ELE_ORDER << ", padding width "
+                  << bssn::BSSN_PADDING_WIDTH << std::endl;
+
     return 0;
 }
 
