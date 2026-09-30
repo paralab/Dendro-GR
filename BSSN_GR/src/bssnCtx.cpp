@@ -896,7 +896,16 @@ int BSSNCtx::write_checkpt() {
         write_checkpt_to_slot(3);
     }
 
-    return write_checkpt_to_slot(cpIndex);
+    const int ret = write_checkpt_to_slot(cpIndex);
+
+    // Publish the sentinel LAST, and only for the normal slot: a crash partway
+    // through a write leaves .latest still naming the previous complete
+    // checkpoint. Slot 3 is never published, so auto-detect keeps landing on
+    // the newest normal slot rather than the merger snapshot.
+    chkpt_publish_latest(bssn::BSSN_CHKPT_FILE_PREFIX, cpIndex,
+                         m_uiTinfo._m_uiStep, m_uiMesh->getMPIRank());
+
+    return ret;
 }
 
 int BSSNCtx::write_checkpt_to_slot(unsigned int cpIndex) {
@@ -1069,6 +1078,34 @@ int BSSNCtx::restore_checkpt() {
                 std::cout << GRN << "[BSSNCtx] : " << NRM
                           << "BSSN_RESTORE_CHECKPT_SLOT=" << slot
                           << ", skipping checkpoint auto-detect." << std::endl;
+        }
+    }
+
+    // The sentinel names the last checkpoint that finished writing, so it beats
+    // comparing step numbers (a torn write can leave a newer-looking but
+    // incomplete slot). Checkpoint sets written before the sentinel existed
+    // simply don't have one, and fall through to the step-comparison scan.
+    if (!slotDecided) {
+        unsigned int latestSlot  = 0;
+        unsigned int latestValid = 0;
+
+        if (!rank) {
+            latestValid =
+                (chkpt_read_latest(bssn::BSSN_CHKPT_FILE_PREFIX, latestSlot) &&
+                 chkpt_resolve_step(fName, sizeof(fName),
+                                    bssn::BSSN_CHKPT_FILE_PREFIX, latestSlot))
+                    ? 1
+                    : 0;
+        }
+        par::Mpi_Bcast(&latestValid, 1, 0, comm);
+        par::Mpi_Bcast(&latestSlot, 1, 0, comm);
+
+        if (latestValid) {
+            slotDecided      = true;
+            restoreFileIndex = latestSlot;
+            if (!rank)
+                std::cout << "[BSSNCtx] : sentinel names slot " << latestSlot
+                          << std::endl;
         }
     }
 

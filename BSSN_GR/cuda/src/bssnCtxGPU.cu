@@ -558,7 +558,14 @@ int BSSNCtxGPU::write_checkpt() {
         write_checkpt_to_slot(3);
     }
 
-    return write_checkpt_to_slot(cpIndex);
+    const int ret = write_checkpt_to_slot(cpIndex);
+
+    // published last, and never for slot 3, so it always names the newest
+    // COMPLETE normal checkpoint
+    chkpt_publish_latest(bssn::BSSN_CHKPT_FILE_PREFIX, cpIndex,
+                         m_uiTinfo._m_uiStep, m_uiMesh->getMPIRank());
+
+    return ret;
 }
 
 int BSSNCtxGPU::write_checkpt_to_slot(unsigned int cpIndex) {
@@ -683,6 +690,29 @@ int BSSNCtxGPU::restore_checkpt() {
         if (slotExists) {
             slotDecided      = true;
             restoreFileIndex = slot;
+        }
+    }
+
+    // sentinel beats step comparison; absent for pre-sentinel checkpoint sets,
+    // which fall through to the scan below
+    if (!slotDecided) {
+        unsigned int latestSlot  = 0;
+        unsigned int latestValid = 0;
+
+        if (!rank) {
+            latestValid =
+                (chkpt_read_latest(bssn::BSSN_CHKPT_FILE_PREFIX, latestSlot) &&
+                 chkpt_resolve_step(fName, sizeof(fName),
+                                    bssn::BSSN_CHKPT_FILE_PREFIX, latestSlot))
+                    ? 1
+                    : 0;
+        }
+        par::Mpi_Bcast(&latestValid, 1, 0, comm);
+        par::Mpi_Bcast(&latestSlot, 1, 0, comm);
+
+        if (latestValid) {
+            slotDecided      = true;
+            restoreFileIndex = latestSlot;
         }
     }
 

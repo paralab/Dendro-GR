@@ -177,6 +177,11 @@ inline void chkpt_fname_oct_legacy_gpu(char* out, size_t n,
     snprintf(out, n, "%s_octree_%u_%u.oct", prefix.c_str(), slot, rank);
 }
 
+/**@brief sentinel naming the newest fully-written normal slot. */
+inline void chkpt_fname_latest(char* out, size_t n, const std::string& prefix) {
+    snprintf(out, n, "%s.latest", prefix.c_str());
+}
+
 /**@brief resolve a slot's .cp, canonical spelling first then the legacy GPU
  * one. On failure `out` keeps the canonical name, for error messages. */
 inline bool chkpt_resolve_step(char* out, size_t n, const std::string& prefix,
@@ -210,6 +215,62 @@ inline bool chkpt_resolve_oct(char* out, size_t n, const std::string& prefix,
 
     chkpt_fname_oct(out, n, prefix, slot, rank);
     return false;
+}
+
+/**@brief bumped only when the on-disk layout changes incompatibly. */
+constexpr int BSSN_CHKPT_FORMAT_VERSION = 1;
+
+/**@brief publish the sentinel via .tmp + atomic rename, so it only ever names
+ * a checkpoint that finished writing. Rank 0 only; no-op on other ranks. */
+inline void chkpt_publish_latest(const std::string& prefix, unsigned int slot,
+                                 unsigned int step, unsigned int rank) {
+    if (rank) return;
+
+    char finalf[512];
+    char tmpf[512];
+    chkpt_fname_latest(finalf, sizeof(finalf), prefix);
+    snprintf(tmpf, sizeof(tmpf), "%s.latest.tmp", prefix.c_str());
+
+    json latest;
+    latest["format_version"] = BSSN_CHKPT_FORMAT_VERSION;
+    latest["slot"]           = slot;
+    latest["step"]           = step;
+
+    {
+        std::ofstream lf(tmpf);
+        if (!lf) return;  // sentinel is an optimization; restore falls back
+        lf << latest << std::endl;
+    }
+
+    std::error_code ec;
+    std::filesystem::rename(tmpf, finalf, ec);  // atomic publish
+}
+
+/**@brief read the sentinel's slot. Returns false when absent/unreadable/from a
+ * newer format, which sends restore back to the legacy 0/1 scan. */
+inline bool chkpt_read_latest(const std::string& prefix, unsigned int& slot) {
+    char fname[512];
+    chkpt_fname_latest(fname, sizeof(fname), prefix);
+    if (!std::filesystem::exists(fname)) return false;
+
+    std::ifstream lf(fname);
+    if (!lf) return false;
+
+    json latest;
+    try {
+        lf >> latest;
+    } catch (...) {
+        return false;
+    }
+
+    if (latest.value("format_version", -1) > BSSN_CHKPT_FORMAT_VERSION)
+        return false;
+
+    const int s = latest.value("slot", -1);
+    if (s < 0) return false;
+
+    slot = (unsigned int)s;
+    return true;
 }
 
 }  // namespace bssn
