@@ -1656,7 +1656,9 @@ int BSSNCtx::grid_transfer(const ot::Mesh* m_new) {
     ot::alloc_mpi_ctx<DendroScalar>(m_new, m_mpi_ctx, BSSN_NUM_VARS,
                                     BSSN_ASYNC_COMM_K);
 
-    m_uiIsETSSynced = false;
+    m_uiIsETSSynced        = false;
+    // the constraint vectors were just recreated empty on the new mesh
+    m_bConstraintsComputed = false;
 
 #ifdef __PROFILE_CTX__
     m_uiCtxpt[ts::CTXPROFILE::GRID_TRASFER].stop();
