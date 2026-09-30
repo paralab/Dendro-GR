@@ -636,6 +636,13 @@ int BSSNCtxGPU::write_checkpt_to_slot(unsigned int cpIndex) {
         json checkPoint;
         chkpt_write_meta(checkPoint, meta);
 
+        // same base91 BH history keys as the CPU checkpoint
+        auto [bh1_str, bh2_str, time_str] =
+            encode_bh_locs(m_uiBHLocHistory, m_uiBHTimeHistory);
+        checkPoint["DENDRO_BSSN_BH_LOC_T"]  = time_str;
+        checkPoint["DENDRO_BSSN_BH_LOC_B1"] = bh1_str;
+        checkPoint["DENDRO_BSSN_BH_LOC_B2"] = bh2_str;
+
         outfile << std::setw(4) << checkPoint << std::endl;
         outfile.close();
     }
@@ -798,6 +805,15 @@ int BSSNCtxGPU::restore_checkpt() {
 
             bssn::BSSN_MERGED_CHKPT_WRITTEN =
                 meta.hasMergedLatch ? meta.mergedChkptWritten : m_bIsBHMerged;
+
+            if (checkPoint.contains("DENDRO_BSSN_BH_LOC_T")) {
+                auto bh_decoded = decode_bh_locs(
+                    checkPoint["DENDRO_BSSN_BH_LOC_B1"].get<std::string>(),
+                    checkPoint["DENDRO_BSSN_BH_LOC_B2"].get<std::string>(),
+                    checkPoint["DENDRO_BSSN_BH_LOC_T"].get<std::string>());
+                m_uiBHLocHistory  = std::get<0>(bh_decoded);
+                m_uiBHTimeHistory = std::get<1>(bh_decoded);
+            }
         }
     }
 
@@ -818,6 +834,23 @@ int BSSNCtxGPU::restore_checkpt() {
         if (rank) {
             m_bIsBHMerged = (isMerged != 0);
             set_bh_merge_time(mergeTime, mergeStep);
+        }
+
+        // every rank evaluates isRemeshBH and evolve_bh_loc from the history
+        std::string blobs[3];
+        if (!rank)
+            std::tie(blobs[0], blobs[1], blobs[2]) =
+                encode_bh_locs(m_uiBHLocHistory, m_uiBHTimeHistory);
+        for (auto& blob : blobs) {
+            unsigned int blobLen = (unsigned int)blob.size();
+            par::Mpi_Bcast(&blobLen, 1, 0, comm);
+            blob.resize(blobLen);
+            if (blobLen) MPI_Bcast(&blob[0], (int)blobLen, MPI_CHAR, 0, comm);
+        }
+        if (rank) {
+            auto bh_decoded   = decode_bh_locs(blobs[0], blobs[1], blobs[2]);
+            m_uiBHLocHistory  = std::get<0>(bh_decoded);
+            m_uiBHTimeHistory = std::get<1>(bh_decoded);
         }
     }
 
