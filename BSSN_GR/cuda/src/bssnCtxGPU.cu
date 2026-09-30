@@ -618,6 +618,10 @@ int BSSNCtxGPU::write_checkpt() {
         checkPoint["DENDRO_BH2_Y"] = m_uiBHLoc[1].y();
         checkPoint["DENDRO_BH2_Z"] = m_uiBHLoc[1].z();
 
+        // must round-trip, or a post-merger restart re-writes slot 3
+        checkPoint["DENDRO_BSSN_MERGED_CHKPT_WRITTEN"] =
+            bssn::BSSN_MERGED_CHKPT_WRITTEN;
+
         outfile << std::setw(4) << checkPoint << std::endl;
         outfile.close();
     }
@@ -736,8 +740,23 @@ int BSSNCtxGPU::restore_checkpt() {
             m_uiBHLoc[1] = Point((double)checkPoint["DENDRO_BH2_X"],
                                  (double)checkPoint["DENDRO_BH2_Y"],
                                  (double)checkPoint["DENDRO_BH2_Z"]);
+
+            if (checkPoint.find("DENDRO_BSSN_MERGED_CHKPT_WRITTEN") !=
+                checkPoint.end()) {
+                bssn::BSSN_MERGED_CHKPT_WRITTEN =
+                    checkPoint["DENDRO_BSSN_MERGED_CHKPT_WRITTEN"];
+            }
+
             restoreStep[restoreFileIndex] = m_uiTinfo._m_uiStep;
         }
+    }
+
+    // parsed on rank 0 only here, so publish the latch to every rank
+    {
+        unsigned int mergedLatch =
+            (unsigned int)bssn::BSSN_MERGED_CHKPT_WRITTEN;
+        par::Mpi_Bcast(&mergedLatch, 1, 0, comm);
+        bssn::BSSN_MERGED_CHKPT_WRITTEN = (mergedLatch != 0);
     }
 
     par::Mpi_Allreduce(&restoreStatus, &restoreStatusGlobal, 1, MPI_MAX, comm);

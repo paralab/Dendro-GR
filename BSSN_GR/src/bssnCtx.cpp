@@ -965,6 +965,10 @@ int BSSNCtx::write_checkpt() {
         checkPoint["DENDRO_BSSN_BH_MERGE_TIME"] = m_dMergeTime;
         checkPoint["DENDRO_BSSN_BH_MERGE_STEP"] = m_uiMergeStep;
 
+        // must round-trip, or a post-merger restart re-writes slot 3
+        checkPoint["DENDRO_BSSN_MERGED_CHKPT_WRITTEN"] =
+            bssn::BSSN_MERGED_CHKPT_WRITTEN;
+
         // then also the BH time history
         checkPoint["DENDRO_BSSN_BH_LOC_TIMES"]  = m_uiBHTimeHistory;
         // then the X, Y, Z points for the BSSN BH locations
@@ -1216,6 +1220,16 @@ int BSSNCtx::restore_checkpt() {
 
                 // make sure they're set internally and externally
                 set_bh_merge_time(mergeTime, mergeStep);
+            }
+
+            // Older checkpoints predate this key; BH_MERGE latches on the same
+            // 0.1 separation test, so it is an exact stand-in.
+            if (checkPoint.find("DENDRO_BSSN_MERGED_CHKPT_WRITTEN") !=
+                checkPoint.end()) {
+                bssn::BSSN_MERGED_CHKPT_WRITTEN =
+                    checkPoint["DENDRO_BSSN_MERGED_CHKPT_WRITTEN"];
+            } else {
+                bssn::BSSN_MERGED_CHKPT_WRITTEN = m_bIsBHMerged;
             }
 
             if (checkPoint.find("DENDRO_BSSN_BH_LOC_TIMES") !=
