@@ -189,6 +189,8 @@ void readParamJSONFile(const char* fName, MPI_Comm comm) {
         parFile["BSSN_PROFILE_FILE_PREFIX"].get<std::string>();
     bssn::BSSN_RESTORE_SOLVER = parFile["BSSN_RESTORE_SOLVER"];
     bssn::BSSN_ID_TYPE        = parFile["BSSN_ID_TYPE"];
+    if (parFile.find("BSSN_RESTORE_CHECKPT_SLOT") != parFile.end())
+        bssn::BSSN_RESTORE_CHECKPT_SLOT = parFile["BSSN_RESTORE_CHECKPT_SLOT"];
 
     bssn::BSSN_ENABLE_BLOCK_ADAPTIVITY =
         parFile["BSSN_ENABLE_BLOCK_ADAPTIVITY"];

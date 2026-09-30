@@ -66,6 +66,7 @@ unsigned int BSSN_RK_TYPE;
 
 unsigned int BSSN_CHECKPT_FREQ            = 10;
 unsigned int BSSN_RESTORE_SOLVER          = 0;
+int BSSN_RESTORE_CHECKPT_SLOT             = -1;
 unsigned int BSSN_ENABLE_BLOCK_ADAPTIVITY = 0;
 
 double BSSN_ETA_R0                        = 1.31;
@@ -528,6 +529,9 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
         {"DENDRO_LOG_FORCE_FILE_FLUSH", bssn::DENDRO_LOG_FORCE_FILE_FLUSH,
          UseInitialValue},
 
+        {"BSSN_RESTORE_CHECKPT_SLOT", bssn::BSSN_RESTORE_CHECKPT_SLOT,
+         UseInitialValue},
+
         // calculated defaults (requires non-optional):
         {"BSSN_GW_EXTRACT_FREQ", bssn::BSSN_GW_EXTRACT_FREQ,
          bssn::scaleOutputFreq(bssn::BSSN_IO_OUTPUT_FREQ, 1u)},
@@ -977,6 +981,7 @@ void writeParamTOMLFile(const char* fName, MPI_Comm comm) {
             {"BSSN_CHKPT_FILE_PREFIX", bssn::BSSN_CHKPT_FILE_PREFIX},
             {"BSSN_PROFILE_FILE_PREFIX", bssn::BSSN_PROFILE_FILE_PREFIX},
             {"BSSN_RESTORE_SOLVER", bssn::BSSN_RESTORE_SOLVER},
+            {"BSSN_RESTORE_CHECKPT_SLOT", bssn::BSSN_RESTORE_CHECKPT_SLOT},
             {"BSSN_ID_TYPE", bssn::BSSN_ID_TYPE},
             {"BSSN_ENABLE_BLOCK_ADAPTIVITY",
              bssn::BSSN_ENABLE_BLOCK_ADAPTIVITY},

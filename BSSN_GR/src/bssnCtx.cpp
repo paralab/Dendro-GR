@@ -1045,7 +1045,38 @@ int BSSNCtx::restore_checkpt() {
 
     unsigned int restoreFileIndex = 0;
 
-    for (unsigned int cpIndex = 0; cpIndex < 2; cpIndex++) {
+    // Explicit slot skips the scan below, which only ever looks at 0/1 -- slot
+    // 3 is otherwise unreachable. Missing slot falls back, never aborts.
+    bool slotDecided              = false;
+    if (bssn::BSSN_RESTORE_CHECKPT_SLOT >= 0) {
+        const unsigned int slot = (unsigned int)bssn::BSSN_RESTORE_CHECKPT_SLOT;
+        unsigned int slotExists = 0;
+
+        if (!rank) {
+            sprintf(fName, "%s_%d_step.cp",
+                    bssn::BSSN_CHKPT_FILE_PREFIX.c_str(), slot);
+            slotExists = std::filesystem::exists(fName) ? 1 : 0;
+            if (!slotExists) {
+                std::cout << YLW << "WARNING: " << NRM
+                          << "BSSN_RESTORE_CHECKPT_SLOT=" << slot
+                          << " requested but " << fName
+                          << " does not exist; falling back to auto-detect."
+                          << std::endl;
+            }
+        }
+        par::Mpi_Bcast(&slotExists, 1, 0, comm);
+
+        if (slotExists) {
+            slotDecided      = true;
+            restoreFileIndex = slot;
+            if (!rank)
+                std::cout << GRN << "[BSSNCtx] : " << NRM
+                          << "BSSN_RESTORE_CHECKPT_SLOT=" << slot
+                          << ", skipping checkpoint auto-detect." << std::endl;
+        }
+    }
+
+    for (unsigned int cpIndex = 0; !slotDecided && cpIndex < 2; cpIndex++) {
         restoreStatus = 0;
 
         if (!rank) {
@@ -1070,97 +1101,27 @@ int BSSNCtx::restore_checkpt() {
 
             if (restoreStatus == 0) {
                 infile >> checkPoint;
-                m_uiTinfo._m_uiTb   = checkPoint["DENDRO_TS_TIME_BEGIN"];
-                m_uiTinfo._m_uiTe   = checkPoint["DENDRO_TS_TIME_END"];
-                m_uiTinfo._m_uiT    = checkPoint["DENDRO_TS_TIME_CURRENT"];
-                m_uiTinfo._m_uiStep = checkPoint["DENDRO_TS_STEP_CURRENT"];
-                m_uiTinfo._m_uiTh   = checkPoint["DENDRO_TS_TIME_STEP_SIZE"];
-                m_uiElementOrder    = checkPoint["DENDRO_TS_ELEMENT_ORDER"];
-
-                bssn::BSSN_WAVELET_TOL =
-                    checkPoint["DENDRO_TS_WAVELET_TOLERANCE"];
-                bssn::BSSN_LOAD_IMB_TOL =
-                    checkPoint["DENDRO_TS_LOAD_IMB_TOLERANCE"];
-
-                numVars      = checkPoint["DENDRO_TS_NUM_VARS"];
-                activeCommSz = checkPoint["DENDRO_TS_ACTIVE_COMM_SZ"];
-
-                m_uiBHLoc[0] = Point((double)checkPoint["DENDRO_BH1_X"],
-                                     (double)checkPoint["DENDRO_BH1_Y"],
-                                     (double)checkPoint["DENDRO_BH1_Z"]);
-                m_uiBHLoc[1] = Point((double)checkPoint["DENDRO_BH2_X"],
-                                     (double)checkPoint["DENDRO_BH2_Y"],
-                                     (double)checkPoint["DENDRO_BH2_Z"]);
-
-                // if this key is in, then all three keys should be
-                if (checkPoint.find("DENDRO_BSSN_BH_MERGE") !=
-                    checkPoint.end()) {
-                    // restore bh merge and merge time information
-                    m_bIsBHMerged    = checkPoint["DENDRO_BSSN_BH_MERGE"];
-                    double mergeTime = checkPoint["DENDRO_BSSN_BH_MERGE_TIME"];
-                    unsigned int mergeStep =
-                        checkPoint["DENDRO_BSSN_BH_MERGE_STEP"];
-
-                    // make sure they're set internally and externally
-                    set_bh_merge_time(mergeTime, mergeStep);
-                }
-
-                // OLD: DEPRECIATED
-                if (checkPoint.find("DENDRO_BSSN_BH_LOC_TIMES") !=
-                    checkPoint.end()) {
-                    // restore bh location data
-
-                    // clear bhLocHistory vector to start fresh
-                    m_uiBHLocHistory.clear();
-
-                    for (const auto& pair_json :
-                         checkPoint["DENDRO_BSSN_BH_LOC_HISTORY"]) {
-                        Point bh1pt =
-                            Point(pair_json["bh1"]["x"].get<double>(),
-                                  pair_json["bh1"]["y"].get<double>(),
-                                  pair_json["bh1"]["z"].get<double>());
-                        Point bh2pt =
-                            Point(pair_json["bh2"]["x"].get<double>(),
-                                  pair_json["bh2"]["y"].get<double>(),
-                                  pair_json["bh2"]["z"].get<double>());
-
-                        m_uiBHLocHistory.emplace_back(bh1pt, bh2pt);
-                    }
-
-                    // then restore the times the bh's were output
-                    m_uiBHTimeHistory = checkPoint["DENDRO_BSSN_BH_LOC_TIMES"]
-                                            .get<std::vector<double>>();
-                }
-
-                if (checkPoint.find("DENDRO_BSSN_BH_LOC_T") !=
-                    checkPoint.end()) {
-                    auto bh_decoded = decode_bh_locs(
-                        checkPoint["DENDRO_BSSN_BH_LOC_B1"].get<std::string>(),
-                        checkPoint["DENDRO_BSSN_BH_LOC_B2"].get<std::string>(),
-                        checkPoint["DENDRO_BSSN_BH_LOC_T"].get<std::string>());
-
-                    m_uiBHLocHistory.clear();
-
-                    m_uiBHLocHistory  = std::get<0>(bh_decoded);
-                    m_uiBHTimeHistory = std::get<1>(bh_decoded);
-                }
-
-                restoreStep[cpIndex] = m_uiTinfo._m_uiStep;
+                // only the step is needed to pick a slot; the true restore
+                // below reads everything for the winning slot
+                restoreStep[cpIndex] = checkPoint["DENDRO_TS_STEP_CURRENT"];
             }
         }
     }
 
-    if (!rank) {
-        if (restoreStep[0] < restoreStep[1])
-            restoreFileIndex = 1;
-        else
-            restoreFileIndex = 0;
+    // must stay guarded, or an overridden slot is reset to 0 and broadcast
+    if (!slotDecided) {
+        if (!rank) {
+            if (restoreStep[0] < restoreStep[1])
+                restoreFileIndex = 1;
+            else
+                restoreFileIndex = 0;
+        }
+
+        dendro::logger::debug("Restore file index determined to be: {}",
+                              restoreFileIndex);
+
+        par::Mpi_Bcast(&restoreFileIndex, 1, 0, comm);
     }
-
-    dendro::logger::debug("Restore file index determined to be: {}",
-                          restoreFileIndex);
-
-    par::Mpi_Bcast(&restoreFileIndex, 1, 0, comm);
 
     restoreStatus = 0;
     octree.clear();
@@ -1275,8 +1236,6 @@ int BSSNCtx::restore_checkpt() {
                 m_uiBHLocHistory  = std::get<0>(bh_decoded);
                 m_uiBHTimeHistory = std::get<1>(bh_decoded);
             }
-
-            restoreStep[restoreFileIndex] = m_uiTinfo._m_uiStep;
         }
     }
 

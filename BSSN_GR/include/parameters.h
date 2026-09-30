@@ -123,6 +123,12 @@ extern unsigned int BSSN_CHECKPT_FREQ;
 /**@brief restore the solver from check point if set to 1. */
 extern unsigned int BSSN_RESTORE_SOLVER;
 
+/**@brief restore from this checkpoint slot instead of auto-detecting. -1 picks
+ * the newer of slots 0/1; slot 3 is the post-merger snapshot, which the
+ * auto-detect never considers. Falls back to auto-detect if the slot is
+ * missing. */
+extern int BSSN_RESTORE_CHECKPT_SLOT;
+
 /**@brief use the block adaptivity and disable the AMR*/
 extern unsigned int BSSN_ENABLE_BLOCK_ADAPTIVITY;
 

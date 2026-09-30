@@ -7,6 +7,8 @@
  * @copyright Copyright (c) 2022
  *
  */
+#include <filesystem>
+
 #include "bssnCtxGPU.cuh"
 // CONST_MEM DEVICE_REAL device::refel_1d[2 * REFEL_CONST_MEM_MAX];
 
@@ -660,7 +662,31 @@ int BSSNCtxGPU::restore_checkpt() {
 
     unsigned int restoreFileIndex = 0;
 
-    for (unsigned int cpIndex = 0; cpIndex < 2; cpIndex++) {
+    // explicit slot skips the 0/1 scan; slot 3 is otherwise unreachable
+    bool slotDecided              = false;
+    if (bssn::BSSN_RESTORE_CHECKPT_SLOT >= 0) {
+        const unsigned int slot = (unsigned int)bssn::BSSN_RESTORE_CHECKPT_SLOT;
+        unsigned int slotExists = 0;
+
+        if (!rank) {
+            sprintf(fName, "%s_step_%d.cp",
+                    bssn::BSSN_CHKPT_FILE_PREFIX.c_str(), slot);
+            slotExists = std::filesystem::exists(fName) ? 1 : 0;
+            if (!slotExists)
+                std::cout << "BSSN_RESTORE_CHECKPT_SLOT=" << slot
+                          << " requested but " << fName
+                          << " does not exist; falling back to auto-detect."
+                          << std::endl;
+        }
+        par::Mpi_Bcast(&slotExists, 1, 0, comm);
+
+        if (slotExists) {
+            slotDecided      = true;
+            restoreFileIndex = slot;
+        }
+    }
+
+    for (unsigned int cpIndex = 0; !slotDecided && cpIndex < 2; cpIndex++) {
         restoreStatus = 0;
 
         if (!rank) {
@@ -674,40 +700,24 @@ int BSSNCtxGPU::restore_checkpt() {
 
             if (restoreStatus == 0) {
                 infile >> checkPoint;
-                m_uiTinfo._m_uiTb   = checkPoint["DENDRO_TS_TIME_BEGIN"];
-                m_uiTinfo._m_uiTe   = checkPoint["DENDRO_TS_TIME_END"];
-                m_uiTinfo._m_uiT    = checkPoint["DENDRO_TS_TIME_CURRENT"];
-                m_uiTinfo._m_uiStep = checkPoint["DENDRO_TS_STEP_CURRENT"];
-                m_uiTinfo._m_uiTh   = checkPoint["DENDRO_TS_TIME_STEP_SIZE"];
-                m_uiElementOrder    = checkPoint["DENDRO_TS_ELEMENT_ORDER"];
-
-                bssn::BSSN_WAVELET_TOL =
-                    checkPoint["DENDRO_TS_WAVELET_TOLERANCE"];
-                bssn::BSSN_LOAD_IMB_TOL =
-                    checkPoint["DENDRO_TS_LOAD_IMB_TOLERANCE"];
-
-                numVars              = checkPoint["DENDRO_TS_NUM_VARS"];
-                activeCommSz         = checkPoint["DENDRO_TS_ACTIVE_COMM_SZ"];
-
-                m_uiBHLoc[0]         = Point((double)checkPoint["DENDRO_BH1_X"],
-                                             (double)checkPoint["DENDRO_BH1_Y"],
-                                             (double)checkPoint["DENDRO_BH1_Z"]);
-                m_uiBHLoc[1]         = Point((double)checkPoint["DENDRO_BH2_X"],
-                                             (double)checkPoint["DENDRO_BH2_Y"],
-                                             (double)checkPoint["DENDRO_BH2_Z"]);
-                restoreStep[cpIndex] = m_uiTinfo._m_uiStep;
+                // only the step is needed to pick a slot; the true restore
+                // below reads everything for the winning slot
+                restoreStep[cpIndex] = checkPoint["DENDRO_TS_STEP_CURRENT"];
             }
         }
     }
 
-    if (!rank) {
-        if (restoreStep[0] < restoreStep[1])
-            restoreFileIndex = 1;
-        else
-            restoreFileIndex = 0;
-    }
+    // must stay guarded, or an overridden slot is reset to 0 and broadcast
+    if (!slotDecided) {
+        if (!rank) {
+            if (restoreStep[0] < restoreStep[1])
+                restoreFileIndex = 1;
+            else
+                restoreFileIndex = 0;
+        }
 
-    par::Mpi_Bcast(&restoreFileIndex, 1, 0, comm);
+        par::Mpi_Bcast(&restoreFileIndex, 1, 0, comm);
+    }
 
     restoreStatus = 0;
     octree.clear();
@@ -752,8 +762,6 @@ int BSSNCtxGPU::restore_checkpt() {
                 bssn::BSSN_MERGED_CHKPT_WRITTEN =
                     checkPoint["DENDRO_BSSN_MERGED_CHKPT_WRITTEN"];
             }
-
-            restoreStep[restoreFileIndex] = m_uiTinfo._m_uiStep;
         }
     }
 
