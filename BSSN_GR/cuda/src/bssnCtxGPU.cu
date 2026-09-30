@@ -9,6 +9,7 @@
  */
 #include <filesystem>
 
+#include "bssnChkptSchema.h"
 #include "bssnCtxGPU.cuh"
 // CONST_MEM DEVICE_REAL device::refel_1d[2 * REFEL_CONST_MEM_MAX];
 
@@ -571,8 +572,8 @@ int BSSNCtxGPU::write_checkpt_to_slot(unsigned int cpIndex) {
     char fName[256];
     const ot::TreeNode* pNodes = &(*(m_uiMesh->getAllElements().begin() +
                                      m_uiMesh->getElementLocalBegin()));
-    sprintf(fName, "%s_octree_%d_%d.oct", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
-            cpIndex, rank);
+    chkpt_fname_oct(fName, sizeof(fName), bssn::BSSN_CHKPT_FILE_PREFIX, cpIndex,
+                    rank);
     io::checkpoint::writeOctToFile(fName, pNodes,
                                    m_uiMesh->getNumLocalMeshElements());
 
@@ -585,14 +586,14 @@ int BSSNCtxGPU::write_checkpt_to_slot(unsigned int cpIndex) {
         io::checkpoint::writeVecToFile(fName,m_uiMesh,m_uiPrevVar[i]);
     }*/
 
-    sprintf(fName, "%s_%d_%d.var", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
-            cpIndex, rank);
+    chkpt_fname_var(fName, sizeof(fName), bssn::BSSN_CHKPT_FILE_PREFIX, cpIndex,
+                    rank);
     io::checkpoint::writeVecToFile(fName, m_uiMesh, (const double**)eVar,
                                    bssn::BSSN_NUM_VARS);
 
     if (!rank) {
-        sprintf(fName, "%s_step_%d.cp", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
-                cpIndex);
+        chkpt_fname_step(fName, sizeof(fName), bssn::BSSN_CHKPT_FILE_PREFIX,
+                         cpIndex);
         std::cout << "[BSSNCtx] \t writing checkpoint file : " << fName
                   << std::endl;
         std::ofstream outfile(fName);
@@ -601,34 +602,32 @@ int BSSNCtxGPU::write_checkpt_to_slot(unsigned int cpIndex) {
             return 0;
         }
 
-        json checkPoint;
-        checkPoint["DENDRO_TS_TIME_BEGIN"]         = m_uiTinfo._m_uiTb;
-        checkPoint["DENDRO_TS_TIME_END"]           = m_uiTinfo._m_uiTe;
-        checkPoint["DENDRO_TS_ELEMENT_ORDER"]      = m_uiElementOrder;
-
-        checkPoint["DENDRO_TS_TIME_CURRENT"]       = m_uiTinfo._m_uiT;
-        checkPoint["DENDRO_TS_STEP_CURRENT"]       = m_uiTinfo._m_uiStep;
-        checkPoint["DENDRO_TS_TIME_STEP_SIZE"]     = m_uiTinfo._m_uiTh;
-        checkPoint["DENDRO_TS_LAST_IO_TIME"]       = m_uiTinfo._m_uiT;
-
-        checkPoint["DENDRO_TS_WAVELET_TOLERANCE"]  = bssn::BSSN_WAVELET_TOL;
-        checkPoint["DENDRO_TS_LOAD_IMB_TOLERANCE"] = bssn::BSSN_LOAD_IMB_TOL;
-        checkPoint["DENDRO_TS_NUM_VARS"] =
-            numVars;  // number of variables to restore.
-        checkPoint["DENDRO_TS_ACTIVE_COMM_SZ"] =
-            m_uiMesh->getMPICommSize();  // (note that rank 0 is always active).
-
-        checkPoint["DENDRO_BH1_X"] = m_uiBHLoc[0].x();
-        checkPoint["DENDRO_BH1_Y"] = m_uiBHLoc[0].y();
-        checkPoint["DENDRO_BH1_Z"] = m_uiBHLoc[0].z();
-
-        checkPoint["DENDRO_BH2_X"] = m_uiBHLoc[1].x();
-        checkPoint["DENDRO_BH2_Y"] = m_uiBHLoc[1].y();
-        checkPoint["DENDRO_BH2_Z"] = m_uiBHLoc[1].z();
-
+        // field list lives in bssnChkptSchema.h -- add new fields there
+        ChkptMeta meta;
+        meta.tb                 = m_uiTinfo._m_uiTb;
+        meta.te                 = m_uiTinfo._m_uiTe;
+        meta.t                  = m_uiTinfo._m_uiT;
+        meta.th                 = m_uiTinfo._m_uiTh;
+        meta.step               = m_uiTinfo._m_uiStep;
+        meta.elementOrder       = m_uiElementOrder;
+        meta.waveletTol         = bssn::BSSN_WAVELET_TOL;
+        meta.loadImbTol         = bssn::BSSN_LOAD_IMB_TOL;
+        meta.numVars            = numVars;
+        meta.activeCommSz       = m_uiMesh->getMPICommSize();
+        meta.bh1[0]             = m_uiBHLoc[0].x();
+        meta.bh1[1]             = m_uiBHLoc[0].y();
+        meta.bh1[2]             = m_uiBHLoc[0].z();
+        meta.bh2[0]             = m_uiBHLoc[1].x();
+        meta.bh2[1]             = m_uiBHLoc[1].y();
+        meta.bh2[2]             = m_uiBHLoc[1].z();
+        meta.bhMerged           = m_bIsBHMerged;
+        meta.mergeTime          = m_dMergeTime;
+        meta.mergeStep          = m_uiMergeStep;
         // must round-trip, or a post-merger restart re-writes slot 3
-        checkPoint["DENDRO_BSSN_MERGED_CHKPT_WRITTEN"] =
-            bssn::BSSN_MERGED_CHKPT_WRITTEN;
+        meta.mergedChkptWritten = bssn::BSSN_MERGED_CHKPT_WRITTEN;
+
+        json checkPoint;
+        chkpt_write_meta(checkPoint, meta);
 
         outfile << std::setw(4) << checkPoint << std::endl;
         outfile.close();
@@ -669,9 +668,10 @@ int BSSNCtxGPU::restore_checkpt() {
         unsigned int slotExists = 0;
 
         if (!rank) {
-            sprintf(fName, "%s_step_%d.cp",
-                    bssn::BSSN_CHKPT_FILE_PREFIX.c_str(), slot);
-            slotExists = std::filesystem::exists(fName) ? 1 : 0;
+            slotExists = chkpt_resolve_step(fName, sizeof(fName),
+                                            bssn::BSSN_CHKPT_FILE_PREFIX, slot)
+                             ? 1
+                             : 0;
             if (!slotExists)
                 std::cout << "BSSN_RESTORE_CHECKPT_SLOT=" << slot
                           << " requested but " << fName
@@ -690,8 +690,8 @@ int BSSNCtxGPU::restore_checkpt() {
         restoreStatus = 0;
 
         if (!rank) {
-            sprintf(fName, "%s_step_%d.cp",
-                    bssn::BSSN_CHKPT_FILE_PREFIX.c_str(), cpIndex);
+            chkpt_resolve_step(fName, sizeof(fName),
+                               bssn::BSSN_CHKPT_FILE_PREFIX, cpIndex);
             std::ifstream infile(fName);
             if (!infile) {
                 std::cout << fName << " file open failed " << std::endl;
@@ -726,8 +726,8 @@ int BSSNCtxGPU::restore_checkpt() {
                   << restoreFileIndex << std::endl;
 
     if (!rank) {
-        sprintf(fName, "%s_step_%d.cp", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
-                restoreFileIndex);
+        chkpt_resolve_step(fName, sizeof(fName), bssn::BSSN_CHKPT_FILE_PREFIX,
+                           restoreFileIndex);
         std::ifstream infile(fName);
         if (!infile) {
             std::cout << fName << " file open failed " << std::endl;
@@ -736,41 +736,59 @@ int BSSNCtxGPU::restore_checkpt() {
 
         if (restoreStatus == 0) {
             infile >> checkPoint;
-            m_uiTinfo._m_uiTb      = checkPoint["DENDRO_TS_TIME_BEGIN"];
-            m_uiTinfo._m_uiTe      = checkPoint["DENDRO_TS_TIME_END"];
-            m_uiTinfo._m_uiT       = checkPoint["DENDRO_TS_TIME_CURRENT"];
-            m_uiTinfo._m_uiStep    = checkPoint["DENDRO_TS_STEP_CURRENT"];
-            m_uiTinfo._m_uiTh      = checkPoint["DENDRO_TS_TIME_STEP_SIZE"];
-            m_uiElementOrder       = checkPoint["DENDRO_TS_ELEMENT_ORDER"];
 
-            bssn::BSSN_WAVELET_TOL = checkPoint["DENDRO_TS_WAVELET_TOLERANCE"];
-            bssn::BSSN_LOAD_IMB_TOL =
-                checkPoint["DENDRO_TS_LOAD_IMB_TOLERANCE"];
+            // seed with current state so absent optional keys are no-ops
+            ChkptMeta meta;
+            meta.bhMerged           = m_bIsBHMerged;
+            meta.mergeTime          = m_dMergeTime;
+            meta.mergeStep          = m_uiMergeStep;
+            meta.mergedChkptWritten = bssn::BSSN_MERGED_CHKPT_WRITTEN;
+            chkpt_read_meta(checkPoint, meta);
 
-            numVars      = checkPoint["DENDRO_TS_NUM_VARS"];
-            activeCommSz = checkPoint["DENDRO_TS_ACTIVE_COMM_SZ"];
+            m_uiTinfo._m_uiTb       = meta.tb;
+            m_uiTinfo._m_uiTe       = meta.te;
+            m_uiTinfo._m_uiT        = meta.t;
+            m_uiTinfo._m_uiStep     = meta.step;
+            m_uiTinfo._m_uiTh       = meta.th;
+            m_uiElementOrder        = meta.elementOrder;
 
-            m_uiBHLoc[0] = Point((double)checkPoint["DENDRO_BH1_X"],
-                                 (double)checkPoint["DENDRO_BH1_Y"],
-                                 (double)checkPoint["DENDRO_BH1_Z"]);
-            m_uiBHLoc[1] = Point((double)checkPoint["DENDRO_BH2_X"],
-                                 (double)checkPoint["DENDRO_BH2_Y"],
-                                 (double)checkPoint["DENDRO_BH2_Z"]);
+            bssn::BSSN_WAVELET_TOL  = meta.waveletTol;
+            bssn::BSSN_LOAD_IMB_TOL = meta.loadImbTol;
 
-            if (checkPoint.find("DENDRO_BSSN_MERGED_CHKPT_WRITTEN") !=
-                checkPoint.end()) {
-                bssn::BSSN_MERGED_CHKPT_WRITTEN =
-                    checkPoint["DENDRO_BSSN_MERGED_CHKPT_WRITTEN"];
+            numVars                 = meta.numVars;
+            activeCommSz            = meta.activeCommSz;
+
+            m_uiBHLoc[0] = Point(meta.bh1[0], meta.bh1[1], meta.bh1[2]);
+            m_uiBHLoc[1] = Point(meta.bh2[0], meta.bh2[1], meta.bh2[2]);
+
+            if (meta.hasBhMerge) {
+                m_bIsBHMerged = meta.bhMerged;
+                set_bh_merge_time(meta.mergeTime, meta.mergeStep);
             }
+
+            bssn::BSSN_MERGED_CHKPT_WRITTEN =
+                meta.hasMergedLatch ? meta.mergedChkptWritten : m_bIsBHMerged;
         }
     }
 
-    // parsed on rank 0 only here, so publish the latch to every rank
+    // The .cp is parsed on rank 0 only here (the CPU ctx parses on every
+    // rank), so everything it sets has to be published.
     {
         unsigned int mergedLatch =
             (unsigned int)bssn::BSSN_MERGED_CHKPT_WRITTEN;
         par::Mpi_Bcast(&mergedLatch, 1, 0, comm);
         bssn::BSSN_MERGED_CHKPT_WRITTEN = (mergedLatch != 0);
+
+        unsigned int isMerged           = (unsigned int)m_bIsBHMerged;
+        double mergeTime                = m_dMergeTime;
+        unsigned int mergeStep          = m_uiMergeStep;
+        par::Mpi_Bcast(&isMerged, 1, 0, comm);
+        par::Mpi_Bcast(&mergeTime, 1, 0, comm);
+        par::Mpi_Bcast(&mergeStep, 1, 0, comm);
+        if (rank) {
+            m_bIsBHMerged = (isMerged != 0);
+            set_bh_merge_time(mergeTime, mergeStep);
+        }
     }
 
     par::Mpi_Allreduce(&restoreStatus, &restoreStatusGlobal, 1, MPI_MAX, comm);
@@ -818,9 +836,8 @@ int BSSNCtxGPU::restore_checkpt() {
         MPI_Comm_size(newComm, &activeNpes);
         assert(activeNpes == activeCommSz);
 
-        sprintf(fName, "%s_octree_%d_%d.oct",
-                bssn::BSSN_CHKPT_FILE_PREFIX.c_str(), restoreFileIndex,
-                activeRank);
+        chkpt_resolve_oct(fName, sizeof(fName), bssn::BSSN_CHKPT_FILE_PREFIX,
+                          restoreFileIndex, activeRank);
         restoreStatus = io::checkpoint::readOctFromFile(fName, octree);
         assert(par::test::isUniqueAndSorted(octree, newComm));
     }
@@ -895,8 +912,8 @@ int BSSNCtxGPU::restore_checkpt() {
         MPI_Comm_size(newComm, &activeNpes);
         assert(activeNpes == activeCommSz);
 
-        sprintf(fName, "%s_%d_%d.var", bssn::BSSN_CHKPT_FILE_PREFIX.c_str(),
-                restoreFileIndex, activeRank);
+        chkpt_fname_var(fName, sizeof(fName), bssn::BSSN_CHKPT_FILE_PREFIX,
+                        restoreFileIndex, activeRank);
         restoreStatus = io::checkpoint::readVecFromFile(fName, newMesh, inVec,
                                                         bssn::BSSN_NUM_VARS);
     }
