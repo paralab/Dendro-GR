@@ -177,6 +177,9 @@ class BSSNCtxGPU : public ts::Ctx<BSSNCtxGPU, DendroScalar, unsigned int> {
     /**@brief: writes checkpoint*/
     int write_checkpt();
 
+    /**@brief write a full checkpoint to a specific slot index. */
+    int write_checkpt_to_slot(unsigned int cpIndex);
+
     /**@brief: restore from check point*/
     int restore_checkpt();
 

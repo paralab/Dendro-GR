@@ -548,11 +548,17 @@ int BSSNCtxGPU::write_checkpt() {
 
     const bool is_merged =
         ((bssn::BSSN_BH_LOC[0] - bssn::BSSN_BH_LOC[1]).abs() < 0.1);
+
+    // slot 3 is written ALONGSIDE the normal slot, not instead of it
     if (is_merged && !bssn::BSSN_MERGED_CHKPT_WRITTEN) {
-        cpIndex                         = 3;
         bssn::BSSN_MERGED_CHKPT_WRITTEN = true;
+        write_checkpt_to_slot(3);
     }
 
+    return write_checkpt_to_slot(cpIndex);
+}
+
+int BSSNCtxGPU::write_checkpt_to_slot(unsigned int cpIndex) {
     unsigned int rank = m_uiMesh->getMPIRank();
     unsigned int npes = m_uiMesh->getMPICommSize();
 

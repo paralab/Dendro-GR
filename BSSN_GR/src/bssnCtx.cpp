@@ -880,18 +880,26 @@ int BSSNCtx::write_bh_coords() {
 int BSSNCtx::write_checkpt() {
     if (!m_uiMesh->isActive()) return 0;
 
-    dendro::logger::debug("Now writing checkpoint file");
-
     // every other checkpoint index should be 0 or 1, this allows "alternate"
     // file writing
-    unsigned int cpIndex = (m_uiTinfo._m_uiStep / bssn::BSSN_CHECKPT_FREQ) % 2;
+    const unsigned int cpIndex =
+        (m_uiTinfo._m_uiStep / bssn::BSSN_CHECKPT_FREQ) % 2;
 
     const bool is_merged =
         ((bssn::BSSN_BH_LOC[0] - bssn::BSSN_BH_LOC[1]).abs() < 0.1);
+
+    // slot 3 is the permanent post-merger snapshot, written ALONGSIDE the
+    // normal slot; latch first so both files record it
     if (is_merged && !bssn::BSSN_MERGED_CHKPT_WRITTEN) {
-        cpIndex                         = 3;
         bssn::BSSN_MERGED_CHKPT_WRITTEN = true;
+        write_checkpt_to_slot(3);
     }
+
+    return write_checkpt_to_slot(cpIndex);
+}
+
+int BSSNCtx::write_checkpt_to_slot(unsigned int cpIndex) {
+    dendro::logger::debug("Now writing checkpoint file");
 
     dendro::logger::debug("Will checkpoint to file index {}", cpIndex);
 
