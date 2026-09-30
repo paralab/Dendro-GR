@@ -10,12 +10,15 @@
 
 #pragma once
 
+#include <mpi.h>
+
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <string>
 #include <system_error>
 
+#include "TreeNode.h"
 #include "json.hpp"
 
 namespace bssn {
@@ -271,6 +274,72 @@ inline bool chkpt_read_latest(const std::string& prefix, unsigned int& slot) {
 
     slot = (unsigned int)s;
     return true;
+}
+
+/**@brief true if this rank's .oct and .var for the slot are as long as their
+ * own headers say, i.e. not the short files a failed write leaves behind. */
+inline bool chkpt_rank_files_complete(const std::string& prefix,
+                                      unsigned int slot, unsigned int rank,
+                                      unsigned int numVars) {
+    char f[512];
+    std::error_code ec;
+
+    unsigned int num = 0;
+    chkpt_resolve_oct(f, sizeof(f), prefix, slot, rank);
+    FILE* fp = fopen(f, "rb");
+    if (!fp) return false;
+    const bool octHdr = fread(&num, sizeof(num), 1, fp) == 1;
+    fclose(fp);
+    if (!octHdr) return false;
+    const uintmax_t octSz = std::filesystem::file_size(f, ec);
+    if (ec ||
+        octSz != sizeof(unsigned int) + (uintmax_t)num * sizeof(ot::TreeNode))
+        return false;
+
+    // header: total nodes, local begin, local end
+    unsigned int hdr[3];
+    chkpt_fname_var(f, sizeof(f), prefix, slot, rank);
+    fp = fopen(f, "rb");
+    if (!fp) return false;
+    const bool varHdr = fread(hdr, sizeof(unsigned int), 3, fp) == 3;
+    fclose(fp);
+    if (!varHdr || hdr[2] < hdr[1]) return false;
+    const uintmax_t varSz = std::filesystem::file_size(f, ec);
+    const uintmax_t body =
+        hdr[0] > 0 ? (uintmax_t)numVars * (hdr[2] - hdr[1]) * sizeof(double)
+                   : 0;
+    return !ec && varSz == 3 * sizeof(unsigned int) + body;
+}
+
+/**@brief true if every rank that wrote the slot left complete files. Collective
+ * over comm; the writer count comes from the slot's .cp. */
+inline bool chkpt_slot_complete(const std::string& prefix, unsigned int slot,
+                                unsigned int numVars, MPI_Comm comm) {
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+
+    unsigned int writers = 0;
+    if (!rank) {
+        char f[512];
+        if (chkpt_resolve_step(f, sizeof(f), prefix, slot)) {
+            std::ifstream in(f);
+            json cp;
+            try {
+                in >> cp;
+                writers = cp.value("DENDRO_TS_ACTIVE_COMM_SZ", 0u);
+            } catch (...) {
+                writers = 0;
+            }
+        }
+    }
+    MPI_Bcast(&writers, 1, MPI_UNSIGNED, 0, comm);
+    if (writers == 0) return false;
+
+    int ok    = ((unsigned int)rank >= writers) ||
+                chkpt_rank_files_complete(prefix, slot, rank, numVars);
+    int allOk = 0;
+    MPI_Allreduce(&ok, &allOk, 1, MPI_INT, MPI_MIN, comm);
+    return allOk == 1;
 }
 
 }  // namespace bssn
