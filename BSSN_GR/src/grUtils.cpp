@@ -2328,8 +2328,8 @@ unsigned int getOctantWeight(const ot::TreeNode* pNode) {
     return (1u << (3 * pNode->getLevel())) * 1;
 }
 
-void computeBHLocations(const ot::Mesh* pMesh, const Point* in, Point* out,
-                        double** zipVars, double dt) {
+void interpolateBHShift(const ot::Mesh* pMesh, const Point* in,
+                        double** zipVars, Point* shift) {
     // TODO: this should be easy to adjust based on how many bh's we actually
     // have at some point
     const unsigned int num_bhs              = 2;
@@ -2438,20 +2438,46 @@ void computeBHLocations(const ot::Mesh* pMesh, const Point* in, Point* out,
     // now final data is available to all processes
     for (unsigned int bh = 0; bh < num_bhs; bh++) {
         const unsigned int offset = bh * 3;
-        const double shift_x      = global_beta_interleaved[offset + 0] * dt;
-        const double shift_y      = global_beta_interleaved[offset + 1] * dt;
-        const double shift_z      = global_beta_interleaved[offset + 2] * dt;
+        shift[bh]                 = Point(global_beta_interleaved[offset + 0],
+                                          global_beta_interleaved[offset + 1],
+                                          global_beta_interleaved[offset + 2]);
+    }
 
-        out[bh] = Point(in[bh].x() - shift_x, in[bh].y() - shift_y,
-                        in[bh].z() - shift_z);
+    dendro::logger::debug("[BH] Finished interpolating BH shift!");
+}
+
+void computeBHLocations(const ot::Mesh* pMesh, const Point* in, Point* out,
+                        double** zipVars, double dt, Point* vel,
+                        bool& hasVel) {
+    const unsigned int num_bhs = 2;
+
+    // Heun predictor-corrector on dx/dt = -beta(x); falls back to Euler when
+    // there is no previous velocity.
+    Point pred[num_bhs];
+    for (unsigned int bh = 0; bh < num_bhs; bh++)
+        pred[bh] = hasVel ? Point(in[bh].x() + dt * vel[bh].x(),
+                                  in[bh].y() + dt * vel[bh].y(),
+                                  in[bh].z() + dt * vel[bh].z())
+                          : in[bh];
+
+    Point shift[num_bhs];
+    interpolateBHShift(pMesh, pred, zipVars, shift);
+
+    for (unsigned int bh = 0; bh < num_bhs; bh++) {
+        const double v[3] = {-shift[bh].x(), -shift[bh].y(), -shift[bh].z()};
+        const double x[3] = {in[bh].x(), in[bh].y(), in[bh].z()};
+        const double o[3] = {vel[bh].x(), vel[bh].y(), vel[bh].z()};
+        double xn[3];
+        for (unsigned int d = 0; d < 3; d++)
+            xn[d] = x[d] + dt * (hasVel ? 0.5 * (o[d] + v[d]) : v[d]);
+
+        out[bh] = Point(xn[0], xn[1], xn[2]);
+        vel[bh] = Point(v[0], v[1], v[2]);
 
         dendro::logger::info("[BH] Black Hole {} new position: [{}, {}, {}]",
                              bh, out[bh].x(), out[bh].y(), out[bh].z());
     }
-
-    dendro::logger::debug("[BH] Finished computing BH locations!");
-
-    return;
+    hasVel = true;
 }
 
 ot::Mesh* weakScalingReMesh(ot::Mesh* pMesh, unsigned int target_npes) {
