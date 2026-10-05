@@ -40,6 +40,9 @@ struct ChkptMeta {
     unsigned int activeCommSz = 0;
     double bh1[3]             = {0.0, 0.0, 0.0};
     double bh2[3]             = {0.0, 0.0, 0.0};
+    double bhv1[3]            = {0.0, 0.0, 0.0};
+    double bhv2[3]            = {0.0, 0.0, 0.0};
+    bool bhVelValid           = false;
 
     bool bhMerged             = false;
     double mergeTime          = 0.0;
@@ -79,6 +82,14 @@ void chkpt_fields(V& v, ChkptMeta& m) {
     v.req("DENDRO_BH2_X", m.bh2[0]);
     v.req("DENDRO_BH2_Y", m.bh2[1]);
     v.req("DENDRO_BH2_Z", m.bh2[2]);
+
+    v.opt("DENDRO_BH_VEL_VALID", m.bhVelValid);
+    v.opt("DENDRO_BH1_VX", m.bhv1[0]);
+    v.opt("DENDRO_BH1_VY", m.bhv1[1]);
+    v.opt("DENDRO_BH1_VZ", m.bhv1[2]);
+    v.opt("DENDRO_BH2_VX", m.bhv2[0]);
+    v.opt("DENDRO_BH2_VY", m.bhv2[1]);
+    v.opt("DENDRO_BH2_VZ", m.bhv2[2]);
 
     m.hasBhMerge = v.opt("DENDRO_BSSN_BH_MERGE", m.bhMerged);
     v.opt("DENDRO_BSSN_BH_MERGE_TIME", m.mergeTime);

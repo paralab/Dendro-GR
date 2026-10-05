@@ -253,9 +253,20 @@ unsigned int getOctantWeight(const ot::TreeNode* pNode);
  * @param zipVars : zip representation of the current evolution variables.
  * (assumes ghost synced)
  * @param dt : time step size.
+ * @param vel : in: velocity from the previous update (if hasVel); out: new
+ * velocity
+ * @param hasVel : whether vel holds a valid previous velocity
  */
 void computeBHLocations(const ot::Mesh* pMesh, const Point* in, Point* out,
-                        double** zipVars, double dt);
+                        double** zipVars, double dt, Point* vel, bool& hasVel);
+
+/**
+ * @brief interpolates the shift vector at the given BH-sized set of points.
+ * @param in points to evaluate at
+ * @param shift : beta at each point (identical on all ranks)
+ */
+void interpolateBHShift(const ot::Mesh* pMesh, const Point* in,
+                        double** zipVars, Point* shift);
 
 /**
  * @brief Creates mesh object to perform weak scaling, for specified grain size

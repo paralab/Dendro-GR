@@ -58,6 +58,9 @@ class BSSNCtxGPU : public ts::Ctx<BSSNCtxGPU, DendroScalar, unsigned int> {
     DVec m_var[VL::END];
 
     Point m_uiBHLoc[2];
+    // velocity from the last update, for the Heun predictor
+    Point m_uiBHVel[2];
+    bool m_bBHVelValid = false;
 
     // keeping track of history
     std::vector<std::pair<Point, Point>> m_uiBHLocHistory;

@@ -998,6 +998,13 @@ int BSSNCtx::write_checkpt_to_slot(unsigned int cpIndex) {
         meta.bh2[0]             = m_uiBHLoc[1].x();
         meta.bh2[1]             = m_uiBHLoc[1].y();
         meta.bh2[2]             = m_uiBHLoc[1].z();
+        meta.bhVelValid         = m_bBHVelValid;
+        meta.bhv1[0]            = m_uiBHVel[0].x();
+        meta.bhv1[1]            = m_uiBHVel[0].y();
+        meta.bhv1[2]            = m_uiBHVel[0].z();
+        meta.bhv2[0]            = m_uiBHVel[1].x();
+        meta.bhv2[1]            = m_uiBHVel[1].y();
+        meta.bhv2[2]            = m_uiBHVel[1].z();
         meta.bhMerged           = m_bIsBHMerged;
         meta.mergeTime          = m_dMergeTime;
         meta.mergeStep          = m_uiMergeStep;
@@ -1268,6 +1275,9 @@ int BSSNCtx::restore_checkpt() {
 
             m_uiBHLoc[0] = Point(meta.bh1[0], meta.bh1[1], meta.bh1[2]);
             m_uiBHLoc[1] = Point(meta.bh2[0], meta.bh2[1], meta.bh2[2]);
+            m_bBHVelValid = meta.bhVelValid;
+            m_uiBHVel[0]  = Point(meta.bhv1[0], meta.bhv1[1], meta.bhv1[2]);
+            m_uiBHVel[1]  = Point(meta.bhv2[0], meta.bhv2[1], meta.bhv2[2]);
 
             if (meta.hasBhMerge) {
                 m_bIsBHMerged = meta.bhMerged;
@@ -1806,20 +1816,14 @@ void BSSNCtx::evolve_bh_loc() {
     // early exit if we're at time step zero!
     if (m_bBHEvolved) return;
 
-    // if time step is zero, don't evolve, just store and return.
-    if (this->m_uiTinfo._m_uiStep == 0) {
-        // make sure initial locations are stored, we need the "last" time
-        // history for dt calculation
-        this->store_bh_loc_history();
-        m_bBHEvolved = true;
-        return;
-    }
-
+    // step zero doesn't move the BHs, it only seeds the velocity and history
     // this->compute_constraint_variables();
 
     // compute how long it's been since the last time we calculatd it, thanks to
     // storing history!
-    const double dt = m_uiTinfo._m_uiT - m_uiBHTimeHistory.back();
+    const double dt = this->m_uiTinfo._m_uiStep == 0
+                          ? 0.0
+                          : m_uiTinfo._m_uiT - m_uiBHTimeHistory.back();
     DVec sIn        = this->get_evolution_vars();
 
     Point bhLoc[2];
@@ -1833,7 +1837,7 @@ void BSSNCtx::evolve_bh_loc() {
     }
 
     bssn::computeBHLocations((const ot::Mesh*)m_uiMesh, m_uiBHLoc, bhLoc, evar,
-                             dt);
+                             dt, m_uiBHVel, m_bBHVelValid);
     // if(!m_uiMesh->getMPIRankGlobal())
     // {
     //     std::cout<<"bh0 "<<bhLoc[0]<<std::endl;

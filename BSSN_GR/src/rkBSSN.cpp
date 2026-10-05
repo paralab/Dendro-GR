@@ -1205,6 +1205,8 @@ void RK_BSSN::rkSolve() {
             return bssn::computeWTolDCoords(x, y, z, hx);
         };
     Point bhLoc[2];
+    Point bhVel[2];
+    bool hasBhVel = false;
 
     const unsigned int PW = bssn::BSSN_PADDING_WIDTH;
     double l_min, l_max;
@@ -1606,7 +1608,7 @@ void RK_BSSN::rkSolve() {
         // DendroScalar*)m_uiVar[BHLOC::EXTRACTION_VAR_ID],BHLOC::EXTRACTION_TOL,(const
         // Point *) m_uiBHLoc,2,(Point*)bhLoc);
         bssn::computeBHLocations((const ot::Mesh *)m_uiMesh, m_uiBHLoc, bhLoc,
-                                 m_uiPrevVar, m_uiT_h);
+                                 m_uiPrevVar, m_uiT_h, bhVel, hasBhVel);
         m_uiBHLoc[0]         = bhLoc[0];
         m_uiBHLoc[1]         = bhLoc[1];
         bssn::BSSN_BH_LOC[0] = m_uiBHLoc[0];
