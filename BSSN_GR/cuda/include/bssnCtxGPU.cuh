@@ -78,6 +78,11 @@ class BSSNCtxGPU : public ts::Ctx<BSSNCtxGPU, DendroScalar, unsigned int> {
     bool m_bIsBHMerged          = false;
 
     bool m_bConstraintsComputed = false;
+
+    // min det(gt) seen before enforcement rescales it, since last write:
+    // host side (initial data) and device side (every RK stage)
+    double m_dMinDetGt          = std::numeric_limits<double>::max();
+    double* m_dptr_min_det      = nullptr;
     bool m_bBHEvolved           = false;
 
    public:

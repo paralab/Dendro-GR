@@ -17,6 +17,7 @@
 #include "derivs_cu.cuh"
 #include "bc_cu.cuh"
 #include <cuda_runtime_api.h> 
+#include <cfloat>
 #include <cuda.h> 
 #include <cooperative_groups.h>
 // clang-format on
@@ -148,8 +149,10 @@ GLOBAL_FUNC void launch_dir_y_deriv_kernel(const DEVICE_REAL* const u,
 
 template <typename T>
 GLOBAL_FUNC __launch_bounds__(1024) void cuda_bssn_enforce_evar_cons(
-    T* u, unsigned int lb, unsigned int le, T chi_floor, unsigned int szpdof) {
+    T* u, unsigned int lb, unsigned int le, T chi_floor, unsigned int szpdof,
+    double* min_det) {
     const T CHI_FLOOR = chi_floor;
+    double t_min_det  = DBL_MAX;
     const T one_third = 1.0 / 3.0;
     T gtd[3][3], Atd[3][3];
     T* uiVar[bssn::BSSN_NUM_VARS];
@@ -185,6 +188,7 @@ GLOBAL_FUNC __launch_bounds__(1024) void cuda_bssn_enforce_evar_cons(
             gtd[0][1] * gtd[0][1] * gtd[2][2] +
             2.0 * gtd[0][1] * gtd[0][2] * gtd[1][2] -
             gtd[0][2] * gtd[0][2] * gtd[1][1];
+        if (det_gtd < t_min_det) t_min_det = det_gtd;
 
         if (det_gtd < 0.0) {
             printf("metric determinent = %.8E is negative \n", det_gtd);
@@ -320,6 +324,16 @@ GLOBAL_FUNC __launch_bounds__(1024) void cuda_bssn_enforce_evar_cons(
         /* apply a floor to alpha */
         uiVar[bssn::VAR::U_ALPHA][node] =
             max(uiVar[bssn::VAR::U_ALPHA][node], CHI_FLOOR);
+    }
+
+    // atomic min of the pre-enforcement det(gt) into *min_det
+    unsigned long long* const a = (unsigned long long*)min_det;
+    unsigned long long old      = *a;
+    while (t_min_det < __longlong_as_double((long long)old)) {
+        const unsigned long long assumed = old;
+        old = atomicCAS(
+            a, assumed, (unsigned long long)__double_as_longlong(t_min_det));
+        if (old == assumed) break;
     }
 }
 

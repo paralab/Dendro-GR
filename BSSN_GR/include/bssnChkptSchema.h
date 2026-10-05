@@ -15,6 +15,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <string>
 #include <system_error>
 
@@ -44,6 +45,9 @@ struct ChkptMeta {
     double mergeTime          = 0.0;
     unsigned int mergeStep    = 0;
     bool mergedChkptWritten   = false;
+
+    // min det(gt) before enforcement, not yet written to _Constraints.dat
+    double minDetGt           = std::numeric_limits<double>::max();
 
     // set by the reader: was the optional group present on disk?
     bool hasBhMerge           = false;
@@ -82,6 +86,8 @@ void chkpt_fields(V& v, ChkptMeta& m) {
 
     m.hasMergedLatch =
         v.opt("DENDRO_BSSN_MERGED_CHKPT_WRITTEN", m.mergedChkptWritten);
+
+    v.opt("DENDRO_BSSN_MIN_DET_GT", m.minDetGt);
 }
 
 /**@brief visitor that serializes into a json object. */

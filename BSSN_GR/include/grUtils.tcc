@@ -138,7 +138,8 @@ double computeConstraintL2Norm(const ot::Mesh* mesh, const T* constraintVec,
 template <typename T>
 double extractConstraints(const ot::Mesh* mesh, const T** constraintVar,
                           const T* maskVec, double maskthreshoold,
-                          unsigned int timestep, double stime) {
+                          unsigned int timestep, double stime,
+                          double minDetGt) {
     const unsigned int numConstraints = 4;
     double constraintMaskedL2[numConstraints];  // remove the psi4
 
@@ -175,12 +176,13 @@ double extractConstraints(const ot::Mesh* mesh, const T** constraintVar,
                        << " C_HAM\t"
                        << " C_MOM0\t"
                        << " C_MOM1\t"
-                       << " C_MOM2\t" << std::endl;
+                       << " C_MOM2\t"
+                       << " MIN_DET_GT\t" << std::endl;
 
             fileGW << timestep << "\t" << stime << "\t" << constraintMaskedL2[0]
                    << "\t" << constraintMaskedL2[1] << "\t"
                    << constraintMaskedL2[2] << "\t" << constraintMaskedL2[3]
-                   << std::endl;
+                   << "\t" << minDetGt << std::endl;
             fileGW.close();
         }
     }

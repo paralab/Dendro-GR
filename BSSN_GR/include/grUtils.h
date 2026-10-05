@@ -226,11 +226,13 @@ double computeConstraintL2Norm(const ot::Mesh* mesh, const T* constraintVec,
 
 /**
  * @breif write constraints to a file.
+ * @param minDetGt: min det(gt) before enforcement since the last write
  */
 template <typename T>
-double extractConstraints(const ot::Mesh* mesh, const T** constraintVar,
-                          const T* maskVec, double maskthreshoold,
-                          unsigned int timestep, double stime);
+double extractConstraints(
+    const ot::Mesh* mesh, const T** constraintVar, const T* maskVec,
+    double maskthreshoold, unsigned int timestep, double stime,
+    double minDetGt = std::numeric_limits<double>::quiet_NaN());
 
 /**@brief : write a block to binary*/
 void writeBLockToBinary(const double** unzipVarsRHS, unsigned int offset,
