@@ -1,4 +1,6 @@
 #pragma once
+#include <mpi.h>
+
 #include <iostream>
 
 #include "grDef.h"
@@ -11,8 +13,10 @@ using namespace bssn;
  * enforce physical constraints on BSSN variables:
  *            det(gt) = 1,  tr(At) = 0,  alpha > 0 and chi >0.
  *
+ * returns det(gt) as it was before the rescaling.
+ *
  *----------------------------------------------------------------------*/
-inline void enforce_bssn_constraints(double **uiVar, unsigned int node) {
+inline double enforce_bssn_constraints(double **uiVar, unsigned int node) {
     const double one_third = 1.0 / 3.0;
     double gtd[3][3], Atd[3][3];
 
@@ -41,10 +45,11 @@ inline void enforce_bssn_constraints(double **uiVar, unsigned int node) {
         gtd[0][1] * gtd[0][1] * gtd[2][2] +
         2.0 * gtd[0][1] * gtd[0][2] * gtd[1][2] -
         gtd[0][2] * gtd[0][2] * gtd[1][1];
+    const double det_gtd_in = det_gtd;
 
     if (det_gtd < 0.0) {
         std::cout << "metric determinent is negative " << det_gtd << std::endl;
-        exit(0);
+        MPI_Abort(MPI_COMM_WORLD, 1);
         /* FIXME: What to do here? The metric is not physical. Do we reset the
          * metric to be flat? */
         gtd[0][0] = 1.0;
@@ -84,7 +89,7 @@ inline void enforce_bssn_constraints(double **uiVar, unsigned int node) {
         std::cout << "      gtd(2,3)=" << gtd[1][2] << std::endl;
         std::cout << "      gtd(3,3)=" << gtd[2][2] << std::endl;
 
-        exit(0);
+        MPI_Abort(MPI_COMM_WORLD, 1);
     }
 
     double gtu[3][3];
@@ -128,7 +133,7 @@ inline void enforce_bssn_constraints(double **uiVar, unsigned int node) {
         std::cout << "      Atd(2,3)=" << Atd[1][2] << std::endl;
         std::cout << "      Atd(3,3)=" << Atd[2][2] << std::endl;
 
-        exit(0);
+        MPI_Abort(MPI_COMM_WORLD, 1);
     }
 
     uiVar[VAR::U_SYMAT0][node] = Atd[0][0];
@@ -169,4 +174,6 @@ inline void enforce_bssn_constraints(double **uiVar, unsigned int node) {
 
     /* apply a floor to alpha */
     uiVar[VAR::U_ALPHA][node] = std::max(uiVar[VAR::U_ALPHA][node], CHI_FLOOR);
+
+    return det_gtd_in;
 }

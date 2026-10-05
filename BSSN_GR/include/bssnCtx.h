@@ -75,6 +75,9 @@ class BSSNCtx : public ts::Ctx<BSSNCtx, DendroScalar, unsigned int> {
     bool m_bIsBHMerged           = false;
 
     bool m_bConstraintsComputed  = false;
+
+    // min det(gt) seen before enforcement rescales it, since last write
+    double m_dMinDetGt           = std::numeric_limits<double>::max();
     bool m_bBHEvolved            = false;
 
    public:
