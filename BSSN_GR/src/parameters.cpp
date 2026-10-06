@@ -9,6 +9,7 @@
 
 #include "parameters.h"
 
+#include <cmath>
 #include <cstdlib>
 #include <limits>
 #include <memory>
@@ -720,6 +721,14 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
     BSSN_COMPD_MAX[0]  = bssn::BSSN_GRID_MAX_X;
     BSSN_COMPD_MAX[1]  = bssn::BSSN_GRID_MAX_Y;
     BSSN_COMPD_MAX[2]  = bssn::BSSN_GRID_MAX_Z;
+
+    for (const double r : {BSSN_BH1_CONSTRAINT_R, BSSN_BH2_CONSTRAINT_R}) {
+        if (!(r >= 0.0) || std::isinf(r)) {
+            throw std::runtime_error(
+                "BSSN_BH1_CONSTRAINT_R and BSSN_BH2_CONSTRAINT_R must be "
+                "finite and nonnegative");
+        }
+    }
 
     BSSN_PADDING_WIDTH = BSSN_ELE_ORDER >> 1u;
     bssn::BSSN_BH_LOC[0] =
