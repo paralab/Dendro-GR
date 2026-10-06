@@ -9,6 +9,8 @@
 
 #include "parameters.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <limits>
 #include <memory>
@@ -269,6 +271,7 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
 
     auto parFile = toml::parse(fName);
     std::unordered_set<std::string> used_params;
+    std::vector<std::string> unused_aeh_params;
 
     auto set_param = [&](auto& pardata, const ParameterInformation& param) {
         // so, if it has the key then we set it, if not we print a warning
@@ -614,6 +617,26 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
     bssn::BSSN_ETA_POWER[1] = parFile["BSSN_ETA_POWER"][1].as_floating();
     used_params.insert("BSSN_ETA_POWER");
 
+    if (BSSN_NUM_REFINE_VARS > BSSN_NUM_VARS) {
+        std::cout << "Error[parameter file]: Number of refine variables should "
+                     "be less than number of BSSN_NUM_VARS"
+                  << std::endl;
+        MPI_Abort(comm, 1);
+    }
+    if (BSSN_NUM_EVOL_VARS_VTU_OUTPUT > BSSN_NUM_VARS) {
+        std::cout << "Error[parameter file]: Number of evolution VTU variables "
+                     "should be less than number of BSSN_NUM_VARS"
+                  << std::endl;
+        MPI_Abort(comm, 1);
+    }
+    if (BSSN_NUM_CONST_VARS_VTU_OUTPUT > BSSN_CONSTRAINT_NUM_VARS) {
+        std::cout
+            << "Error[parameter file]: Number of constraint VTU variables "
+               "should be less than number of BSSN_CONSTRAINT_NUM_VARS"
+            << std::endl;
+        MPI_Abort(comm, 1);
+    }
+
     for (unsigned int i = 0; i < bssn::BSSN_NUM_REFINE_VARS; i++)
         bssn::BSSN_REFINE_VARIABLE_INDICES[i] =
             parFile["BSSN_REFINE_VARIABLE_INDICES"][i].as_integer();
@@ -701,24 +724,12 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
     BSSN_COMPD_MAX[1]  = bssn::BSSN_GRID_MAX_Y;
     BSSN_COMPD_MAX[2]  = bssn::BSSN_GRID_MAX_Z;
 
-    if (BSSN_NUM_REFINE_VARS > BSSN_NUM_VARS) {
-        std::cout << "Error[parameter file]: Number of refine variables should "
-                     "be less than number of BSSN_NUM_VARS"
-                  << std::endl;
-        exit(0);
-    }
-    if (BSSN_NUM_EVOL_VARS_VTU_OUTPUT > BSSN_NUM_VARS) {
-        std::cout << "Error[parameter file]: Number of evolution VTU variables "
-                     "should be less than number of BSSN_NUM_VARS"
-                  << std::endl;
-        exit(0);
-    }
-    if (BSSN_NUM_CONST_VARS_VTU_OUTPUT > BSSN_CONSTRAINT_NUM_VARS) {
-        std::cout
-            << "Error[parameter file]: Number of constraint VTU variables "
-               "should be less than number of BSSN_CONSTRAINT_NUM_VARS"
-            << std::endl;
-        exit(0);
+    for (const double r : {BSSN_BH1_CONSTRAINT_R, BSSN_BH2_CONSTRAINT_R}) {
+        if (!(r >= 0.0) || std::isinf(r)) {
+            throw std::runtime_error(
+                "BSSN_BH1_CONSTRAINT_R and BSSN_BH2_CONSTRAINT_R must be "
+                "finite and nonnegative");
+        }
     }
 
     BSSN_PADDING_WIDTH = BSSN_ELE_ORDER >> 1u;
@@ -764,6 +775,13 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
         // then load the parameters
         for (const auto& param : aehParsList) {
             set_param(aeh_pars, param);
+        }
+
+        for (const auto& [key, _] : aeh_pars.as_table()) {
+            const bool known = std::any_of(
+                aehParsList.begin(), aehParsList.end(),
+                [&](const ParameterInformation& p) { return p.key == key; });
+            if (!known) unused_aeh_params.push_back("AEH_PARAMS." + key);
         }
 
         used_params.insert("AEH_PARAMS");
@@ -881,7 +899,7 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
     }
 
     // find the unused ones
-    std::vector<std::string> unused_params;
+    std::vector<std::string> unused_params = unused_aeh_params;
     for (const auto& key : all_params_in_parfile) {
         if (used_params.find(key) == used_params.end()) {
             unused_params.push_back(key);
