@@ -1265,6 +1265,14 @@ int BSSNCtx::restore_checkpt() {
             m_uiTinfo._m_uiT        = meta.t;
             m_uiTinfo._m_uiStep     = meta.step;
             m_uiTinfo._m_uiTh       = meta.th;
+            if (meta.elementOrder != bssn::BSSN_ELE_ORDER) {
+                if (!rank)
+                    std::cout << "[BSSNCtx] : Checkpoint element order "
+                              << meta.elementOrder
+                              << " differs from BSSN_ELE_ORDER "
+                              << bssn::BSSN_ELE_ORDER << std::endl;
+                MPI_Abort(comm, 1);
+            }
             m_uiElementOrder        = meta.elementOrder;
 
             bssn::BSSN_WAVELET_TOL  = meta.waveletTol;
