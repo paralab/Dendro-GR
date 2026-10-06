@@ -9,6 +9,7 @@
 
 #include "parameters.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <limits>
@@ -270,6 +271,7 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
 
     auto parFile = toml::parse(fName);
     std::unordered_set<std::string> used_params;
+    std::vector<std::string> unused_aeh_params;
 
     auto set_param = [&](auto& pardata, const ParameterInformation& param) {
         // so, if it has the key then we set it, if not we print a warning
@@ -775,6 +777,13 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
             set_param(aeh_pars, param);
         }
 
+        for (const auto& [key, _] : aeh_pars.as_table()) {
+            const bool known = std::any_of(
+                aehParsList.begin(), aehParsList.end(),
+                [&](const ParameterInformation& p) { return p.key == key; });
+            if (!known) unused_aeh_params.push_back("AEH_PARAMS." + key);
+        }
+
         used_params.insert("AEH_PARAMS");
     }
 
@@ -890,7 +899,7 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
     }
 
     // find the unused ones
-    std::vector<std::string> unused_params;
+    std::vector<std::string> unused_params = unused_aeh_params;
     for (const auto& key : all_params_in_parfile) {
         if (used_params.find(key) == used_params.end()) {
             unused_params.push_back(key);
