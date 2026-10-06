@@ -64,7 +64,13 @@ CMakeFiles/
 *.var
 *.oct
 *.cp
-bssn_profile_*.dat
+*_BHLocations.dat
+*_Constraints.dat
+*_GridInfo.dat
+*_GW_*.dat
+*__PARAM_DUMP__*.toml
+*_aeh_solver_checkpt-cp*.json
+*.latest
 
 # test files
 CodeGen/test_*.cpp
