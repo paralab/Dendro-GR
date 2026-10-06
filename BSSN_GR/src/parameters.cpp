@@ -614,6 +614,26 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
     bssn::BSSN_ETA_POWER[1] = parFile["BSSN_ETA_POWER"][1].as_floating();
     used_params.insert("BSSN_ETA_POWER");
 
+    if (BSSN_NUM_REFINE_VARS > BSSN_NUM_VARS) {
+        std::cout << "Error[parameter file]: Number of refine variables should "
+                     "be less than number of BSSN_NUM_VARS"
+                  << std::endl;
+        MPI_Abort(comm, 1);
+    }
+    if (BSSN_NUM_EVOL_VARS_VTU_OUTPUT > BSSN_NUM_VARS) {
+        std::cout << "Error[parameter file]: Number of evolution VTU variables "
+                     "should be less than number of BSSN_NUM_VARS"
+                  << std::endl;
+        MPI_Abort(comm, 1);
+    }
+    if (BSSN_NUM_CONST_VARS_VTU_OUTPUT > BSSN_CONSTRAINT_NUM_VARS) {
+        std::cout
+            << "Error[parameter file]: Number of constraint VTU variables "
+               "should be less than number of BSSN_CONSTRAINT_NUM_VARS"
+            << std::endl;
+        MPI_Abort(comm, 1);
+    }
+
     for (unsigned int i = 0; i < bssn::BSSN_NUM_REFINE_VARS; i++)
         bssn::BSSN_REFINE_VARIABLE_INDICES[i] =
             parFile["BSSN_REFINE_VARIABLE_INDICES"][i].as_integer();
@@ -700,26 +720,6 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
     BSSN_COMPD_MAX[0]  = bssn::BSSN_GRID_MAX_X;
     BSSN_COMPD_MAX[1]  = bssn::BSSN_GRID_MAX_Y;
     BSSN_COMPD_MAX[2]  = bssn::BSSN_GRID_MAX_Z;
-
-    if (BSSN_NUM_REFINE_VARS > BSSN_NUM_VARS) {
-        std::cout << "Error[parameter file]: Number of refine variables should "
-                     "be less than number of BSSN_NUM_VARS"
-                  << std::endl;
-        exit(0);
-    }
-    if (BSSN_NUM_EVOL_VARS_VTU_OUTPUT > BSSN_NUM_VARS) {
-        std::cout << "Error[parameter file]: Number of evolution VTU variables "
-                     "should be less than number of BSSN_NUM_VARS"
-                  << std::endl;
-        exit(0);
-    }
-    if (BSSN_NUM_CONST_VARS_VTU_OUTPUT > BSSN_CONSTRAINT_NUM_VARS) {
-        std::cout
-            << "Error[parameter file]: Number of constraint VTU variables "
-               "should be less than number of BSSN_CONSTRAINT_NUM_VARS"
-            << std::endl;
-        exit(0);
-    }
 
     BSSN_PADDING_WIDTH = BSSN_ELE_ORDER >> 1u;
     bssn::BSSN_BH_LOC[0] =
