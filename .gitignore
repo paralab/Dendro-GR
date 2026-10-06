@@ -58,6 +58,14 @@ kde
 CMakeFiles/
 .cache/
 
+# run artifacts
+*.vtu
+*.pvtu
+*.var
+*.oct
+*.cp
+bssn_profile_*.dat
+
 # test files
 CodeGen/test_*.cpp
 BSSN_GR/src/test_*.cpp
