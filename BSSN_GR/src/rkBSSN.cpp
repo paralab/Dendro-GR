@@ -328,7 +328,7 @@ void RK_BSSN::initialGridConverge() {
             } else {
                 std::cout << " Error : " << __func__
                           << " invalid refinement mode specified " << std::endl;
-                MPI_Abort(m_uiComm, 0);
+                MPI_Abort(m_uiComm, 1);
             }
         }
 
@@ -1315,7 +1315,7 @@ void RK_BSSN::rkSolve() {
                     std::cout << " Error : " << __func__
                               << " invalid refinement mode specified "
                               << std::endl;
-                    MPI_Abort(m_uiComm, 0);
+                    MPI_Abort(m_uiComm, 1);
                 }
             }
 

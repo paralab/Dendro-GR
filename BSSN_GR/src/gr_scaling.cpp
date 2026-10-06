@@ -62,7 +62,7 @@ int bssn_driver(MPI_Comm comm, unsigned int num_step, unsigned int warm_up,
                 std::cout << "BH min level should be larger than "
                           << (MAXDEAPTH_LEVEL_DIFF + 2) << std::endl;
 
-            MPI_Abort(comm, 0);
+            MPI_Abort(comm, 1);
         }
         function2Octree(f_init, bssn::BSSN_NUM_VARS, varIndex, interpVars,
                         tmpNodes, (f2olmin - MAXDEAPTH_LEVEL_DIFF - 2),
@@ -319,7 +319,7 @@ int bssn_driver(MPI_Comm comm, unsigned int num_step, unsigned int warm_up,
     } else {
         if (!rank) RAISE_ERROR("invalid ts mode : " << ts_mode << "specifed");
 
-        MPI_Abort(comm, 0);
+        MPI_Abort(comm, 1);
     }
 
     return 0;
@@ -449,7 +449,7 @@ int main(int argc, char** argv) {
                       << bssn::BSSN_NUM_VARS
                       << " is not divisable by BSSN_ASYNC_COMM_K: "
                       << bssn::BSSN_ASYNC_COMM_K << std::endl;
-        MPI_Abort(comm, 0);
+        MPI_Abort(comm, 1);
     }
 
     if (bssn::BSSN_GW_EXTRACT_FREQ > bssn::BSSN_IO_OUTPUT_FREQ) {
@@ -457,7 +457,7 @@ int main(int argc, char** argv) {
             std::cout
                 << " BSSN_GW_EXTRACT_FREQ  should be less BSSN_IO_OUTPUT_FREQ "
                 << std::endl;
-        MPI_Abort(comm, 0);
+        MPI_Abort(comm, 1);
     }
 
     // 2. generate the initial grid.

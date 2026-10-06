@@ -147,7 +147,7 @@ int main(int argc, char** argv) {
                       << bssn::BSSN_NUM_VARS
                       << " is not divisable by BSSN_ASYNC_COMM_K: "
                       << bssn::BSSN_ASYNC_COMM_K << std::endl;
-        MPI_Abort(comm, 0);
+        MPI_Abort(comm, 1);
     }
 
 
@@ -200,7 +200,7 @@ int main(int argc, char** argv) {
                 std::cout << "BH min level should be larger than "
                           << (MAXDEAPTH_LEVEL_DIFF + 2) << std::endl;
 
-            MPI_Abort(comm, 0);
+            MPI_Abort(comm, 1);
         }
         function2Octree(f_init, bssn::BSSN_NUM_VARS, varIndex, interpVars,
                         tmpNodes, (f2olmin - MAXDEAPTH_LEVEL_DIFF - 2),
