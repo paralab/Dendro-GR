@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
 
     if (npes > 1) {
         std::cout << "tpid should be executed single mpi task" << std::endl;
-        MPI_Abort(comm, 0);
+        MPI_Abort(comm, 1);
     }
 
     if (argc < 3) {

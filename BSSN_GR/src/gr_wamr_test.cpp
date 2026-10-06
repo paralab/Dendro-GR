@@ -155,7 +155,7 @@ int main(int argc, char** argv) {
                       << bssn::BSSN_NUM_VARS
                       << " is not divisable by BSSN_ASYNC_COMM_K: "
                       << bssn::BSSN_ASYNC_COMM_K << std::endl;
-        MPI_Abort(comm, 0);
+        MPI_Abort(comm, 1);
     }
 
     const unsigned int interpVars = bssn::BSSN_NUM_VARS;

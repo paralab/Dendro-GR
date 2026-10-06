@@ -143,15 +143,24 @@ void readParamFile(const char* fName, MPI_Comm comm) {
     std::string fNameStr(fName);
     std::string tomlSuffix = ".toml";
 
-    if (fNameStr.size() >= tomlSuffix.size() &&
-        fNameStr.compare(fNameStr.size() - tomlSuffix.size(), tomlSuffix.size(),
-                         tomlSuffix) == 0) {
-        // we found a toml file!
-        readParamTOMLFile(fName, comm);
+    try {
+        if (fNameStr.size() >= tomlSuffix.size() &&
+            fNameStr.compare(fNameStr.size() - tomlSuffix.size(),
+                             tomlSuffix.size(), tomlSuffix) == 0) {
+            // we found a toml file!
+            readParamTOMLFile(fName, comm);
 
-    } else {
-        // fall back to JSON file reading
-        readParamJSONFile(fName, comm);
+        } else {
+            // fall back to JSON file reading
+            readParamJSONFile(fName, comm);
+        }
+    } catch (const std::exception& e) {
+        int rank;
+        MPI_Comm_rank(comm, &rank);
+        if (!rank)
+            std::cerr << RED << "Error[parameter file]: " << e.what() << NRM
+                      << std::endl;
+        MPI_Abort(comm, 1);
     }
 
     // do this last: it needs every prefix the par may have overridden
@@ -1007,7 +1016,7 @@ void initialDataFunctionWrapper(const double xx_grid, const double yy_grid,
                           << bssn::BSSN_ID_TYPE << NRM << std::endl;
             }
 
-            MPI_Abort(comm, 0);
+            MPI_Abort(comm, 1);
 
             break;
     }
@@ -2492,7 +2501,7 @@ ot::Mesh* weakScalingReMesh(ot::Mesh* pMesh, unsigned int target_npes) {
                         << target_npes
                         << " is larger than global npes:" << npes);
 
-        MPI_Abort(comm, 0);
+        MPI_Abort(comm, 1);
     }
 
     const double R_RES_FAC         = 10;

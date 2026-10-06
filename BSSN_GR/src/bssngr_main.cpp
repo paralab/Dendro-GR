@@ -209,7 +209,7 @@ int main(int argc, char** argv) {
                       << bssn::BSSN_NUM_VARS
                       << " is not divisable by BSSN_ASYNC_COMM_K: "
                       << bssn::BSSN_ASYNC_COMM_K << std::endl;
-        MPI_Abort(comm, 0);
+        MPI_Abort(comm, 1);
     }
 
     // NOTE: this is where we originally had the check that Extract freq needed
@@ -269,7 +269,7 @@ int main(int argc, char** argv) {
                 std::cout << "BH min level should be larger than "
                           << (MAXDEAPTH_LEVEL_DIFF + 2) << std::endl;
 
-            MPI_Abort(comm, 0);
+            MPI_Abort(comm, 1);
         }
 
         std::function<void(double, double, double, double*)>* f_init_use;
