@@ -47,8 +47,8 @@ inline double enforce_bssn_constraints(double **uiVar, unsigned int node) {
         gtd[0][2] * gtd[0][2] * gtd[1][1];
     const double det_gtd_in = det_gtd;
 
-    if (det_gtd < 0.0) {
-        std::cout << "metric determinent is negative " << det_gtd << std::endl;
+    if (!(det_gtd > 0.0)) {
+        std::cout << "metric determinent is not positive " << det_gtd << std::endl;
         MPI_Abort(MPI_COMM_WORLD, 1);
         /* FIXME: What to do here? The metric is not physical. Do we reset the
          * metric to be flat? */
@@ -78,7 +78,7 @@ inline double enforce_bssn_constraints(double **uiVar, unsigned int node) {
 
     double detgt_m1 = det_gtd - 1.0;
 
-    if (fabs(detgt_m1) > 1.0e-6) {
+    if (!(fabs(detgt_m1) <= 1.0e-6)) {
         std::cout.precision(14);
         std::cout << "enforce_bssn_constraint: det(gtd) != 1. det="
                   << std::fixed << det_gtd << std::endl;
@@ -123,7 +123,7 @@ inline double enforce_bssn_constraints(double **uiVar, unsigned int node) {
                   2.0 * (Atd[0][1] * gtu[0][1] + Atd[0][2] * gtu[0][2] +
                          Atd[1][2] * gtu[1][2]);
 
-    if (fabs(tr_A) > 1.0e-6) {
+    if (!(fabs(tr_A) <= 1.0e-6)) {
         std::cout << "enforce_bssn_constraint: tr_A != 0. tr_A=" << tr_A
                   << std::endl;
         std::cout << "      Atd(1,1)=" << Atd[0][0] << std::endl;
