@@ -172,14 +172,15 @@ double extractConstraints(const ot::Mesh* mesh, const T** constraintVar,
             // writes the header
             if (timestep == 0)
                 fileGW << "TimeStep\t"
-                       << " time\t"
-                       << " C_HAM\t"
-                       << " C_MOM0\t"
-                       << " C_MOM1\t"
-                       << " C_MOM2\t"
-                       << " MIN_DET_GT\t" << std::endl;
+                       << "time\t"
+                       << "C_HAM\t"
+                       << "C_MOM0\t"
+                       << "C_MOM1\t"
+                       << "C_MOM2\t"
+                       << "MIN_DET_GT\t" << std::endl;
 
-            fileGW << timestep << "\t" << stime << "\t" << constraintMaskedL2[0]
+            fileGW << std::setprecision(std::numeric_limits<double>::max_digits10)
+                   << timestep << "\t" << stime << "\t" << constraintMaskedL2[0]
                    << "\t" << constraintMaskedL2[1] << "\t"
                    << constraintMaskedL2[2] << "\t" << constraintMaskedL2[3]
                    << "\t" << minDetGt << std::endl;
