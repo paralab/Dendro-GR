@@ -182,7 +182,7 @@ void extractFarFieldPsi4(const ot::Mesh* mesh, const T** cVar,
     // par::Mpi_Reduce(swsh_coeff,swsh_coeff_g,(BSSN_GW_NUM_RADAII*TOTAL_MODES),MPI_SUM,0,commActive);
     // for(unsigned int k=0;k<BSSN_GW_NUM_RADAII;k++)
     MPI_Reduce(swsh_coeff, swsh_coeff_g, (BSSN_GW_NUM_RADAII * TOTAL_MODES),
-               MPI_DOUBLE_COMPLEX, MPI_SUM, 0, commActive);
+               MPI_CXX_DOUBLE_COMPLEX, MPI_SUM, 0, commActive);
     MPI_Reduce(&(*(psi4L2R.begin())), &(*(psi4L2R_g.begin())),
                BSSN_GW_NUM_RADAII, MPI_DOUBLE, MPI_SUM, 0, commActive);
     MPI_Reduce(&(*(psi4L2I.begin())), &(*(psi4L2I_g.begin())),
