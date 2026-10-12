@@ -358,7 +358,12 @@ int BSSNCtx::post_timestep_blk(DendroScalar* in, unsigned int dof,
 
 int BSSNCtx::initialize() {
     if (bssn::BSSN_RESTORE_SOLVER) {
-        if (!this->restore_checkpt()) {
+        const int restore_status = this->restore_checkpt();
+        // restore_checkpt() brings back the old TIME_END, override it
+        // with whatever the par file says now
+        m_uiTinfo._m_uiTe = bssn::BSSN_RK_TIME_END;
+        if (!restore_status) {
+            this->calculate_full_grid_size();
             return 0;
         }
         if (!m_uiMesh->getMPIRankGlobal()) {
@@ -366,10 +371,6 @@ int BSSNCtx::initialize() {
                          "initialization due to failed checkpoint restoration."
                       << std::endl;
         }
-
-        // restore_checkpt() brings back the old TIME_END, override it
-        // with whatever the par file says now
-        m_uiTinfo._m_uiTe = bssn::BSSN_RK_TIME_END;
     }
 
     this->init_grid();
