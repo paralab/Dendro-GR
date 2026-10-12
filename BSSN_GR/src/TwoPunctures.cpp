@@ -254,7 +254,7 @@ void TwoPunctures(const double xx1, const double yy1, const double zz1,
         if (r_minus < TPID::TP_Extend_Radius) {
             vars[VAR::U_ALPHA] =
                 ((1.0 - 0.5 * EXTEND(*mm, r_minus) - 0.5 * *mp / r_plus) /
-                 (1.0 + 0.5 * EXTEND(*mp, r_minus) + 0.5 * *mp / r_plus));
+                 (1.0 + 0.5 * EXTEND(*mm, r_minus) + 0.5 * *mp / r_plus));
         }
 
         if (averaged_lapse) {
