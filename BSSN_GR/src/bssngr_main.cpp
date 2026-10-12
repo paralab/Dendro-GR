@@ -472,8 +472,21 @@ int main(int argc, char** argv) {
                 // bssn::BSSN_USE_WAVELET_TOL_FUNCTION = 1;
                 bssn::BSSN_REMESH_TEST_FREQ =
                     bssn::BSSN_REMESH_TEST_FREQ_AFTER_MERGER;
-                bssn::BSSN_GW_EXTRACT_FREQ =
-                    bssn::BSSN_GW_EXTRACT_FREQ_AFTER_MERGER;
+                if (bssn::BSSN_GW_EXTRACT_FREQ !=
+                    bssn::BSSN_GW_EXTRACT_FREQ_AFTER_MERGER) {
+                    bssn::BSSN_GW_EXTRACT_FREQ =
+                        bssn::BSSN_GW_EXTRACT_FREQ_AFTER_MERGER;
+                    // the cadence check reads the _TRUE value
+                    bssn::BSSN_GW_EXTRACT_FREQ_TRUE =
+                        bssn::BSSN_GW_EXTRACT_FREQ;
+                    if (bssn::BSSN_SCALE_VTU_AND_GW_EXTRACTION) {
+                        unsigned int lmin, lmax;
+                        bssnCtx->get_mesh()->computeMinMaxLevel(lmin, lmax);
+                        bssn::BSSN_GW_EXTRACT_FREQ_TRUE = bssn::scaleOutputFreq(
+                            bssn::BSSN_GW_EXTRACT_FREQ,
+                            m_uiMaxDepth - 2 - lmax);
+                    }
+                }
 
                 // ONLY ENABLE CAKO DURING MERGER
                 if (bssn::BSSN_KO_SIGMA_SCALE_BY_CONFORMAL_POST_MERGER_ONLY) {
