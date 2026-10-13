@@ -490,6 +490,9 @@ static const unsigned int BSSN_GW_MAX_RADAII       = 20;
 /**@brief max allowed lmode values*/
 static const unsigned int BSSN_GW_MAX_LMODES       = 8;
 
+/**@brief largest l in the harmonic table*/
+static const unsigned int BSSN_GW_MAX_L            = 10;
+
 static const unsigned int BSSN_GW_LEBEDEV_PREC     = 25;
 
 /**@brief: GW output precision in .dat files*/

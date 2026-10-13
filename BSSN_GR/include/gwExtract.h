@@ -36,6 +36,10 @@ namespace GW {
 // Definitions related to SWHS and Lebedev quad. to perform GW extraction.
 #include "nrswsh.h"
 
+static_assert(sizeof(LEBEDEV_SWSH) / sizeof(LEBEDEV_SWSH[0]) ==
+                  (GW::BSSN_GW_MAX_L + 1) * (GW::BSSN_GW_MAX_L + 1) - 4,
+              "BSSN_GW_MAX_L does not match the harmonic table");
+
 /**
  * @brief extract the GW waves using poly fit.
  * @param [in] mesh: input mesh
@@ -155,6 +159,9 @@ void extractFarFieldPsi4(const ot::Mesh* mesh, const T** cVar,
             }
 
             for (unsigned int l = 0; l < BSSN_GW_NUM_LMODES; l++) {
+                // the table holds every l from 2 up, in order
+                const unsigned int swshOffset =
+                    BSSN_GW_L_MODES[l] * BSSN_GW_L_MODES[l] - 4;
                 for (unsigned int m = 0; m < 2 * BSSN_GW_L_MODES[l] + 1; m++) {
                     swsh_coeff[k * TOTAL_MODES + lmOffset[l] + m] =
                         DendroComplex(0.0, 0.0);
@@ -165,7 +172,7 @@ void extractFarFieldPsi4(const ot::Mesh* mesh, const T** cVar,
                                           psi4_imag[validIndex[index]]);
                         swsh_coeff[k * TOTAL_MODES + lmOffset[l] + m] +=
                             (psi4 *
-                             std::conj(LEBEDEV_SWSH[lmOffset[l] + m]
+                             std::conj(LEBEDEV_SWSH[swshOffset + m]
                                                    [validIndex[index]]) *
                              LEBEDEV_W[validIndex[index]]);
                     }
