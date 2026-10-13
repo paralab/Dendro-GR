@@ -636,6 +636,12 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
             << std::endl;
         MPI_Abort(comm, 1);
     }
+    if (BSSN_NUM_REFINE_VARS == 0 || BSSN_NUM_EVOL_VARS_VTU_OUTPUT == 0 ||
+        BSSN_NUM_CONST_VARS_VTU_OUTPUT == 0) {
+        throw std::runtime_error(
+            "BSSN_NUM_REFINE_VARS, BSSN_NUM_EVOL_VARS_VTU_OUTPUT and "
+            "BSSN_NUM_CONST_VARS_VTU_OUTPUT must be at least 1");
+    }
 
     for (unsigned int i = 0; i < bssn::BSSN_NUM_REFINE_VARS; i++)
         bssn::BSSN_REFINE_VARIABLE_INDICES[i] =
@@ -699,12 +705,29 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
     used_params.insert("TPID_CENTER_OFFSET");
 
     // extractio parameters that need to be read separately
+    if (GW::BSSN_GW_NUM_RADAII == 0 ||
+        GW::BSSN_GW_NUM_RADAII > GW::BSSN_GW_MAX_RADAII) {
+        throw std::runtime_error("BSSN_GW_NUM_RADAII must be between 1 and " +
+                                 std::to_string(GW::BSSN_GW_MAX_RADAII));
+    }
+    if (GW::BSSN_GW_NUM_LMODES == 0 ||
+        GW::BSSN_GW_NUM_LMODES > GW::BSSN_GW_MAX_LMODES) {
+        throw std::runtime_error("BSSN_GW_NUM_LMODES must be between 1 and " +
+                                 std::to_string(GW::BSSN_GW_MAX_LMODES));
+    }
     for (unsigned int i = 0; i < GW::BSSN_GW_NUM_RADAII; i++)
         GW::BSSN_GW_RADAII[i] = parFile["BSSN_GW_RADAII"][i].as_floating();
     used_params.insert("BSSN_GW_RADAII");
 
-    for (unsigned int i = 0; i < GW::BSSN_GW_NUM_LMODES; i++)
-        GW::BSSN_GW_L_MODES[i] = parFile["BSSN_GW_L_MODES"][i].as_integer();
+    for (unsigned int i = 0; i < GW::BSSN_GW_NUM_LMODES; i++) {
+        const auto l = parFile["BSSN_GW_L_MODES"][i].as_integer();
+        // spin weight -2 has no modes below l = 2
+        if (l < 2) {
+            throw std::runtime_error(
+                "BSSN_GW_L_MODES entries must be at least 2");
+        }
+        GW::BSSN_GW_L_MODES[i] = l;
+    }
     used_params.insert("BSSN_GW_L_MODES");
 
     if (parFile.contains("BSSN_REFINEMENT_MODE"))
