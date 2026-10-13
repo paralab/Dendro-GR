@@ -69,8 +69,8 @@ class BSSNCtx : public ts::Ctx<BSSNCtx, DendroScalar, unsigned int> {
     // TODO: move these into the main Ctx object and have the remesh logic work
     // there
 
-    DendroIntL m_uiGlobalMeshElements;
-    DendroIntL m_uiGlobalGridPoints;
+    DendroIntL m_uiGlobalMeshElements = 0;
+    DendroIntL m_uiGlobalGridPoints   = 0;
     bool m_uiWroteGridInfoHeader = false;
 
     double_t m_dMergeTime        = std::numeric_limits<double_t>::max();
