@@ -643,20 +643,37 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
             "BSSN_NUM_CONST_VARS_VTU_OUTPUT must be at least 1");
     }
 
-    for (unsigned int i = 0; i < bssn::BSSN_NUM_REFINE_VARS; i++)
-        bssn::BSSN_REFINE_VARIABLE_INDICES[i] =
-            parFile["BSSN_REFINE_VARIABLE_INDICES"][i].as_integer();
-    used_params.insert("BSSN_REFINE_VARIABLE_INDICES");
-
-    for (unsigned int i = 0; i < bssn::BSSN_NUM_EVOL_VARS_VTU_OUTPUT; i++)
-        bssn::BSSN_VTU_OUTPUT_EVOL_INDICES[i] =
-            parFile["BSSN_VTU_OUTPUT_EVOL_INDICES"][i].as_integer();
-    used_params.insert("BSSN_VTU_OUTPUT_EVOL_INDICES");
-
-    for (unsigned int i = 0; i < bssn::BSSN_NUM_CONST_VARS_VTU_OUTPUT; i++)
-        bssn::BSSN_VTU_OUTPUT_CONST_INDICES[i] =
-            parFile["BSSN_VTU_OUTPUT_CONST_INDICES"][i].as_integer();
-    used_params.insert("BSSN_VTU_OUTPUT_CONST_INDICES");
+    // every listed entry must exist and name a variable
+    auto read_indices = [&](const char* key, unsigned int* out,
+                            unsigned int count, unsigned int num_vars) {
+        const auto& list = parFile[key].as_array();
+        if (list.size() < count) {
+            throw std::runtime_error(std::string(key) + " has " +
+                                     std::to_string(list.size()) +
+                                     " entries, expected " +
+                                     std::to_string(count));
+        }
+        for (unsigned int i = 0; i < count; i++) {
+            const auto v = list[i].as_integer();
+            if (v < 0 || v >= num_vars) {
+                throw std::runtime_error(std::string(key) +
+                                         " entries must be between 0 and " +
+                                         std::to_string(num_vars - 1));
+            }
+            out[i] = v;
+        }
+        used_params.insert(key);
+    };
+    read_indices("BSSN_REFINE_VARIABLE_INDICES",
+                 bssn::BSSN_REFINE_VARIABLE_INDICES, bssn::BSSN_NUM_REFINE_VARS,
+                 BSSN_NUM_VARS);
+    read_indices("BSSN_VTU_OUTPUT_EVOL_INDICES",
+                 bssn::BSSN_VTU_OUTPUT_EVOL_INDICES,
+                 bssn::BSSN_NUM_EVOL_VARS_VTU_OUTPUT, BSSN_NUM_VARS);
+    read_indices("BSSN_VTU_OUTPUT_CONST_INDICES",
+                 bssn::BSSN_VTU_OUTPUT_CONST_INDICES,
+                 bssn::BSSN_NUM_CONST_VARS_VTU_OUTPUT,
+                 BSSN_CONSTRAINT_NUM_VARS);
 
     bssn::BSSN_IO_OUTPUT_FREQ_TRUE  = bssn::BSSN_IO_OUTPUT_FREQ;
     bssn::BSSN_GW_EXTRACT_FREQ_TRUE = bssn::BSSN_GW_EXTRACT_FREQ;
@@ -715,16 +732,23 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
         throw std::runtime_error("BSSN_GW_NUM_LMODES must be between 1 and " +
                                  std::to_string(GW::BSSN_GW_MAX_LMODES));
     }
+    if (parFile["BSSN_GW_RADAII"].as_array().size() < GW::BSSN_GW_NUM_RADAII ||
+        parFile["BSSN_GW_L_MODES"].as_array().size() < GW::BSSN_GW_NUM_LMODES) {
+        throw std::runtime_error(
+            "BSSN_GW_RADAII and BSSN_GW_L_MODES need at least "
+            "BSSN_GW_NUM_RADAII and BSSN_GW_NUM_LMODES entries");
+    }
     for (unsigned int i = 0; i < GW::BSSN_GW_NUM_RADAII; i++)
         GW::BSSN_GW_RADAII[i] = parFile["BSSN_GW_RADAII"][i].as_floating();
     used_params.insert("BSSN_GW_RADAII");
 
     for (unsigned int i = 0; i < GW::BSSN_GW_NUM_LMODES; i++) {
         const auto l = parFile["BSSN_GW_L_MODES"][i].as_integer();
-        // spin weight -2 has no modes below l = 2
-        if (l < 2) {
+        // spin weight -2 has no modes below l = 2, the table stops at MAX_L
+        if (l < 2 || l > GW::BSSN_GW_MAX_L) {
             throw std::runtime_error(
-                "BSSN_GW_L_MODES entries must be at least 2");
+                "BSSN_GW_L_MODES entries must be between 2 and " +
+                std::to_string(GW::BSSN_GW_MAX_L));
         }
         GW::BSSN_GW_L_MODES[i] = l;
     }
