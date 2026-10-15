@@ -188,7 +188,9 @@ GLOBAL_FUNC __launch_bounds__(1024) void cuda_bssn_enforce_evar_cons(
             gtd[0][1] * gtd[0][1] * gtd[2][2] +
             2.0 * gtd[0][1] * gtd[0][2] * gtd[1][2] -
             gtd[0][2] * gtd[0][2] * gtd[1][1];
-        if (det_gtd < t_min_det) t_min_det = det_gtd;
+        // a NaN det is tracked as -inf
+        const double det_trk = isnan(det_gtd) ? -INFINITY : det_gtd;
+        if (det_trk < t_min_det) t_min_det = det_trk;
 
         if (det_gtd < 0.0) {
             printf("metric determinent = %.8E is negative \n", det_gtd);
@@ -322,8 +324,8 @@ GLOBAL_FUNC __launch_bounds__(1024) void cuda_bssn_enforce_evar_cons(
         }
 
         /* apply a floor to alpha */
-        uiVar[bssn::VAR::U_ALPHA][node] =
-            max(uiVar[bssn::VAR::U_ALPHA][node], CHI_FLOOR);
+        if (uiVar[bssn::VAR::U_ALPHA][node] < CHI_FLOOR)
+            uiVar[bssn::VAR::U_ALPHA][node] = CHI_FLOOR;
     }
 
     // atomic min of the pre-enforcement det(gt) into *min_det
