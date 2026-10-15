@@ -403,7 +403,7 @@ int BSSNCtxGPU::init_grid() {
 
 int BSSNCtxGPU::finalize() { return 0; }
 
-int BSSNCtxGPU::write_vtu() {
+int BSSNCtxGPU::write_vtu(bool extract) {
     if (!m_uiMesh->isActive()) return 0;
 
     DVec& m_evar     = m_var[VL::CPU_EV];
@@ -471,29 +471,32 @@ int BSSNCtxGPU::write_vtu() {
     m_uiMesh->readFromGhostBegin(m_cvar.get_vec_ptr(), m_cvar.get_dof());
     m_uiMesh->readFromGhostEnd(m_cvar.get_vec_ptr(), m_cvar.get_dof());
 
-    // pre-enforcement min since the last write; NaN if nothing was enforced
-    const double noMinDet = std::numeric_limits<double>::max();
-    double devMinDet      = noMinDet;
-    GPUDevice::device_to_host<double>(&devMinDet, m_dptr_min_det, 1);
-    GPUDevice::host_to_device<double>(&noMinDet, m_dptr_min_det, 1);
-    const double locMinDet = std::min(m_dMinDetGt, devMinDet);
-    m_dMinDetGt            = noMinDet;
-    double minDetGt        = noMinDet;
-    MPI_Allreduce(&locMinDet, &minDetGt, 1, MPI_DOUBLE, MPI_MIN,
-                  m_uiMesh->getMPICommunicator());
-    if (minDetGt == noMinDet)
-        minDetGt = std::numeric_limits<double>::quiet_NaN();
+    if (extract) {
+        // pre-enforcement min since the last write; NaN if nothing was
+        // enforced
+        const double noMinDet = std::numeric_limits<double>::max();
+        double devMinDet      = noMinDet;
+        GPUDevice::device_to_host<double>(&devMinDet, m_dptr_min_det, 1);
+        GPUDevice::host_to_device<double>(&noMinDet, m_dptr_min_det, 1);
+        const double locMinDet = std::min(m_dMinDetGt, devMinDet);
+        m_dMinDetGt            = noMinDet;
+        double minDetGt        = noMinDet;
+        MPI_Allreduce(&locMinDet, &minDetGt, 1, MPI_DOUBLE, MPI_MIN,
+                      m_uiMesh->getMPICommunicator());
+        if (minDetGt == noMinDet)
+            minDetGt = std::numeric_limits<double>::quiet_NaN();
 
-    bssn::extractConstraints(m_uiMesh, (const DendroScalar**)consVar,
-                             evolVar[BHLOC::EXTRACTION_VAR_ID],
-                             BHLOC::EXTRACTION_TOL, m_uiTinfo._m_uiStep,
-                             m_uiTinfo._m_uiT, minDetGt);
+        bssn::extractConstraints(m_uiMesh, (const DendroScalar**)consVar,
+                                 evolVar[BHLOC::EXTRACTION_VAR_ID],
+                                 BHLOC::EXTRACTION_TOL, m_uiTinfo._m_uiStep,
+                                 m_uiTinfo._m_uiT, minDetGt);
 #ifndef BSSN_KERR_SCHILD_TEST
 #ifdef BSSN_EXTRACT_GRAVITATIONAL_WAVES
-    GW::extractFarFieldPsi4(m_uiMesh, (const DendroScalar**)consVar,
-                            m_uiTinfo._m_uiStep, m_uiTinfo._m_uiT);
+        GW::extractFarFieldPsi4(m_uiMesh, (const DendroScalar**)consVar,
+                                m_uiTinfo._m_uiStep, m_uiTinfo._m_uiT);
 #endif
 #endif
+    }
 
 #endif
 
@@ -552,8 +555,10 @@ int BSSNCtxGPU::write_vtu() {
 #endif
 
 #ifdef BSSN_EXTRACT_BH_LOCATIONS
-    bssn::writeBHCoordinates((const ot::Mesh*)m_uiMesh, (const Point*)m_uiBHLoc,
-                             2, m_uiTinfo._m_uiStep, m_uiTinfo._m_uiT);
+    if (extract)
+        bssn::writeBHCoordinates((const ot::Mesh*)m_uiMesh,
+                                 (const Point*)m_uiBHLoc, 2,
+                                 m_uiTinfo._m_uiStep, m_uiTinfo._m_uiT);
 #endif
 
     return 0;
