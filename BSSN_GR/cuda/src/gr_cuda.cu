@@ -255,6 +255,14 @@ int main(int argc, char** argv) {
          ((double)(1u << (m_uiMaxDepth))));
     tmpNodes.clear();
 
+    if (bssn::BSSN_RK_ERR_CTRL != 0) {
+        if (!rank)
+            std::cerr << "BSSN_RK_ERR_CTRL is not supported by the GPU driver; "
+                         "set it to 0"
+                      << std::endl;
+        MPI_Abort(comm, 1);
+    }
+
     if (ts_mode == 1) {
         bssn::BSSNCtxGPU* bssnCtx = new bssn::BSSNCtxGPU(mesh);
         ts::ETS<DendroScalar, bssn::BSSNCtxGPU>* ets =

@@ -233,6 +233,11 @@ extern unsigned int BSSN_RK_TYPE;
 /** desired tolerance value for the rk45 method (adaptive time stepping. )*/
 extern double BSSN_RK45_DESIRED_TOL;
 
+/**@brief embedded RK error control: 0 off, 1 estimate (log only), 2 adaptive
+ * dt capped at the CFL dt. Needs RK45_CASH_KARP, RKF45 or RK45_DORMAND_PRINCE;
+ * BSSN_RK45_DESIRED_TOL is both atol and rtol, BSSN_SAFETY_FAC the safety. */
+extern unsigned int BSSN_RK_ERR_CTRL;
+
 /**@brief Black hole 1 */
 extern BH BH1;
 /**@brief Black hole 2 */
