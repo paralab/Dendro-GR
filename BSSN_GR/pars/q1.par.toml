@@ -10,7 +10,8 @@
 
 # Constraint variable indices:
 #  C_HAM=0, C_MOM0=1, C_MOM1=2, C_MOM2=3, 
-#  C_PSI4_REAL=4, C_PSI4_IMG=5
+#  C_PSI4_REAL=4, C_PSI4_IMG=5, C_GT0=6, C_GT1=7, C_GT2=8,
+#  C_GT_MAG=9
 
 
 ########################################################################

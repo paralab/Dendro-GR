@@ -140,8 +140,13 @@ double extractConstraints(const ot::Mesh* mesh, const T** constraintVar,
                           const T* maskVec, double maskthreshoold,
                           unsigned int timestep, double stime,
                           double minDetGt) {
-    const unsigned int numConstraints = 4;
-    double constraintMaskedL2[numConstraints];  // remove the psi4
+    const unsigned int conIdx[] = {
+        bssn::VAR_CONSTRAINT::C_HAM, bssn::VAR_CONSTRAINT::C_MOM0,
+        bssn::VAR_CONSTRAINT::C_MOM1, bssn::VAR_CONSTRAINT::C_MOM2,
+        bssn::VAR_CONSTRAINT::C_GT0, bssn::VAR_CONSTRAINT::C_GT1,
+        bssn::VAR_CONSTRAINT::C_GT2, bssn::VAR_CONSTRAINT::C_GT_MAG};
+    const unsigned int numConstraints = sizeof(conIdx) / sizeof(conIdx[0]);
+    double constraintMaskedL2[numConstraints];
 
     unsigned int rankGlobal = mesh->getMPIRankGlobal();
     unsigned int npesGlobal = mesh->getMPICommSizeGlobal();
@@ -154,10 +159,11 @@ double extractConstraints(const ot::Mesh* mesh, const T** constraintVar,
 
         for (unsigned int index = 0; index < numConstraints; index++) {
             constraintMaskedL2[index] = bssn::computeConstraintL2Norm(
-                mesh, constraintVar[index], maskVec, maskthreshoold);
+                mesh, constraintVar[conIdx[index]], maskVec, maskthreshoold);
             if (!rankActive) {
                 std::cout << YLW << "\tConstraint "
-                          << bssn::BSSN_CONSTRAINT_VAR_NAMES[index] << " L2 : ("
+                          << bssn::BSSN_CONSTRAINT_VAR_NAMES[conIdx[index]]
+                          << " L2 : ("
                           << constraintMaskedL2[index] << " )" << NRM
                           << std::endl;
             }
@@ -177,13 +183,20 @@ double extractConstraints(const ot::Mesh* mesh, const T** constraintVar,
                        << "C_MOM0\t"
                        << "C_MOM1\t"
                        << "C_MOM2\t"
-                       << "MIN_DET_GT\t" << std::endl;
+                       << "MIN_DET_GT\t"
+                       << "C_GT0\t"
+                       << "C_GT1\t"
+                       << "C_GT2\t"
+                       << "C_GT_MAG\t" << std::endl;
 
             fileGW << std::setprecision(std::numeric_limits<double>::max_digits10)
                    << timestep << "\t" << stime << "\t" << constraintMaskedL2[0]
                    << "\t" << constraintMaskedL2[1] << "\t"
                    << constraintMaskedL2[2] << "\t" << constraintMaskedL2[3]
-                   << "\t" << minDetGt << std::endl;
+                   << "\t" << minDetGt << "\t" << constraintMaskedL2[4]
+                   << "\t" << constraintMaskedL2[5] << "\t"
+                   << constraintMaskedL2[6] << "\t" << constraintMaskedL2[7]
+                   << std::endl;
             fileGW.close();
         }
     }

@@ -66,6 +66,8 @@ enum VAR {
  * C_MOM - Momentum constraint x, y, z
  * C_PSI4_REAL - real part of PSI4 scalar
  * C_PSI4_IMG  - imaginary part of PSI4 scalar
+ * C_GT - conformal connection constraint x, y, z
+ * C_GT_MAG - conformal connection constraint magnitude
  */
 enum VAR_CONSTRAINT {
     C_HAM = 0,
@@ -73,7 +75,11 @@ enum VAR_CONSTRAINT {
     C_MOM1,
     C_MOM2,
     C_PSI4_REAL,
-    C_PSI4_IMG
+    C_PSI4_IMG,
+    C_GT0,
+    C_GT1,
+    C_GT2,
+    C_GT_MAG
 };
 
 static const char* BSSN_VAR_NAMES[] = {
@@ -83,7 +89,8 @@ static const char* BSSN_VAR_NAMES[] = {
     "U_SYMAT0", "U_SYMAT1", "U_SYMAT2", "U_SYMAT3", "U_SYMAT4", "U_SYMAT5"};
 
 static const char* BSSN_CONSTRAINT_VAR_NAMES[] = {
-    "C_HAM", "C_MOM0", "C_MOM1", "C_MOM2", "C_PSI4_REAL", "C_PSI4_IMG"};
+    "C_HAM",      "C_MOM0", "C_MOM1", "C_MOM2", "C_PSI4_REAL",
+    "C_PSI4_IMG", "C_GT0",  "C_GT1",  "C_GT2",  "C_GT_MAG"};
 
 /**
  * @brief Refinement mode types.

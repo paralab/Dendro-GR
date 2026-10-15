@@ -74,7 +74,8 @@ def saveImg(params, step, imgIndex,cam_coords):
     _evolveVars = ["U_ALPHA", "U_CHI", "U_K", "U_GT0", "U_GT1", "U_GT2", "U_BETA0", "U_BETA1", "U_BETA2", "U_B0", "U_B1", "U_B2", "U_SYMGT0",
                    "U_SYMGT1", "U_SYMGT2", "U_SYMGT3", "U_SYMGT4", "U_SYMGT5", "U_SYMAT0", "U_SYMAT1", "U_SYMAT2", "U_SYMAT3", "U_SYMAT4", "U_SYMAT5"]
     _constVars = ["C_HAM", "C_MOM0", "C_MOM1",
-                  "C_MOM2", "C_PSI4_REAL", "C_PSI4_IMG","C_R_PSI4"]
+                  "C_MOM2", "C_PSI4_REAL", "C_PSI4_IMG", "C_GT0", "C_GT1", "C_GT2",
+                  "C_GT_MAG"]
 
     file_prefix = params["BSSN_VTU_FILE_PREFIX"]
     img_prefix = params["BSSN_IMG_FILE_PREFIX"]
@@ -248,7 +249,8 @@ def writeZSlice(params):
     _evolveVars = ["U_ALPHA", "U_CHI", "U_K", "U_GT0", "U_GT1", "U_GT2", "U_BETA0", "U_BETA1", "U_BETA2", "U_B0", "U_B1", "U_B2", "U_SYMGT0",
                    "U_SYMGT1", "U_SYMGT2", "U_SYMGT3", "U_SYMGT4", "U_SYMGT5", "U_SYMAT0", "U_SYMAT1", "U_SYMAT2", "U_SYMAT3", "U_SYMAT4", "U_SYMAT5"]
     _constVars = ["C_HAM", "C_MOM0", "C_MOM1",
-                  "C_MOM2", "C_PSI4_REAL", "C_PSI4_IMG","C_R_PSI4"]
+                  "C_MOM2", "C_PSI4_REAL", "C_PSI4_IMG", "C_GT0", "C_GT1", "C_GT2",
+                  "C_GT_MAG"]
 
     file_prefix = params["BSSN_VTU_FILE_PREFIX"]
     img_prefix = params["BSSN_IMG_FILE_PREFIX"]

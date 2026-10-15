@@ -34,7 +34,7 @@ extern unsigned int BSSN_PADDING_WIDTH;
 static const unsigned int BSSN_NUM_VARS            = 24;
 
 /**@brief number of constraints variables*/
-static const unsigned int BSSN_CONSTRAINT_NUM_VARS = 6;
+static const unsigned int BSSN_CONSTRAINT_NUM_VARS = 10;
 
 /***@brief number of RK45 stages*/
 static const unsigned int BSSN_RK45_STAGES         = 6;
