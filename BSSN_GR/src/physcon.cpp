@@ -28,6 +28,10 @@ void physical_constraints(double **uZipConVars, const double **uZipVars,
     double *const mom2      = &uZipConVars[VAR_CONSTRAINT::C_MOM2][offset];
     double *const psi4_real = &uZipConVars[VAR_CONSTRAINT::C_PSI4_REAL][offset];
     double *const psi4_img  = &uZipConVars[VAR_CONSTRAINT::C_PSI4_IMG][offset];
+    double *const cgt0      = &uZipConVars[VAR_CONSTRAINT::C_GT0][offset];
+    double *const cgt1      = &uZipConVars[VAR_CONSTRAINT::C_GT1][offset];
+    double *const cgt2      = &uZipConVars[VAR_CONSTRAINT::C_GT2][offset];
+    double *const cgt_mag   = &uZipConVars[VAR_CONSTRAINT::C_GT_MAG][offset];
 
     const double *const alpha = &uZipVars[VAR::U_ALPHA][offset];
     const double *const chi   = &uZipVars[VAR::U_CHI][offset];
@@ -83,6 +87,15 @@ void physical_constraints(double **uZipConVars, const double **uZipVars,
                     psi4_real[pp] = 0.0;
                     psi4_img[pp]  = 0.0;
                 }
+            }
+        }
+    }
+
+    for (unsigned int k = PW; k < nz - PW; k++) {
+        for (unsigned int j = PW; j < ny - PW; j++) {
+            for (unsigned int i = PW; i < nx - PW; i++) {
+                const unsigned int pp = i + nx * (j + ny * k);
+#include "physconeqs_gt.cpp"
             }
         }
     }
