@@ -1045,7 +1045,7 @@ int BSSNCtx::write_checkpt_to_slot(unsigned int cpIndex) {
                                  "_aeh_solver_checkpt-cp" +
                                  std::to_string(cpIndex) + ".json";
 
-    AEH::ah_bah->create_checkpoint(m_uiMesh, aeh_chkpt_file);
+    status |= AEH::ah_bah->create_checkpoint(m_uiMesh, aeh_chkpt_file);
 
     if (!rank) {
         std::cout << "Finished AEH solver checkpoint!" << std::endl;
