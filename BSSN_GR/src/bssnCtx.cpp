@@ -1544,8 +1544,7 @@ bool BSSNCtx::is_remesh() {
     // if pre-merger, use AMR_FAC normally
     double amr_coarse_fac = bssn::BSSN_DENDRO_AMR_FAC;
     // otherwise, use POST_MERGER value if non-zero
-    if (bssn::BSSN_MERGED_CHKPT_WRITTEN &&
-        (bssn::BSSN_DENDRO_AMR_FAC_POST_MERGER > 0)) {
+    if (m_bIsBHMerged && (bssn::BSSN_DENDRO_AMR_FAC_POST_MERGER > 0)) {
         // overwrite post-merger value
         amr_coarse_fac = bssn::BSSN_DENDRO_AMR_FAC_POST_MERGER;
     }
