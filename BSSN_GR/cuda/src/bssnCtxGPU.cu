@@ -158,6 +158,20 @@ int BSSNCtxGPU::device_to_host_sync() {
     return 0;
 }
 
+int BSSNCtxGPU::device_to_host_alpha_sync() {
+    if (!m_uiMesh->isActive()) return 0;
+
+    DVec& m_evar              = m_var[VL::CPU_EV];
+    DVec& m_dptr_evar         = m_var[VL::GPU_EV];
+    const unsigned int szpdof = m_evar.get_size() / m_evar.get_dof();
+    const unsigned int offset = bssn::VAR::U_ALPHA * szpdof;
+
+    GPUDevice::device_to_host(m_evar.get_vec_ptr() + offset,
+                              m_dptr_evar.get_vec_ptr() + offset, szpdof);
+
+    return 0;
+}
+
 int BSSNCtxGPU::device_to_host_async(cudaStream_t s) {
     if (!m_uiMesh->isActive()) return 0;
 
@@ -1168,6 +1182,15 @@ int BSSNCtxGPU::post_timestep(DVec& sIn) {
         sIn.get_vec_ptr(), lb, le, bssn::CHI_FLOOR, szpdof, m_dptr_min_det);
     GPUDevice::device_synchronize();
     GPUDevice::check_last_error();
+
+    // NaN det is tracked as -inf
+    double minDet = 0.0;
+    GPUDevice::device_to_host<double>(&minDet, m_dptr_min_det, 1);
+    if (!(minDet > 0.0)) {
+        std::cout << "metric determinent is not positive " << minDet
+                  << std::endl;
+        MPI_Abort(m_uiMesh->getMPIGlobalCommunicator(), 1);
+    }
 
     return 0;
 }

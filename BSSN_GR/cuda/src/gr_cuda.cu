@@ -394,11 +394,6 @@ int main(int argc, char** argv) {
 
             if (bssn::BSSN_GW_EXTRACT_FREQ > 0 &&
                 (step % bssn::BSSN_GW_EXTRACT_FREQ) == 0) {
-                if (!rank_global)
-                    std::cout
-                        << "[ETS] : Executing step :  " << ets->curr_step()
-                        << "\tcurrent time :" << ets->curr_time()
-                        << "\t dt:" << ets->ts_size() << "\t" << std::endl;
                 // 03/23/22 : this works only because we use defult stream to
                 // for the evolution. Default stream is special and synchronous
                 // with all other streams.
@@ -415,12 +410,23 @@ int main(int argc, char** argv) {
             if ((!is_gw_written) && (cudaStreamQuery(s_gw) == cudaSuccess)) {
                 ts_curr = bssnCtx->get_ts_info();
                 bssnCtx->set_ts_info(ts_gw_output);
-                bssnCtx->terminal_output();
                 bssnCtx->evolve_bh_loc();
                 bssnCtx->write_vtu();
                 bssnCtx->set_ts_info(ts_curr);
                 is_gw_written = true;
                 did_d2h_sync  = (ts_gw_output._m_uiStep == step);
+            }
+
+            // own cadence, like the CPU driver
+            if (bssn::BSSN_TIME_STEP_OUTPUT_FREQ > 0 &&
+                (step % bssn::BSSN_TIME_STEP_OUTPUT_FREQ) == 0) {
+                if (!rank_global)
+                    std::cout
+                        << "[ETS] : Executing step :  " << ets->curr_step()
+                        << "\tcurrent time :" << ets->curr_time()
+                        << "\t dt:" << ets->ts_size() << "\t" << std::endl;
+                if (!did_d2h_sync) bssnCtx->device_to_host_alpha_sync();
+                bssnCtx->terminal_output();
             }
 
             // own frequencies, like the CPU driver; D2H once per step
