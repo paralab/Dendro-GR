@@ -306,8 +306,8 @@ int main(int argc, char** argv) {
 
         ts::TSInfo ts_gw_output;
         ts::TSInfo ts_curr;
-        // 0 disables GW extraction; start "written" so the block stays inert
-        bool is_gw_written     = (bssn::BSSN_GW_EXTRACT_FREQ == 0);
+        // nothing to consume until the first GW step issues a copy
+        bool is_gw_written     = true;
 
         bool is_merge_executed = false;
         double t1              = MPI_Wtime();
@@ -339,6 +339,9 @@ int main(int argc, char** argv) {
                     bssn::BSSN_CAKO_ENABLED = true;
                 }
             }
+
+            const bool is_checkpt_step = bssn::BSSN_CHECKPT_FREQ > 0 &&
+                                         (step % bssn::BSSN_CHECKPT_FREQ) == 0;
 
 #ifndef BSSN_PROFILE_SCALING_RUN
             bool did_d2h_sync = false;
@@ -407,9 +410,11 @@ int main(int argc, char** argv) {
                 is_gw_written = false;
             }
 
-            if (bssn::BSSN_GW_EXTRACT_FREQ > 0 &&
-                (step % bssn::BSSN_GW_EXTRACT_FREQ) ==
-                    (bssn::BSSN_GW_EXTRACT_FREQ - 1))
+            // drain the GW copy before a checkpoint step's post-evolve D2H
+            if ((bssn::BSSN_GW_EXTRACT_FREQ > 0 &&
+                 (step % bssn::BSSN_GW_EXTRACT_FREQ) ==
+                     (bssn::BSSN_GW_EXTRACT_FREQ - 1)) ||
+                is_checkpt_step)
                 cudaStreamSynchronize(s_gw);
 
             if ((!is_gw_written) && (cudaStreamQuery(s_gw) == cudaSuccess)) {
@@ -435,20 +440,19 @@ int main(int argc, char** argv) {
                 }
                 bssnCtx->write_vtu(false);
             }
-
-            if (bssn::BSSN_CHECKPT_FREQ > 0 &&
-                (step % bssn::BSSN_CHECKPT_FREQ) == 0) {
-                if (!did_d2h_sync) {
-                    bssnCtx->device_to_host_sync();
-                    did_d2h_sync = true;
-                }
-                bssnCtx->write_checkpt();
-            }
 #endif
 
             bssnCtx->prepare_for_next_iter();
 
             ets->evolve();
+
+#ifndef BSSN_PROFILE_SCALING_RUN
+            // after evolve(), like the CPU driver
+            if (is_checkpt_step) {
+                bssnCtx->device_to_host_sync();
+                bssnCtx->write_checkpt();
+            }
+#endif
         }
 
 #if defined __PROFILE_CTX__ && defined __PROFILE_ETS__

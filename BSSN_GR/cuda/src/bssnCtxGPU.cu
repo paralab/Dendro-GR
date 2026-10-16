@@ -567,10 +567,9 @@ int BSSNCtxGPU::write_vtu(bool extract) {
 int BSSNCtxGPU::write_checkpt() {
     if (!m_uiMesh->isActive()) return 0;
 
-    unsigned int cpIndex;
-    (m_uiTinfo._m_uiStep % (2 * bssn::BSSN_CHECKPT_FREQ) == 0)
-        ? cpIndex = 0
-        : cpIndex = 1;  // to support alternate file writing.
+    // alternate slots; written after evolve(), so step is one past a multiple
+    const unsigned int cpIndex =
+        (m_uiTinfo._m_uiStep / bssn::BSSN_CHECKPT_FREQ) % 2;
 
     const bool is_merged =
         ((bssn::BSSN_BH_LOC[0] - bssn::BSSN_BH_LOC[1]).abs() < 0.1);
