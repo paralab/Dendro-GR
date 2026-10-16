@@ -179,8 +179,8 @@ class BSSNCtxGPU : public ts::Ctx<BSSNCtxGPU, DendroScalar, unsigned int> {
     /**@brief: function execute after each step*/
     bool is_remesh();
 
-    /**@brief: write to vtu. */
-    int write_vtu();
+    /**@brief: write to vtu; extract also writes constraints, psi4, BH coords*/
+    int write_vtu(bool extract = true);
 
     /**@brief: writes checkpoint*/
     int write_checkpt();
