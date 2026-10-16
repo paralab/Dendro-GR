@@ -29,7 +29,18 @@
 
 // type of the rk method.
 // 0=RK3, 1=RK4, 2=RK5(Butcher,6-stage), 3=MSRK2_1, 4=MSRK2_2, 5=MSRK3
-enum RKType { RK3 = 0, RK4, RK5, RK4_MSRK2_1, RK4_MSRK2_2, RK4_MSRK3 };
+// 7=RK45_CASH_KARP, 8=RKF45, 12=RK45_DORMAND_PRINCE (7-stage)
+enum RKType {
+    RK3 = 0,
+    RK4,
+    RK5,
+    RK4_MSRK2_1,
+    RK4_MSRK2_2,
+    RK4_MSRK3,
+    RK45_CASH_KARP      = 7,
+    RKF45               = 8,
+    RK45_DORMAND_PRINCE = 12
+};
 
 namespace bssn {
 /**@brief BSSN evolution variables*/

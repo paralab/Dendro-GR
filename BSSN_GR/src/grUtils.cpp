@@ -660,6 +660,8 @@ void dumpParamFile(std::ostream& sout, int root, MPI_Comm comm) {
         sout << YLW
              << "\tBSSN_RK45_DESIRED_TOL :" << bssn::BSSN_RK45_DESIRED_TOL
              << NRM << std::endl;
+        sout << YLW << "\tBSSN_RK_ERR_CTRL :" << bssn::BSSN_RK_ERR_CTRL << NRM
+             << std::endl;
         sout << YLW << "\tBSSN_COMPD_MIN : ( " << bssn::BSSN_COMPD_MIN[0]
              << " ," << bssn::BSSN_COMPD_MIN[1] << ","
              << bssn::BSSN_COMPD_MIN[2] << " )" << NRM << std::endl;
