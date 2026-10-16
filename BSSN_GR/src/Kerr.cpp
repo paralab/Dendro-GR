@@ -101,17 +101,21 @@ var[VAR::U_B2] = 0.0;  // gaugeB2
 
 // var[VAR::U_GT00] = pow(CC, -2.0/3.0) * (xbar*xbar*CC + ybar*ybar) /
 // cyl_rho_bar ;
+// (CC - 1) / cyl_rho_bar^2 in closed form, regular on the axis
+const double CCm1_over_rho_sqr =
+    a_spin * a_spin *
+    (Delta_bar - rho_bar_sqr - f_0 * f_0 - a_spin * a_spin * rbar * rbar) /
+    Sigma_bar;
 var[VAR::U_SYMGT0] =
-    pow(CC, -2.0 / 3.0) * (CC - (CC - 1.0) * ybar * ybar / cyl_rho_bar);
+    pow(CC, -2.0 / 3.0) * (CC - CCm1_over_rho_sqr * ybar * ybar);
 // var[VAR::U_GT00] = 1.0 ;
-var[VAR::U_SYMGT1] =
-    xbar * ybar * pow(CC, -2.0 / 3.0) * (CC - 1.0) / cyl_rho_bar;
+var[VAR::U_SYMGT1] = xbar * ybar * pow(CC, -2.0 / 3.0) * CCm1_over_rho_sqr;
 // var[VAR::U_GT01] = 0.0 ;
 var[VAR::U_SYMGT2] = 0.0;
 // var[VAR::U_GT11] = pow(CC, -2.0/3.0) * (ybar*ybar*CC + xbar*xbar) /
 // cyl_rho_bar ;
 var[VAR::U_SYMGT3] =
-    pow(CC, -2.0 / 3.0) * (CC - (CC - 1.0) * xbar * xbar / cyl_rho_bar);
+    pow(CC, -2.0 / 3.0) * (CC - CCm1_over_rho_sqr * xbar * xbar);
 // var[VAR::U_GT11] = 1.0 ;
 var[VAR::U_SYMGT4] = 0.0;
 var[VAR::U_SYMGT5] = pow(CC, 1.0 / 3.0);
