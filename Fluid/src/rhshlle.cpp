@@ -799,9 +799,9 @@ bool hlle::check_padding(double *dtu[], const unsigned int *sz) {
                 }
             }
         }
-
-        return true;
     }
+
+    return true;
 }
 
 // }}}
