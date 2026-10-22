@@ -700,5 +700,7 @@ int recon::cal_wv(double* wv[], double* v[], const int dir,
         wv[1][i] = W * vu[1];
         wv[2][i] = W * vu[2];
     }
+
+    return 0;
 }
 // }}}
