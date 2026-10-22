@@ -242,6 +242,9 @@ class BSSNCtxGPU : public ts::Ctx<BSSNCtxGPU, DendroScalar, unsigned int> {
 
     int device_to_host_sync();
 
+    /**@brief: copies only the lapse to the host (for terminal_output). */
+    int device_to_host_alpha_sync();
+
     int device_to_host_async(cudaStream_t s);
 
     int host_to_device_async(cudaStream_t s);
