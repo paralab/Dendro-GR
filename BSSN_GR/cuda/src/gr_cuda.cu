@@ -306,8 +306,8 @@ int main(int argc, char** argv) {
 
         ts::TSInfo ts_gw_output;
         ts::TSInfo ts_curr;
-        // 0 disables GW extraction; start "written" so the block stays inert
-        bool is_gw_written     = (bssn::BSSN_GW_EXTRACT_FREQ == 0);
+        // nothing to consume until the first GW step issues a copy
+        bool is_gw_written     = true;
 
         bool is_merge_executed = false;
         double t1              = MPI_Wtime();
