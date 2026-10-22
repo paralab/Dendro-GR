@@ -224,14 +224,14 @@ int main(int argc, char** argv) {
                   << std::endl;
         std::cout << "lmin: " << lmin << " lmax:" << lmax << std::endl;
         std::cout << "dx: "
-                  << ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+                  << (bssn::min_domain_width() *
                       ((1u << (m_uiMaxDepth - lmax)) /
                        ((double)bssn::BSSN_ELE_ORDER)) /
                       ((double)(1u << (m_uiMaxDepth))))
                   << std::endl;
         std::cout << "dt: "
                   << bssn::BSSN_CFL_FACTOR *
-                         ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+                         (bssn::min_domain_width() *
                           ((1u << (m_uiMaxDepth - lmax)) /
                            ((double)bssn::BSSN_ELE_ORDER)) /
                           ((double)(1u << (m_uiMaxDepth))))
@@ -244,13 +244,13 @@ int main(int argc, char** argv) {
 
     // calculate the minimum dx
     bssn::BSSN_CURRENT_MIN_DX =
-        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+        (bssn::min_domain_width() *
          ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
          ((double)(1u << (m_uiMaxDepth))));
 
     bssn::BSSN_RK45_TIME_STEP_SIZE =
         bssn::BSSN_CFL_FACTOR *
-        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+        (bssn::min_domain_width() *
          ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
          ((double)(1u << (m_uiMaxDepth))));
     tmpNodes.clear();
@@ -376,16 +376,14 @@ int main(int argc, char** argv) {
 
                     // calculate the minimum dx
                     bssn::BSSN_CURRENT_MIN_DX =
-                        ((bssn::BSSN_COMPD_MAX[0] -
-                          bssn::BSSN_COMPD_MIN[0]) *
+                        (bssn::min_domain_width() *
                          ((1u << (m_uiMaxDepth - lmax)) /
                           ((double)bssn::BSSN_ELE_ORDER)) /
                          ((double)(1u << (m_uiMaxDepth))));
 
                     bssn::BSSN_RK45_TIME_STEP_SIZE =
                         bssn::BSSN_CFL_FACTOR *
-                        ((bssn::BSSN_COMPD_MAX[0] -
-                          bssn::BSSN_COMPD_MIN[0]) *
+                        (bssn::min_domain_width() *
                          ((1u << (m_uiMaxDepth - lmax)) /
                           ((double)bssn::BSSN_ELE_ORDER)) /
                          ((double)(1u << (m_uiMaxDepth))));
