@@ -1921,8 +1921,8 @@ GLOBAL_FUNC __launch_bounds__(343, 3) void eval_rhs3(
     const DEVICE_REAL hx              = blk->m_dx[0];
 
     const DEVICE_REAL x               = blk->m_ptMin[0] + i * hx;
-    const DEVICE_REAL y               = blk->m_ptMin[1] + j * hx;
-    const DEVICE_REAL z               = blk->m_ptMin[2] + k * hx;
+    const DEVICE_REAL y               = blk->m_ptMin[1] + j * blk->m_dx[1];
+    const DEVICE_REAL z               = blk->m_ptMin[2] + k * blk->m_dx[2];
 
     const DEVICE_REAL RIT_ETA_OUTER   = 0.25;
     const DEVICE_REAL RIT_ETA_CENTRAL = 2.0;
@@ -2190,8 +2190,8 @@ GLOBAL_FUNC __launch_bounds__(343, 3) void eval_rhs4(
     const DEVICE_REAL hx              = blk->m_dx[0];
 
     const DEVICE_REAL x               = blk->m_ptMin[0] + i * hx;
-    const DEVICE_REAL y               = blk->m_ptMin[1] + j * hx;
-    const DEVICE_REAL z               = blk->m_ptMin[2] + k * hx;
+    const DEVICE_REAL y               = blk->m_ptMin[1] + j * blk->m_dx[1];
+    const DEVICE_REAL z               = blk->m_ptMin[2] + k * blk->m_dx[2];
 
     const DEVICE_REAL RIT_ETA_OUTER   = 0.25;
     const DEVICE_REAL RIT_ETA_CENTRAL = 2.0;

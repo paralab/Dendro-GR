@@ -498,13 +498,13 @@ int BSSNCtx::initialize() {
 
     // calculate the minimum dx
     bssn::BSSN_CURRENT_MIN_DX =
-        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+        (bssn::min_domain_width() *
          ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
          ((double)(1u << (m_uiMaxDepth))));
 
     bssn::BSSN_RK45_TIME_STEP_SIZE =
         bssn::BSSN_CFL_FACTOR *
-        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+        (bssn::min_domain_width() *
          ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
          ((double)(1u << (m_uiMaxDepth))));
     m_uiTinfo._m_uiTh = bssn::BSSN_RK45_TIME_STEP_SIZE;
@@ -520,7 +520,7 @@ int BSSNCtx::initialize() {
 
     if (!m_uiMesh->getMPIRankGlobal()) {
         const DendroScalar dx_finest =
-            ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+            (bssn::min_domain_width() *
              ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
              ((double)(1u << (m_uiMaxDepth))));
         const DendroScalar dt_finest = bssn::BSSN_CFL_FACTOR * dx_finest;
@@ -1509,7 +1509,7 @@ int BSSNCtx::restore_checkpt() {
     unsigned int lmin, lmax;
     m_uiMesh->computeMinMaxLevel(lmin, lmax);
     bssn::BSSN_CURRENT_MIN_DX =
-        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+        (bssn::min_domain_width() *
          ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
          ((double)(1u << (m_uiMaxDepth))));
 
@@ -1797,7 +1797,7 @@ unsigned int BSSNCtx::compute_lts_ts_offset() {
 
     const double dt_min =
         bssn::BSSN_CFL_FACTOR *
-        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+        (bssn::min_domain_width() *
          ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
          ((double)(1u << (m_uiMaxDepth))));
     const double dt_eta_fac = dt_min * ETA_CONST;

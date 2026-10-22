@@ -91,14 +91,14 @@ int bssn_driver(MPI_Comm comm, unsigned int num_step, unsigned int warm_up,
                   << std::endl;
         std::cout << "lmin: " << lmin << " lmax:" << lmax << std::endl;
         std::cout << "dx: "
-                  << ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+                  << (bssn::min_domain_width() *
                       ((1u << (m_uiMaxDepth - lmax)) /
                        ((double)bssn::BSSN_ELE_ORDER)) /
                       ((double)(1u << (m_uiMaxDepth))))
                   << std::endl;
         std::cout << "dt: "
                   << bssn::BSSN_CFL_FACTOR *
-                         ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+                         (bssn::min_domain_width() *
                           ((1u << (m_uiMaxDepth - lmax)) /
                            ((double)bssn::BSSN_ELE_ORDER)) /
                           ((double)(1u << (m_uiMaxDepth))))
@@ -111,13 +111,13 @@ int bssn_driver(MPI_Comm comm, unsigned int num_step, unsigned int warm_up,
 
     // calculate the minimum dx
     bssn::BSSN_CURRENT_MIN_DX =
-        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+        (bssn::min_domain_width() *
          ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
          ((double)(1u << (m_uiMaxDepth))));
 
     bssn::BSSN_RK45_TIME_STEP_SIZE =
         bssn::BSSN_CFL_FACTOR *
-        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+        (bssn::min_domain_width() *
          ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
          ((double)(1u << (m_uiMaxDepth))));
     tmpNodes.clear();
@@ -238,7 +238,7 @@ int bssn_driver(MPI_Comm comm, unsigned int num_step, unsigned int warm_up,
                     pmesh->computeMinMaxLevel(lmin,lmax);
                     if(!pmesh->getMPIRank())
                         printf("post merger grid level = (%d, %d)\n",lmin,lmax);
-                    bssn::BSSN_RK45_TIME_STEP_SIZE=bssn::BSSN_CFL_FACTOR*((bssn::BSSN_COMPD_MAX[0]-bssn::BSSN_COMPD_MIN[0])*((1u<<(m_uiMaxDepth-lmax))/((double)
+                    bssn::BSSN_RK45_TIME_STEP_SIZE=bssn::BSSN_CFL_FACTOR*(bssn::min_domain_width()*((1u<<(m_uiMaxDepth-lmax))/((double)
             bssn::BSSN_ELE_ORDER))/((double)(1u<<(m_uiMaxDepth)))); ts::TSInfo
             ts_in = bssnCtx->get_ts_info(); ts_in._m_uiTh =
             bssn::BSSN_RK45_TIME_STEP_SIZE; bssnCtx->set_ts_info(ts_in);
