@@ -150,6 +150,25 @@ int main(int argc, char** argv) {
         MPI_Abort(comm, 1);
     }
 
+    // the device RHS is compiled for these only
+    if (bssn::BSSN_ELE_ORDER != 6) {
+        if (!rank)
+            std::cerr << "BSSN_ELE_ORDER " << bssn::BSSN_ELE_ORDER
+                      << " is not supported by the GPU driver; set it to 6"
+                      << std::endl;
+        MPI_Abort(comm, 1);
+    }
+
+    if (bssn::BSSN_RK_TYPE != RKType::RK3 &&
+        bssn::BSSN_RK_TYPE != RKType::RK4 &&
+        bssn::BSSN_RK_TYPE != RKType::RK5) {
+        if (!rank)
+            std::cerr << "BSSN_RK_TYPE " << bssn::BSSN_RK_TYPE
+                      << " is not supported by the GPU driver; set it to 0 "
+                         "(RK3), 1 (RK4) or 2 (RK5)"
+                      << std::endl;
+        MPI_Abort(comm, 1);
+    }
 
     // 2. generate the initial grid.
     std::vector<ot::TreeNode> tmpNodes;
