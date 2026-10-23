@@ -214,10 +214,11 @@ int BSSNCtxGPU::initialize() {
         if (max_iter == 0)
             isRefine = false;
         else
-            isRefine =
+            isRefine = bssn::enforceMaxRefineLevel(
+                m_uiMesh,
                 bssn::isReMeshWAMR(m_uiMesh, (const double**)unzipVar,
                                    refineVarIds, bssn::BSSN_NUM_REFINE_VARS,
-                                   waveletTolFunc, bssn::BSSN_DENDRO_AMR_FAC);
+                                   waveletTolFunc, bssn::BSSN_DENDRO_AMR_FAC));
 
         if (isRefine) {
             ot::Mesh* newMesh =
@@ -1222,7 +1223,7 @@ bool BSSNCtxGPU::is_remesh() {
                              this->get_bh_loc_time_history());
     }
 
-    return isRefine;
+    return bssn::enforceMaxRefineLevel(m_uiMesh, isRefine);
 }
 
 DVec& BSSNCtxGPU::get_evolution_vars() { return m_var[VL::GPU_EV]; }

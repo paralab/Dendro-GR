@@ -291,8 +291,15 @@ extern unsigned int BSSN_DIM;
 /**@brief: minimum refinement level default=2*/
 extern unsigned int BSSN_MINDEPTH;
 
-/**@brief: max refinement level*/
+/**@brief: octree depth (coordinate resolution), fixed by the checkpoint*/
 extern unsigned int BSSN_MAXDEPTH;
+
+/**@brief: finest level remeshing may reach, on the BSSN_MAXDEPTH scale.
+ * Defaults to BSSN_MAXDEPTH; a restart may change it. */
+extern unsigned int BSSN_MAX_REFINE_LEV;
+
+/**@brief true when BSSN_MAX_REFINE_LEV caps refinement below the octree depth*/
+inline bool refine_cap_active() { return BSSN_MAX_REFINE_LEV < BSSN_MAXDEPTH; }
 
 /**@brief: lambda values for evolution */
 extern unsigned int BSSN_LAMBDA[4];
@@ -405,6 +412,12 @@ extern unsigned int BSSN_IO_OUTPUT_FREQ_TRUE;
  * survive the shift, and a live one must not be shifted away to look disabled. */
 inline unsigned int scaleOutputFreq(unsigned int freq, unsigned int levelShift) {
     return (freq == 0) ? 0u : std::max(1u, freq >> levelShift);
+}
+
+/**@brief levels from the mesh's finest octant level up to the refinement cap*/
+inline unsigned int outputLevelShift(unsigned int lmax) {
+    const unsigned int capLev = BSSN_MAX_REFINE_LEV - 2;
+    return (lmax < capLev) ? capLev - lmax : 0u;
 }
 
 extern double BSSN_SSL_SIGMA;

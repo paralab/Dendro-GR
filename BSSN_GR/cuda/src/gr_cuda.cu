@@ -187,14 +187,17 @@ int main(int argc, char** argv) {
         const Point pt_max(bssn::BSSN_BLK_MAX_X, bssn::BSSN_BLK_MAX_Y,
                            bssn::BSSN_BLK_MAX_Z);
 
-        bssn::blockAdaptiveOctree(tmpNodes, pt_min, pt_max, m_uiMaxDepth - 2,
-                                  m_uiMaxDepth, comm);
+        bssn::blockAdaptiveOctree(tmpNodes, pt_min, pt_max,
+                                  bssn::BSSN_MAX_REFINE_LEV - 2, m_uiMaxDepth,
+                                  comm);
     } else {
         if (!rank)
             std::cout << YLW << "Using function2Octree. AMR enabled " << NRM
                       << std::endl;
-        const unsigned int f2olmin =
+        unsigned int f2olmin =
             std::min(bssn::BSSN_BH1_MAX_LEV, bssn::BSSN_BH2_MAX_LEV);
+        if (bssn::refine_cap_active())
+            f2olmin = std::min(f2olmin, bssn::BSSN_MAX_REFINE_LEV);
         if (f2olmin < MAXDEAPTH_LEVEL_DIFF + 2) {
             if (!rank)
                 std::cout << "BH min level should be larger than "

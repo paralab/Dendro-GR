@@ -101,6 +101,7 @@ BH BH2;
 Point BSSN_BH_LOC[2];
 unsigned int BSSN_DIM      = 3;
 unsigned int BSSN_MAXDEPTH = 8;
+unsigned int BSSN_MAX_REFINE_LEV = 8;
 unsigned int BSSN_MINDEPTH = 3;
 
 unsigned int BSSN_ID_TYPE  = 0;
@@ -541,8 +542,8 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
         // calculated defaults (requires non-optional):
         {"BSSN_GW_EXTRACT_FREQ", bssn::BSSN_GW_EXTRACT_FREQ,
          bssn::scaleOutputFreq(bssn::BSSN_IO_OUTPUT_FREQ, 1u)},
-        {"BSSN_BH1_MAX_LEV", bssn::BSSN_BH1_MAX_LEV, bssn::BSSN_MAXDEPTH},
-        {"BSSN_BH2_MAX_LEV", bssn::BSSN_BH2_MAX_LEV, bssn::BSSN_MAXDEPTH},
+        {"BSSN_MAX_REFINE_LEV", bssn::BSSN_MAX_REFINE_LEV,
+         bssn::BSSN_MAXDEPTH},
     };
 
     // then load the OPTIONAL parameters
@@ -553,6 +554,10 @@ void readParamTOMLFile(const char* fName, MPI_Comm comm) {
     std::vector<ParameterInformation> chainedParsList = {
         {"BSSN_TIME_STEP_OUTPUT_FREQ", bssn::BSSN_TIME_STEP_OUTPUT_FREQ,
          bssn::BSSN_GW_EXTRACT_FREQ},
+        {"BSSN_BH1_MAX_LEV", bssn::BSSN_BH1_MAX_LEV,
+         bssn::BSSN_MAX_REFINE_LEV},
+        {"BSSN_BH2_MAX_LEV", bssn::BSSN_BH2_MAX_LEV,
+         bssn::BSSN_MAX_REFINE_LEV},
     };
 
     for (const auto& param : chainedParsList) {
@@ -1075,6 +1080,7 @@ void writeParamTOMLFile(const char* fName, MPI_Comm comm) {
             {"BSSN_RK_ERR_CTRL", bssn::BSSN_RK_ERR_CTRL},
             {"BSSN_DIM", bssn::BSSN_DIM},
             {"BSSN_MAXDEPTH", bssn::BSSN_MAXDEPTH},
+            {"BSSN_MAX_REFINE_LEV", bssn::BSSN_MAX_REFINE_LEV},
             {"BSSN_GRID_MIN_X", bssn::BSSN_GRID_MIN_X},
             {"BSSN_GRID_MIN_Y", bssn::BSSN_GRID_MIN_Y},
             {"BSSN_GRID_MIN_Z", bssn::BSSN_GRID_MIN_Z},

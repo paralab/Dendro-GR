@@ -430,6 +430,7 @@ int BSSNCtx::initialize() {
                 bssn::isReMeshWAMR(m_uiMesh, (const double**)unzipVar,
                                    refineVarIds, bssn::BSSN_NUM_REFINE_VARS,
                                    waveletTolFunc, bssn::BSSN_DENDRO_AMR_FAC);
+            isRefine = bssn::enforceMaxRefineLevel(m_uiMesh, isRefine);
         }
 
         if (isRefine) {
@@ -510,8 +511,7 @@ int BSSNCtx::initialize() {
     m_uiTinfo._m_uiTh = bssn::BSSN_RK45_TIME_STEP_SIZE;
 
     if (bssn::BSSN_SCALE_VTU_AND_GW_EXTRACTION) {
-        // REMEMBER: the true max depth of the array is two minus m_uiMaxDepth
-        const unsigned int levelShift = m_uiMaxDepth - 2 - lmax;
+        const unsigned int levelShift = bssn::outputLevelShift(lmax);
         bssn::BSSN_IO_OUTPUT_FREQ_TRUE =
             bssn::scaleOutputFreq(bssn::BSSN_IO_OUTPUT_FREQ, levelShift);
         bssn::BSSN_GW_EXTRACT_FREQ_TRUE =
@@ -1525,8 +1525,7 @@ int BSSNCtx::restore_checkpt() {
                   << std::endl;
 
     if (bssn::BSSN_SCALE_VTU_AND_GW_EXTRACTION) {
-        // REMEMBER: the true max depth of the array is two minus m_uiMaxDepth
-        const unsigned int levelShift = m_uiMaxDepth - 2 - lmax;
+        const unsigned int levelShift = bssn::outputLevelShift(lmax);
         bssn::BSSN_IO_OUTPUT_FREQ_TRUE =
             bssn::scaleOutputFreq(bssn::BSSN_IO_OUTPUT_FREQ, levelShift);
         bssn::BSSN_GW_EXTRACT_FREQ_TRUE =
@@ -1653,7 +1652,7 @@ bool BSSNCtx::is_remesh() {
         isRefine = (isR1 || isR2);
     }
 
-    return isRefine;
+    return bssn::enforceMaxRefineLevel(m_uiMesh, isRefine);
 }
 
 DVec& BSSNCtx::get_evolution_vars() { return m_var[CPU_EV]; }
