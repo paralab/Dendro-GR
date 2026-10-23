@@ -996,6 +996,7 @@ int BSSNCtx::write_checkpt_to_slot(unsigned int cpIndex) {
         meta.loadImbTol         = bssn::BSSN_LOAD_IMB_TOL;
         meta.numVars            = numVars;
         meta.activeCommSz       = m_uiMesh->getMPICommSize();
+        meta.octreeDepth        = m_uiMaxDepth;
         meta.bh1[0]             = m_uiBHLoc[0].x();
         meta.bh1[1]             = m_uiBHLoc[0].y();
         meta.bh1[2]             = m_uiBHLoc[0].z();
@@ -1074,6 +1075,8 @@ int BSSNCtx::restore_checkpt() {
     MPI_Comm_size(comm, &npes);
 
     unsigned int activeCommSz;
+    // checkpoints without the depth key are taken to match BSSN_MAXDEPTH
+    unsigned int octreeDepth = m_uiMaxDepth;
 
     char fName[256];
 
@@ -1299,6 +1302,7 @@ int BSSNCtx::restore_checkpt() {
 
             numVars                 = meta.numVars;
             activeCommSz            = meta.activeCommSz;
+            if (meta.octreeDepth) octreeDepth = meta.octreeDepth;
 
             m_uiBHLoc[0] = Point(meta.bh1[0], meta.bh1[1], meta.bh1[2]);
             m_uiBHLoc[1] = Point(meta.bh2[0], meta.bh2[1], meta.bh2[2]);
@@ -1412,6 +1416,8 @@ int BSSNCtx::restore_checkpt() {
                       << std::endl;
         MPI_Abort(comm, 1);
     }
+
+    if (!chkpt_rescale_octree(octree, octreeDepth, comm)) MPI_Abort(comm, 1);
 
     // an octree written under another BSSN_MAXDEPTH does not span the domain
     unsigned int octExtent = 0;

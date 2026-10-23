@@ -7,6 +7,8 @@
  * @copyright Copyright (c) 2022
  *
  */
+#include <algorithm>
+#include <climits>
 #include <filesystem>
 
 #include "bssnChkptSchema.h"
@@ -661,6 +663,7 @@ int BSSNCtxGPU::write_checkpt_to_slot(unsigned int cpIndex) {
         meta.loadImbTol         = bssn::BSSN_LOAD_IMB_TOL;
         meta.numVars            = numVars;
         meta.activeCommSz       = m_uiMesh->getMPICommSize();
+        meta.octreeDepth        = m_uiMaxDepth;
         meta.bh1[0]             = m_uiBHLoc[0].x();
         meta.bh1[1]             = m_uiBHLoc[0].y();
         meta.bh1[2]             = m_uiBHLoc[0].z();
@@ -714,6 +717,8 @@ int BSSNCtxGPU::restore_checkpt() {
     MPI_Comm_size(comm, &npes);
 
     unsigned int activeCommSz;
+    // checkpoints without the depth key are taken to match BSSN_MAXDEPTH
+    unsigned int octreeDepth = m_uiMaxDepth;
 
     char fName[256];
     unsigned int restoreStatus = 0;
@@ -874,6 +879,7 @@ int BSSNCtxGPU::restore_checkpt() {
 
             numVars                 = meta.numVars;
             activeCommSz            = meta.activeCommSz;
+            if (meta.octreeDepth) octreeDepth = meta.octreeDepth;
 
             m_uiBHLoc[0] = Point(meta.bh1[0], meta.bh1[1], meta.bh1[2]);
             m_uiBHLoc[1] = Point(meta.bh2[0], meta.bh2[1], meta.bh2[2]);
@@ -903,6 +909,8 @@ int BSSNCtxGPU::restore_checkpt() {
     // The .cp is parsed on rank 0 only here (the CPU ctx parses on every
     // rank), so everything it sets has to be published.
     {
+        par::Mpi_Bcast(&octreeDepth, 1, 0, comm);
+
         unsigned int mergedLatch =
             (unsigned int)bssn::BSSN_MERGED_CHKPT_WRITTEN;
         par::Mpi_Bcast(&mergedLatch, 1, 0, comm);
@@ -995,6 +1003,27 @@ int BSSNCtxGPU::restore_checkpt() {
         if (!rank)
             std::cout << "[BSSNCtx]: octree (*.oct) restore file is corrupted "
                       << std::endl;
+        MPI_Abort(comm, 1);
+    }
+
+    if (!chkpt_rescale_octree(octree, octreeDepth, comm)) MPI_Abort(comm, 1);
+
+    // an octree written under another BSSN_MAXDEPTH does not span the domain
+    unsigned int octExtent = 0;
+    for (const auto& oct : octree) {
+        if (oct.getLevel() > m_uiMaxDepth) {
+            octExtent = UINT_MAX;
+            break;
+        }
+        octExtent = std::max({octExtent, oct.maxX(), oct.maxY(), oct.maxZ()});
+    }
+    unsigned int octExtentGlobal = 0;
+    par::Mpi_Allreduce(&octExtent, &octExtentGlobal, 1, MPI_MAX, comm);
+    if (octExtentGlobal != (1u << m_uiMaxDepth)) {
+        if (!rank)
+            std::cout << "[BSSNCtxGPU] : Checkpoint octree does not match "
+                         "BSSN_MAXDEPTH "
+                      << m_uiMaxDepth << std::endl;
         MPI_Abort(comm, 1);
     }
 
