@@ -277,20 +277,20 @@ int BSSNCtxGPU::initialize() {
 
     // calculate the minimum dx
     bssn::BSSN_CURRENT_MIN_DX =
-        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+        (bssn::min_domain_width() *
          ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
          ((double)(1u << (m_uiMaxDepth))));
 
     bssn::BSSN_RK45_TIME_STEP_SIZE =
         bssn::BSSN_CFL_FACTOR *
-        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+        (bssn::min_domain_width() *
          ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
          ((double)(1u << (m_uiMaxDepth))));
     m_uiTinfo._m_uiTh = bssn::BSSN_RK45_TIME_STEP_SIZE;
 
     if (!m_uiMesh->getMPIRankGlobal()) {
         const DendroScalar dx_finest =
-            ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+            (bssn::min_domain_width() *
              ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
              ((double)(1u << (m_uiMaxDepth))));
         const DendroScalar dt_finest = bssn::BSSN_CFL_FACTOR * dx_finest;
@@ -569,10 +569,9 @@ int BSSNCtxGPU::write_vtu(bool extract) {
 int BSSNCtxGPU::write_checkpt() {
     if (!m_uiMesh->isActive()) return 0;
 
-    unsigned int cpIndex;
-    (m_uiTinfo._m_uiStep % (2 * bssn::BSSN_CHECKPT_FREQ) == 0)
-        ? cpIndex = 0
-        : cpIndex = 1;  // to support alternate file writing.
+    // alternate slots; written after evolve(), so step is one past a multiple
+    const unsigned int cpIndex =
+        (m_uiTinfo._m_uiStep / bssn::BSSN_CHECKPT_FREQ) % 2;
 
     const bool is_merged =
         ((bssn::BSSN_BH_LOC[0] - bssn::BSSN_BH_LOC[1]).abs() < 0.1);
@@ -1091,7 +1090,7 @@ int BSSNCtxGPU::restore_checkpt() {
     unsigned int lmin, lmax;
     m_uiMesh->computeMinMaxLevel(lmin, lmax);
     bssn::BSSN_CURRENT_MIN_DX =
-        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+        (bssn::min_domain_width() *
          ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
          ((double)(1u << (m_uiMaxDepth))));
 
@@ -1367,13 +1366,16 @@ void BSSNCtxGPU::evolve_bh_loc() {
                           : m_uiTinfo._m_uiT - m_uiBHTimeHistory.back();
     DVec sIn        = this->get_evolution_vars_cpu();
 
-    // m_uiMesh->readFromGhostBegin(sIn.GetVecArray()+ VAR::U_BETA0 *
-    // m_uiMesh->getDegOfFreedom(),3);
-    // m_uiMesh->readFromGhostEnd(sIn.GetVecArray()  + VAR::U_BETA0 *
-    // m_uiMesh->getDegOfFreedom(),3);
     Point bhLoc[2];
     DendroScalar* evar[bssn::BSSN_NUM_VARS];
     sIn.to_2d(evar);
+
+    // interpolateToCoords reads ghosts the device RK update never writes
+    if (m_uiMesh->isActive()) {
+        m_uiMesh->readFromGhostBegin(evar[VAR::U_BETA0], 3);
+        m_uiMesh->readFromGhostEnd(evar[VAR::U_BETA0], 3);
+    }
+
     bssn::computeBHLocations((const ot::Mesh*)m_uiMesh, m_uiBHLoc, bhLoc, evar,
                              dt, m_uiBHVel, m_bBHVelValid);
     // if(!m_uiMesh->getMPIRankGlobal())

@@ -150,6 +150,30 @@ int main(int argc, char** argv) {
         MPI_Abort(comm, 1);
     }
 
+    // the device kernels are fixed at 13^3 blocks, i.e. order 6
+    if (bssn::BSSN_ELE_ORDER != 6) {
+        if (!rank)
+            std::cerr << "BSSN_ELE_ORDER " << bssn::BSSN_ELE_ORDER
+                      << " is not supported by the GPU driver; set it to 6"
+                      << std::endl;
+        MPI_Abort(comm, 1);
+    }
+
+    // single-step ETS types only; the GPU driver has no multistep (MSRK) path
+    if (bssn::BSSN_RK_TYPE != RKType::RK3 &&
+        bssn::BSSN_RK_TYPE != RKType::RK4 &&
+        bssn::BSSN_RK_TYPE != RKType::RK5 &&
+        bssn::BSSN_RK_TYPE != RKType::RK45_CASH_KARP &&
+        bssn::BSSN_RK_TYPE != RKType::RKF45 &&
+        bssn::BSSN_RK_TYPE != RKType::RK45_DORMAND_PRINCE) {
+        if (!rank)
+            std::cerr << "BSSN_RK_TYPE " << bssn::BSSN_RK_TYPE
+                      << " is not supported by the GPU driver; set it to 0 "
+                         "(RK3), 1 (RK4), 2 (RK5), 7 (RK45_CASH_KARP), 8 "
+                         "(RKF45) or 12 (RK45_DORMAND_PRINCE)"
+                      << std::endl;
+        MPI_Abort(comm, 1);
+    }
 
     // 2. generate the initial grid.
     std::vector<ot::TreeNode> tmpNodes;
@@ -224,14 +248,14 @@ int main(int argc, char** argv) {
                   << std::endl;
         std::cout << "lmin: " << lmin << " lmax:" << lmax << std::endl;
         std::cout << "dx: "
-                  << ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+                  << (bssn::min_domain_width() *
                       ((1u << (m_uiMaxDepth - lmax)) /
                        ((double)bssn::BSSN_ELE_ORDER)) /
                       ((double)(1u << (m_uiMaxDepth))))
                   << std::endl;
         std::cout << "dt: "
                   << bssn::BSSN_CFL_FACTOR *
-                         ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+                         (bssn::min_domain_width() *
                           ((1u << (m_uiMaxDepth - lmax)) /
                            ((double)bssn::BSSN_ELE_ORDER)) /
                           ((double)(1u << (m_uiMaxDepth))))
@@ -244,13 +268,13 @@ int main(int argc, char** argv) {
 
     // calculate the minimum dx
     bssn::BSSN_CURRENT_MIN_DX =
-        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+        (bssn::min_domain_width() *
          ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
          ((double)(1u << (m_uiMaxDepth))));
 
     bssn::BSSN_RK45_TIME_STEP_SIZE =
         bssn::BSSN_CFL_FACTOR *
-        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+        (bssn::min_domain_width() *
          ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
          ((double)(1u << (m_uiMaxDepth))));
     tmpNodes.clear();
@@ -275,6 +299,12 @@ int main(int argc, char** argv) {
             ets->set_ets_coefficients(ts::ETSType::RK4);
         else if ((RKType)bssn::BSSN_RK_TYPE == RKType::RK5)
             ets->set_ets_coefficients(ts::ETSType::RK5);
+        else if ((RKType)bssn::BSSN_RK_TYPE == RKType::RK45_CASH_KARP)
+            ets->set_ets_coefficients(ts::ETSType::RK45_CASH_KARP);
+        else if ((RKType)bssn::BSSN_RK_TYPE == RKType::RKF45)
+            ets->set_ets_coefficients(ts::ETSType::RKF45);
+        else if ((RKType)bssn::BSSN_RK_TYPE == RKType::RK45_DORMAND_PRINCE)
+            ets->set_ets_coefficients(ts::ETSType::RK45_DORMAND_PRINCE);
 
         ets->init();
 #if defined __PROFILE_CTX__ && defined __PROFILE_ETS__
@@ -306,8 +336,8 @@ int main(int argc, char** argv) {
 
         ts::TSInfo ts_gw_output;
         ts::TSInfo ts_curr;
-        // 0 disables GW extraction; start "written" so the block stays inert
-        bool is_gw_written     = (bssn::BSSN_GW_EXTRACT_FREQ == 0);
+        // nothing to consume until the first GW step issues a copy
+        bool is_gw_written     = true;
 
         bool is_merge_executed = false;
         double t1              = MPI_Wtime();
@@ -339,6 +369,9 @@ int main(int argc, char** argv) {
                     bssn::BSSN_CAKO_ENABLED = true;
                 }
             }
+
+            const bool is_checkpt_step = bssn::BSSN_CHECKPT_FREQ > 0 &&
+                                         (step % bssn::BSSN_CHECKPT_FREQ) == 0;
 
 #ifndef BSSN_PROFILE_SCALING_RUN
             bool did_d2h_sync = false;
@@ -373,16 +406,14 @@ int main(int argc, char** argv) {
 
                     // calculate the minimum dx
                     bssn::BSSN_CURRENT_MIN_DX =
-                        ((bssn::BSSN_COMPD_MAX[0] -
-                          bssn::BSSN_COMPD_MIN[0]) *
+                        (bssn::min_domain_width() *
                          ((1u << (m_uiMaxDepth - lmax)) /
                           ((double)bssn::BSSN_ELE_ORDER)) /
                          ((double)(1u << (m_uiMaxDepth))));
 
                     bssn::BSSN_RK45_TIME_STEP_SIZE =
                         bssn::BSSN_CFL_FACTOR *
-                        ((bssn::BSSN_COMPD_MAX[0] -
-                          bssn::BSSN_COMPD_MIN[0]) *
+                        (bssn::min_domain_width() *
                          ((1u << (m_uiMaxDepth - lmax)) /
                           ((double)bssn::BSSN_ELE_ORDER)) /
                          ((double)(1u << (m_uiMaxDepth))));
@@ -402,9 +433,11 @@ int main(int argc, char** argv) {
                 is_gw_written = false;
             }
 
-            if (bssn::BSSN_GW_EXTRACT_FREQ > 0 &&
-                (step % bssn::BSSN_GW_EXTRACT_FREQ) ==
-                    (bssn::BSSN_GW_EXTRACT_FREQ - 1))
+            // drain the GW copy before a checkpoint step's post-evolve D2H
+            if ((bssn::BSSN_GW_EXTRACT_FREQ > 0 &&
+                 (step % bssn::BSSN_GW_EXTRACT_FREQ) ==
+                     (bssn::BSSN_GW_EXTRACT_FREQ - 1)) ||
+                is_checkpt_step)
                 cudaStreamSynchronize(s_gw);
 
             if ((!is_gw_written) && (cudaStreamQuery(s_gw) == cudaSuccess)) {
@@ -440,20 +473,19 @@ int main(int argc, char** argv) {
                 }
                 bssnCtx->write_vtu(false);
             }
-
-            if (bssn::BSSN_CHECKPT_FREQ > 0 &&
-                (step % bssn::BSSN_CHECKPT_FREQ) == 0) {
-                if (!did_d2h_sync) {
-                    bssnCtx->device_to_host_sync();
-                    did_d2h_sync = true;
-                }
-                bssnCtx->write_checkpt();
-            }
 #endif
 
             bssnCtx->prepare_for_next_iter();
 
             ets->evolve();
+
+#ifndef BSSN_PROFILE_SCALING_RUN
+            // after evolve(), like the CPU driver
+            if (is_checkpt_step) {
+                bssnCtx->device_to_host_sync();
+                bssnCtx->write_checkpt();
+            }
+#endif
         }
 
 #if defined __PROFILE_CTX__ && defined __PROFILE_ETS__

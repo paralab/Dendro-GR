@@ -94,6 +94,13 @@ extern double BSSN_COMPD_MIN[3];
 /**@brief min bh domain @todo add these to the parameter file. */
 extern double BSSN_COMPD_MAX[3];
 
+/** @brief smallest domain width; dt and min dx come from it */
+inline double min_domain_width() {
+    return std::min({BSSN_COMPD_MAX[0] - BSSN_COMPD_MIN[0],
+                     BSSN_COMPD_MAX[1] - BSSN_COMPD_MIN[1],
+                     BSSN_COMPD_MAX[2] - BSSN_COMPD_MIN[2]});
+}
+
 /**@brief min coords of the OCTREE */
 extern double BSSN_OCTREE_MIN[3];
 /**@brief max coords of the OCTREE */

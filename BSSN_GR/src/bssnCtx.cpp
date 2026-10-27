@@ -15,6 +15,9 @@
 #include <mpi.h>
 #include <sys/types.h>
 
+#include <algorithm>
+#include <climits>
+#include <cmath>
 #include <cstdint>
 #include <string>
 
@@ -495,13 +498,13 @@ int BSSNCtx::initialize() {
 
     // calculate the minimum dx
     bssn::BSSN_CURRENT_MIN_DX =
-        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+        (bssn::min_domain_width() *
          ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
          ((double)(1u << (m_uiMaxDepth))));
 
     bssn::BSSN_RK45_TIME_STEP_SIZE =
         bssn::BSSN_CFL_FACTOR *
-        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+        (bssn::min_domain_width() *
          ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
          ((double)(1u << (m_uiMaxDepth))));
     m_uiTinfo._m_uiTh = bssn::BSSN_RK45_TIME_STEP_SIZE;
@@ -517,7 +520,7 @@ int BSSNCtx::initialize() {
 
     if (!m_uiMesh->getMPIRankGlobal()) {
         const DendroScalar dx_finest =
-            ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+            (bssn::min_domain_width() *
              ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
              ((double)(1u << (m_uiMaxDepth))));
         const DendroScalar dt_finest = bssn::BSSN_CFL_FACTOR * dx_finest;
@@ -1045,7 +1048,7 @@ int BSSNCtx::write_checkpt_to_slot(unsigned int cpIndex) {
                                  "_aeh_solver_checkpt-cp" +
                                  std::to_string(cpIndex) + ".json";
 
-    AEH::ah_bah->create_checkpoint(m_uiMesh, aeh_chkpt_file);
+    status |= AEH::ah_bah->create_checkpoint(m_uiMesh, aeh_chkpt_file);
 
     if (!rank) {
         std::cout << "Finished AEH solver checkpoint!" << std::endl;
@@ -1274,6 +1277,21 @@ int BSSNCtx::restore_checkpt() {
                               << bssn::BSSN_ELE_ORDER << std::endl;
                 MPI_Abort(comm, 1);
             }
+            if (meta.numVars != BSSN_NUM_VARS) {
+                if (!rank)
+                    std::cout << "[BSSNCtx] : Checkpoint has " << meta.numVars
+                              << " evolution variables, this build has "
+                              << BSSN_NUM_VARS << std::endl;
+                MPI_Abort(comm, 1);
+            }
+            if (!rank && (meta.waveletTol != bssn::BSSN_WAVELET_TOL ||
+                          meta.loadImbTol != bssn::BSSN_LOAD_IMB_TOL))
+                std::cout << YLW << "WARNING: " << NRM
+                          << "checkpoint BSSN_WAVELET_TOL = " << meta.waveletTol
+                          << " and BSSN_LOAD_IMB_TOL = " << meta.loadImbTol
+                          << " override the par file values "
+                          << bssn::BSSN_WAVELET_TOL << " and "
+                          << bssn::BSSN_LOAD_IMB_TOL << std::endl;
             m_uiElementOrder        = meta.elementOrder;
 
             bssn::BSSN_WAVELET_TOL  = meta.waveletTol;
@@ -1395,6 +1413,25 @@ int BSSNCtx::restore_checkpt() {
         MPI_Abort(comm, 1);
     }
 
+    // an octree written under another BSSN_MAXDEPTH does not span the domain
+    unsigned int octExtent = 0;
+    for (const auto& oct : octree) {
+        if (oct.getLevel() > m_uiMaxDepth) {
+            octExtent = UINT_MAX;
+            break;
+        }
+        octExtent = std::max({octExtent, oct.maxX(), oct.maxY(), oct.maxZ()});
+    }
+    unsigned int octExtentGlobal = 0;
+    par::Mpi_Allreduce(&octExtent, &octExtentGlobal, 1, MPI_MAX, comm);
+    if (octExtentGlobal != (1u << m_uiMaxDepth)) {
+        if (!rank)
+            std::cout << "[BSSNCtx] : Checkpoint octree does not match "
+                         "BSSN_MAXDEPTH "
+                      << m_uiMaxDepth << std::endl;
+        MPI_Abort(comm, 1);
+    }
+
     dendro::logger::debug("Now creating mesh from restored data");
     newMesh = new ot::Mesh(octree, 1, m_uiElementOrder, activeCommSz, comm);
     newMesh->setDomainBounds(Point(bssn::BSSN_GRID_MIN_X, bssn::BSSN_GRID_MIN_Y,
@@ -1472,11 +1509,20 @@ int BSSNCtx::restore_checkpt() {
     unsigned int lmin, lmax;
     m_uiMesh->computeMinMaxLevel(lmin, lmax);
     bssn::BSSN_CURRENT_MIN_DX =
-        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+        (bssn::min_domain_width() *
          ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
          ((double)(1u << (m_uiMaxDepth))));
 
     bssn::BSSN_RK45_TIME_STEP_SIZE = m_uiTinfo._m_uiTh;
+
+    const double cflDt = bssn::BSSN_CFL_FACTOR * bssn::BSSN_CURRENT_MIN_DX;
+    if (!rank && bssn::BSSN_RK_ERR_CTRL != 2 &&
+        std::fabs(m_uiTinfo._m_uiTh - cflDt) > 1e-12 * cflDt)
+        std::cout << YLW << "WARNING: " << NRM << "checkpoint dt "
+                  << m_uiTinfo._m_uiTh
+                  << " differs from BSSN_CFL_FACTOR * dx = " << cflDt
+                  << "; keeping the checkpoint dt until the next remesh"
+                  << std::endl;
 
     if (bssn::BSSN_SCALE_VTU_AND_GW_EXTRACTION) {
         // REMEMBER: the true max depth of the array is two minus m_uiMaxDepth
@@ -1544,8 +1590,7 @@ bool BSSNCtx::is_remesh() {
     // if pre-merger, use AMR_FAC normally
     double amr_coarse_fac = bssn::BSSN_DENDRO_AMR_FAC;
     // otherwise, use POST_MERGER value if non-zero
-    if (bssn::BSSN_MERGED_CHKPT_WRITTEN &&
-        (bssn::BSSN_DENDRO_AMR_FAC_POST_MERGER > 0)) {
+    if (m_bIsBHMerged && (bssn::BSSN_DENDRO_AMR_FAC_POST_MERGER > 0)) {
         // overwrite post-merger value
         amr_coarse_fac = bssn::BSSN_DENDRO_AMR_FAC_POST_MERGER;
     }
@@ -1752,7 +1797,7 @@ unsigned int BSSNCtx::compute_lts_ts_offset() {
 
     const double dt_min =
         bssn::BSSN_CFL_FACTOR *
-        ((bssn::BSSN_COMPD_MAX[0] - bssn::BSSN_COMPD_MIN[0]) *
+        (bssn::min_domain_width() *
          ((1u << (m_uiMaxDepth - lmax)) / ((double)bssn::BSSN_ELE_ORDER)) /
          ((double)(1u << (m_uiMaxDepth))));
     const double dt_eta_fac = dt_min * ETA_CONST;

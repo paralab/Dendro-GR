@@ -128,13 +128,12 @@ double BSSN_OCTREE_MAX[3] = {(double)(1u << BSSN_MAXDEPTH),
                              (double)(1u << BSSN_MAXDEPTH),
                              (double)(1u << BSSN_MAXDEPTH)};
 
-//@note assumes the computational domain is a cube as well.
 double BSSN_RK45_TIME_STEP_SIZE = BSSN_CFL_FACTOR *
-                                  (BSSN_COMPD_MAX[0] - BSSN_COMPD_MIN[0]) *
+                                  bssn::min_domain_width() *
                                   (1.0 / (double)(1u << BSSN_MAXDEPTH));
 
 // calculate the minimum dx
-double BSSN_CURRENT_MIN_DX = (BSSN_COMPD_MAX[0] - BSSN_COMPD_MIN[0]) *
+double BSSN_CURRENT_MIN_DX = bssn::min_domain_width() *
                              (1.0 / (double)(1u << BSSN_MAXDEPTH));
 
 unsigned int BSSN_LAMBDA[4]                              = {1, 1, 1, 1};
