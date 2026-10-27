@@ -150,6 +150,30 @@ int main(int argc, char** argv) {
         MPI_Abort(comm, 1);
     }
 
+    // the device kernels are fixed at 13^3 blocks, i.e. order 6
+    if (bssn::BSSN_ELE_ORDER != 6) {
+        if (!rank)
+            std::cerr << "BSSN_ELE_ORDER " << bssn::BSSN_ELE_ORDER
+                      << " is not supported by the GPU driver; set it to 6"
+                      << std::endl;
+        MPI_Abort(comm, 1);
+    }
+
+    // single-step ETS types only; the GPU driver has no multistep (MSRK) path
+    if (bssn::BSSN_RK_TYPE != RKType::RK3 &&
+        bssn::BSSN_RK_TYPE != RKType::RK4 &&
+        bssn::BSSN_RK_TYPE != RKType::RK5 &&
+        bssn::BSSN_RK_TYPE != RKType::RK45_CASH_KARP &&
+        bssn::BSSN_RK_TYPE != RKType::RKF45 &&
+        bssn::BSSN_RK_TYPE != RKType::RK45_DORMAND_PRINCE) {
+        if (!rank)
+            std::cerr << "BSSN_RK_TYPE " << bssn::BSSN_RK_TYPE
+                      << " is not supported by the GPU driver; set it to 0 "
+                         "(RK3), 1 (RK4), 2 (RK5), 7 (RK45_CASH_KARP), 8 "
+                         "(RKF45) or 12 (RK45_DORMAND_PRINCE)"
+                      << std::endl;
+        MPI_Abort(comm, 1);
+    }
 
     // 2. generate the initial grid.
     std::vector<ot::TreeNode> tmpNodes;
@@ -275,6 +299,12 @@ int main(int argc, char** argv) {
             ets->set_ets_coefficients(ts::ETSType::RK4);
         else if ((RKType)bssn::BSSN_RK_TYPE == RKType::RK5)
             ets->set_ets_coefficients(ts::ETSType::RK5);
+        else if ((RKType)bssn::BSSN_RK_TYPE == RKType::RK45_CASH_KARP)
+            ets->set_ets_coefficients(ts::ETSType::RK45_CASH_KARP);
+        else if ((RKType)bssn::BSSN_RK_TYPE == RKType::RKF45)
+            ets->set_ets_coefficients(ts::ETSType::RKF45);
+        else if ((RKType)bssn::BSSN_RK_TYPE == RKType::RK45_DORMAND_PRINCE)
+            ets->set_ets_coefficients(ts::ETSType::RK45_DORMAND_PRINCE);
 
         ets->init();
 #if defined __PROFILE_CTX__ && defined __PROFILE_ETS__
