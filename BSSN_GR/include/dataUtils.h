@@ -106,6 +106,16 @@ bool addRemeshWAMR(
  */
 bool isReMeshBHRadial(ot::Mesh* pMesh);
 
+/**
+ * @brief hold the flags a criterion set at or below BSSN_MAX_REFINE_LEV:
+ * splits at the cap become no change, octants above it coarsen. A no-op
+ * unless refine_cap_active(). Collective over the global comm.
+ * @param pMesh pointer to the mesh object.
+ * @param isRemesh the criterion's (global) result.
+ * @return whether a remesh is still needed.
+ */
+bool enforceMaxRefineLevel(ot::Mesh* pMesh, bool isRemesh);
+
 }  // end of namespace bssn
 
 #endif  // DENDRO_5_0_DATAUTILS_H
