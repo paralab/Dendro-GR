@@ -1875,9 +1875,10 @@ void BSSNCtx::evolve_bh_loc() {
 
     // compute how long it's been since the last time we calculatd it, thanks to
     // storing history!
-    const double dt = this->m_uiTinfo._m_uiStep == 0
-                          ? 0.0
-                          : m_uiTinfo._m_uiT - m_uiBHTimeHistory.back();
+    const double dt =
+        (this->m_uiTinfo._m_uiStep == 0 || m_uiBHTimeHistory.empty())
+            ? 0.0
+            : m_uiTinfo._m_uiT - m_uiBHTimeHistory.back();
     DVec sIn        = this->get_evolution_vars();
 
     Point bhLoc[2];
