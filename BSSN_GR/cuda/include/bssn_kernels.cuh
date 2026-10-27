@@ -339,6 +339,46 @@ GLOBAL_FUNC __launch_bounds__(1024) void cuda_bssn_enforce_evar_cons(
     }
 }
 
+// min and max of one variable over local nodes [lb, le) into out[0], out[1];
+// out[2] becomes 1 if any value is NaN (NaNs are left out of min and max)
+template <typename T>
+GLOBAL_FUNC __launch_bounds__(1024) void cuda_var_min_max(const T* v,
+                                                          unsigned int lb,
+                                                          unsigned int le,
+                                                          double* out) {
+    double t_min     = DBL_MAX;
+    double t_max     = -DBL_MAX;
+    bool t_nan       = false;
+    const int t_id   = threadIdx.x + blockDim.x * blockIdx.x;
+    const int stride = blockDim.x * gridDim.x;
+    for (int node = (t_id + lb); node < le; node += stride) {
+        const double x = v[node];
+        if (isnan(x)) {
+            t_nan = true;
+            continue;
+        }
+        if (x < t_min) t_min = x;
+        if (x > t_max) t_max = x;
+    }
+    if (t_nan) out[2] = 1.0;
+
+    unsigned long long* const a = (unsigned long long*)out;
+    unsigned long long old      = a[0];
+    while (t_min < __longlong_as_double((long long)old)) {
+        const unsigned long long assumed = old;
+        old = atomicCAS(&a[0], assumed,
+                        (unsigned long long)__double_as_longlong(t_min));
+        if (old == assumed) break;
+    }
+    old = a[1];
+    while (t_max > __longlong_as_double((long long)old)) {
+        const unsigned long long assumed = old;
+        old = atomicCAS(&a[1], assumed,
+                        (unsigned long long)__double_as_longlong(t_max));
+        if (old == assumed) break;
+    }
+}
+
 template <typename T, unsigned int pw, unsigned int nx>
 DEVICE_FUNC __inline__ void __load_blk_var__(T* s_u, const T* const var,
                                              const BlockGPU3D* blk) {

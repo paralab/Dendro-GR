@@ -87,6 +87,7 @@ BSSNCtxGPU::BSSNCtxGPU(ot::Mesh* pMesh) : Ctx() {
 
     m_dptr_min_det = GPUDevice::device_malloc<double>(1);
     GPUDevice::host_to_device<double>(&m_dMinDetGt, m_dptr_min_det, 1);
+    m_dptr_alpha_stats = GPUDevice::device_malloc<double>(3);
 
     return;
 }
@@ -104,6 +105,7 @@ BSSNCtxGPU::~BSSNCtxGPU() {
                                           BSSN_NUM_VARS, BSSN_ASYNC_COMM_K);
     m_mesh_cpu.dealloc_mesh_on_device(m_dptr_mesh);
     GPUDevice::device_free<double>(m_dptr_min_det);
+    GPUDevice::device_free<double>(m_dptr_alpha_stats);
     return;
 }
 
@@ -1168,6 +1170,15 @@ int BSSNCtxGPU::post_timestep(DVec& sIn) {
     GPUDevice::device_synchronize();
     GPUDevice::check_last_error();
 
+    // NaN det is tracked as -inf
+    double minDet = 0.0;
+    GPUDevice::device_to_host<double>(&minDet, m_dptr_min_det, 1);
+    if (!(minDet > 0.0)) {
+        std::cout << "metric determinent is not positive " << minDet
+                  << std::endl;
+        MPI_Abort(m_uiMesh->getMPIGlobalCommunicator(), 1);
+    }
+
     return 0;
 }
 
@@ -1238,12 +1249,26 @@ DVec& BSSNCtxGPU::get_constraint_vars() { return m_var[VL::CPU_CV]; }
 
 int BSSNCtxGPU::terminal_output() {
     if (m_uiMesh->isActive()) {
-        DendroScalar min = 0, max = 0;
-        DVec& m_evar = m_var[VL::CPU_EV];
-        min = vecMin(m_uiMesh, m_evar.get_vec_ptr(), ot::VEC_TYPE::CG_NODAL,
-                     true);
-        max = vecMax(m_uiMesh, m_evar.get_vec_ptr(), ot::VEC_TYPE::CG_NODAL,
-                     true);
+        // reduce the lapse on the device: three doubles come back, not the field
+        const unsigned int lb     = m_uiMesh->getNodeLocalBegin();
+        const unsigned int le     = m_uiMesh->getNodeLocalEnd();
+        DVec& m_dptr_evar         = m_var[VL::GPU_EV];
+        const unsigned int szpdof = m_dptr_evar.get_size() / m_dptr_evar.get_dof();
+        double stats[3]           = {DBL_MAX, -DBL_MAX, 0.0};
+        GPUDevice::host_to_device<double>(stats, m_dptr_alpha_stats, 3);
+        device::cuda_var_min_max<<<(le - lb) / 1024 + 1, 1024>>>(
+            m_dptr_evar.get_vec_ptr() + bssn::VAR::U_ALPHA * szpdof, lb, le,
+            m_dptr_alpha_stats);
+        GPUDevice::device_to_host<double>(stats, m_dptr_alpha_stats, 3);
+
+        // one reduction to rank 0: min, -max and the NaN flag (as -1) all take MPI_MIN
+        double loc[3] = {stats[0], -stats[1], stats[2] > 0.0 ? -1.0 : 0.0};
+        double glb[3] = {0.0, 0.0, 0.0};
+        MPI_Reduce(loc, glb, 3, MPI_DOUBLE, MPI_MIN, 0,
+                   m_uiMesh->getMPICommunicator());
+        const bool has_nan      = glb[2] < 0.0;
+        const DendroScalar min  = has_nan ? NAN : glb[0];
+        const DendroScalar max  = has_nan ? NAN : -glb[1];
 
         if (!(m_uiMesh->getMPIRank())) {
             std::cout << "[BSSNCtx]:  "

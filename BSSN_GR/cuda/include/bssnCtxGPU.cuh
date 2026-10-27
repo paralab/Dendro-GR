@@ -86,6 +86,8 @@ class BSSNCtxGPU : public ts::Ctx<BSSNCtxGPU, DendroScalar, unsigned int> {
     // host side (initial data) and device side (every RK stage)
     double m_dMinDetGt          = std::numeric_limits<double>::max();
     double* m_dptr_min_det      = nullptr;
+    // lapse min, max and NaN flag for terminal_output, reduced on the device
+    double* m_dptr_alpha_stats  = nullptr;
     bool m_bBHEvolved           = false;
 
    public:
