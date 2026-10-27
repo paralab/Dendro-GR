@@ -86,6 +86,8 @@ class BSSNCtxGPU : public ts::Ctx<BSSNCtxGPU, DendroScalar, unsigned int> {
     // host side (initial data) and device side (every RK stage)
     double m_dMinDetGt          = std::numeric_limits<double>::max();
     double* m_dptr_min_det      = nullptr;
+    // lapse min, max and NaN flag for terminal_output, reduced on the device
+    double* m_dptr_alpha_stats  = nullptr;
     bool m_bBHEvolved           = false;
 
    public:
@@ -241,9 +243,6 @@ class BSSNCtxGPU : public ts::Ctx<BSSNCtxGPU, DendroScalar, unsigned int> {
     int host_to_device_sync();
 
     int device_to_host_sync();
-
-    /**@brief: copies only the lapse to the host (for terminal_output). */
-    int device_to_host_alpha_sync();
 
     int device_to_host_async(cudaStream_t s);
 

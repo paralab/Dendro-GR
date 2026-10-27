@@ -425,7 +425,6 @@ int main(int argc, char** argv) {
                         << "[ETS] : Executing step :  " << ets->curr_step()
                         << "\tcurrent time :" << ets->curr_time()
                         << "\t dt:" << ets->ts_size() << "\t" << std::endl;
-                if (!did_d2h_sync) bssnCtx->device_to_host_alpha_sync();
                 bssnCtx->terminal_output();
             }
 
