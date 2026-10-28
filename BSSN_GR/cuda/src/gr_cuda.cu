@@ -468,6 +468,10 @@ int main(int argc, char** argv) {
                 }
                 bssnCtx->write_vtu(false);
             }
+
+            // no GW block to track the BHs; do it whenever the host is synced
+            if (bssn::BSSN_GW_EXTRACT_FREQ == 0 && did_d2h_sync)
+                bssnCtx->evolve_bh_loc();
 #endif
 
             bssnCtx->prepare_for_next_iter();
@@ -478,6 +482,7 @@ int main(int argc, char** argv) {
             // after evolve(), like the CPU driver
             if (is_checkpt_step) {
                 bssnCtx->device_to_host_sync();
+                if (bssn::BSSN_GW_EXTRACT_FREQ == 0) bssnCtx->evolve_bh_loc();
                 bssnCtx->write_checkpt();
             }
 #endif
