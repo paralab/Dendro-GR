@@ -574,8 +574,18 @@ int BSSNCtxGPU::write_checkpt() {
     const bool is_merged =
         ((bssn::BSSN_BH_LOC[0] - bssn::BSSN_BH_LOC[1]).abs() < 0.1);
 
+    // Idle ranks skip the latch, so ranks that rejoin the active comm after
+    // the merger would re-write slot 3 alone and desync the collectives.
+    // Agree on both flags first.
+    int mergeLocal[2]  = {is_merged ? 1 : 0,
+                           bssn::BSSN_MERGED_CHKPT_WRITTEN ? 1 : 0};
+    int mergeGlobal[2] = {0, 0};
+    par::Mpi_Allreduce(mergeLocal, mergeGlobal, 2, MPI_MAX,
+                       m_uiMesh->getMPICommunicator());
+    bssn::BSSN_MERGED_CHKPT_WRITTEN = (mergeGlobal[1] != 0);
+
     // slot 3 is written ALONGSIDE the normal slot, not instead of it
-    if (is_merged && !bssn::BSSN_MERGED_CHKPT_WRITTEN) {
+    if (mergeGlobal[0] && !bssn::BSSN_MERGED_CHKPT_WRITTEN) {
         bssn::BSSN_MERGED_CHKPT_WRITTEN = true;
         write_checkpt_to_slot(3);
     }
