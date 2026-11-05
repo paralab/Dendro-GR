@@ -12,14 +12,18 @@
 
 #include <mpi.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <limits>
 #include <string>
 #include <system_error>
+#include <vector>
 
 #include "TreeNode.h"
+#include "dendro.h"
 #include "json.hpp"
 
 namespace bssn {
@@ -51,6 +55,9 @@ struct ChkptMeta {
 
     // min det(gt) before enforcement, not yet written to _Constraints.dat
     double minDetGt           = std::numeric_limits<double>::max();
+
+    // octree depth the .oct coordinates were written at
+    unsigned int octreeDepth  = 0;
 
     // set by the reader: was the optional group present on disk?
     bool hasBhMerge           = false;
@@ -99,6 +106,8 @@ void chkpt_fields(V& v, ChkptMeta& m) {
         v.opt("DENDRO_BSSN_MERGED_CHKPT_WRITTEN", m.mergedChkptWritten);
 
     v.opt("DENDRO_BSSN_MIN_DET_GT", m.minDetGt);
+
+    v.opt("DENDRO_BSSN_OCTREE_DEPTH", m.octreeDepth);
 }
 
 /**@brief visitor that serializes into a json object. */
@@ -235,6 +244,53 @@ inline bool chkpt_resolve_oct(char* out, size_t n, const std::string& prefix,
 
     chkpt_fname_oct(out, n, prefix, slot, rank);
     return false;
+}
+
+/**@brief move a restored octree from the depth it was written at to
+ * m_uiMaxDepth: a deeper octree shifts every coordinate left, a shallower one
+ * shifts right, levels unchanged. Fails (rank 0 says why) if an octant is finer
+ * than a mesh at m_uiMaxDepth can hold. Collective over comm. */
+inline bool chkpt_rescale_octree(std::vector<ot::TreeNode>& octree,
+                                 unsigned int fileDepth, MPI_Comm comm) {
+    if (fileDepth == m_uiMaxDepth) return true;
+
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+
+    unsigned int lmax = 0;
+    for (const auto& oct : octree) lmax = std::max(lmax, oct.getLevel());
+    unsigned int lmaxGlobal = 0;
+    MPI_Allreduce(&lmax, &lmaxGlobal, 1, MPI_UNSIGNED, MPI_MAX, comm);
+
+    // finest octant level remeshing allows at m_uiMaxDepth
+    if (lmaxGlobal + MAXDEAPTH_LEVEL_DIFF + 1 > m_uiMaxDepth) {
+        if (!rank)
+            std::cout << "[BSSNCtx] : Checkpoint octree (depth " << fileDepth
+                      << ") refines to level "
+                      << lmaxGlobal + MAXDEAPTH_LEVEL_DIFF + 1
+                      << ", finer than BSSN_MAXDEPTH " << m_uiMaxDepth
+                      << " allows" << std::endl;
+        return false;
+    }
+
+    const bool deeper = fileDepth < m_uiMaxDepth;
+    const unsigned int k =
+        deeper ? m_uiMaxDepth - fileDepth : fileDepth - m_uiMaxDepth;
+    for (auto& oct : octree) {
+        const unsigned int x = deeper ? oct.getX() << k : oct.getX() >> k;
+        const unsigned int y = deeper ? oct.getY() << k : oct.getY() >> k;
+        const unsigned int z = deeper ? oct.getZ() << k : oct.getZ() >> k;
+        ot::TreeNode moved(x, y, z, 0, m_uiDim, m_uiMaxDepth);
+        moved.setFlag(oct.getFlag());
+        moved.setWeight(oct.getWeight());
+        oct = moved;
+    }
+
+    if (!rank)
+        std::cout << "[BSSNCtx] : Checkpoint octree moved from depth "
+                  << fileDepth << " to BSSN_MAXDEPTH " << m_uiMaxDepth
+                  << std::endl;
+    return true;
 }
 
 /**@brief bumped only when the on-disk layout changes incompatibly. */

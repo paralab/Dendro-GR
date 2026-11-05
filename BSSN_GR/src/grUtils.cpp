@@ -163,6 +163,20 @@ void readParamFile(const char* fName, MPI_Comm comm) {
         MPI_Abort(comm, 1);
     }
 
+    // the cap lives on the BSSN_MAXDEPTH scale; MINDEPTH is an octant level
+    if (bssn::BSSN_MAX_REFINE_LEV > bssn::BSSN_MAXDEPTH ||
+        (bssn::refine_cap_active() &&
+         bssn::BSSN_MAX_REFINE_LEV < bssn::BSSN_MINDEPTH + 2)) {
+        int rank;
+        MPI_Comm_rank(comm, &rank);
+        if (!rank)
+            std::cerr << RED << "Error[parameter file]: BSSN_MAX_REFINE_LEV = "
+                      << bssn::BSSN_MAX_REFINE_LEV << " must lie in ["
+                      << bssn::BSSN_MINDEPTH + 2 << ", BSSN_MAXDEPTH = "
+                      << bssn::BSSN_MAXDEPTH << "]" << NRM << std::endl;
+        MPI_Abort(comm, 1);
+    }
+
     // do this last: it needs every prefix the par may have overridden
     ensure_output_dirs(comm);
 }
@@ -380,15 +394,20 @@ void readParamJSONFile(const char* fName, MPI_Comm comm) {
     if (parFile.find("BSSN_AMR_R_RATIO") != parFile.end())
         bssn::BSSN_AMR_R_RATIO = parFile["BSSN_AMR_R_RATIO"];
 
+    if (parFile.find("BSSN_MAX_REFINE_LEV") != parFile.end())
+        bssn::BSSN_MAX_REFINE_LEV = parFile["BSSN_MAX_REFINE_LEV"];
+    else
+        bssn::BSSN_MAX_REFINE_LEV = bssn::BSSN_MAXDEPTH;
+
     if (parFile.find("BSSN_BH1_MAX_LEV") != parFile.end())
         bssn::BSSN_BH1_MAX_LEV = parFile["BSSN_BH1_MAX_LEV"];
     else
-        bssn::BSSN_BH1_MAX_LEV = bssn::BSSN_MAXDEPTH;
+        bssn::BSSN_BH1_MAX_LEV = bssn::BSSN_MAX_REFINE_LEV;
 
     if (parFile.find("BSSN_BH2_MAX_LEV") != parFile.end())
         bssn::BSSN_BH2_MAX_LEV = parFile["BSSN_BH2_MAX_LEV"];
     else
-        bssn::BSSN_BH2_MAX_LEV = bssn::BSSN_MAXDEPTH;
+        bssn::BSSN_BH2_MAX_LEV = bssn::BSSN_MAX_REFINE_LEV;
 
     if (parFile.find("BSSN_INIT_GRID_ITER") != parFile.end())
         bssn::BSSN_INIT_GRID_ITER = parFile["BSSN_INIT_GRID_ITER"];
@@ -740,6 +759,8 @@ void dumpParamFile(std::ostream& sout, int root, MPI_Comm comm) {
         sout << YLW << "\tBSSN_DIM :" << bssn::BSSN_DIM << NRM << std::endl;
         sout << YLW << "\tBSSN_MAXDEPTH :" << bssn::BSSN_MAXDEPTH << NRM
              << std::endl;
+        sout << YLW << "\tBSSN_MAX_REFINE_LEV :" << bssn::BSSN_MAX_REFINE_LEV
+             << NRM << std::endl;
         sout << YLW << "\tBSSN_MINDEPTH :" << bssn::BSSN_MINDEPTH << NRM
              << std::endl;
 

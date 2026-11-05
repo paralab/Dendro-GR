@@ -1208,6 +1208,46 @@ bool isReMeshWAMR(
     return isOctChange_g;
 }
 
+bool enforceMaxRefineLevel(ot::Mesh* pMesh, bool isRemesh) {
+    if (!refine_cap_active()) return isRemesh;
+
+    // the cap as an octant level
+    const unsigned int capLev = BSSN_MAX_REFINE_LEV - MAXDEAPTH_LEVEL_DIFF - 1;
+    bool isOctChange          = false;
+
+    if (pMesh->isActive()) {
+        std::vector<unsigned int> refine_flags = pMesh->getAllRefinementFlags();
+        const ot::TreeNode* pNodes = pMesh->getAllElements().data();
+        const unsigned int eleLocalBegin = pMesh->getElementLocalBegin();
+
+        bool isCapped                    = false;
+        for (unsigned int i = 0; i < refine_flags.size(); i++) {
+            const unsigned int lev = pNodes[eleLocalBegin + i].getLevel();
+            if (lev > capLev) {
+                refine_flags[i] = OCT_COARSE;
+                isCapped        = true;
+            } else if (lev == capLev && refine_flags[i] == OCT_SPLIT) {
+                refine_flags[i] = OCT_NO_CHANGE;
+                isCapped        = true;
+            }
+        }
+
+        if (isCapped)
+            isOctChange = pMesh->setMeshRefinementFlags(refine_flags);
+        else if (isRemesh)
+            for (const unsigned int f : refine_flags)
+                if (f != OCT_NO_CHANGE) {
+                    isOctChange = true;
+                    break;
+                }
+    }
+
+    bool isOctChange_g = false;
+    MPI_Allreduce(&isOctChange, &isOctChange_g, 1, MPI_CXX_BOOL, MPI_LOR,
+                  pMesh->getMPIGlobalCommunicator());
+    return isOctChange_g;
+}
+
 // Don't use this : 1) This is expensive
 // 2). It has a coarsening bug (doesn't coarsen properly)
 bool isReMeshBHRadial(ot::Mesh* pMesh) {
